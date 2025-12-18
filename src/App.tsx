@@ -19,6 +19,20 @@ import Coaching from "./pages/Coaching";
 import VideoCall from "./pages/VideoCall";
 import Shop from "./pages/Shop";
 import NotFound from "./pages/NotFound";
+import Forbidden from "./pages/Forbidden";
+import Privacy from "./pages/Privacy";
+import Water from "./pages/Water";
+import InBody from "./pages/InBody";
+import WeightTracking from "./pages/WeightTracking";
+import HealthCheckup from "./pages/HealthCheckup";
+
+// MyPage Pages
+import ProfileEdit from "./pages/mypage/ProfileEdit";
+import PointsPage from "./pages/mypage/Points";
+import GuardianSettingsPage from "./pages/mypage/GuardianSettings";
+import NotificationSettingsPage from "./pages/mypage/NotificationSettings";
+import SupportPage from "./pages/mypage/Support";
+import OrdersPage from "./pages/mypage/Orders";
 
 // Coach Pages
 import CoachDashboard from "./pages/coach/CoachDashboard";
@@ -73,6 +87,10 @@ function AppRoutes() {
         element={user ? <AuthenticatedRedirect /> : <Auth />}
       />
 
+      {/* 공개 페이지 */}
+      <Route path="/forbidden" element={<Forbidden />} />
+      <Route path="/privacy" element={<Privacy />} />
+
       {/* 일반 사용자 / 보호자 페이지 */}
       <Route
         element={
@@ -90,6 +108,18 @@ function AppRoutes() {
         <Route path="/premium" element={<Premium />} />
         <Route path="/coaching" element={<Coaching />} />
         <Route path="/shop" element={<Shop />} />
+        <Route path="/water" element={<Water />} />
+        <Route path="/inbody" element={<InBody />} />
+        <Route path="/weight" element={<WeightTracking />} />
+        <Route path="/health-checkup" element={<HealthCheckup />} />
+        
+        {/* MyPage Routes */}
+        <Route path="/profile/edit" element={<ProfileEdit />} />
+        <Route path="/profile/points" element={<PointsPage />} />
+        <Route path="/profile/notifications" element={<NotificationSettingsPage />} />
+        <Route path="/mypage/guardian" element={<GuardianSettingsPage />} />
+        <Route path="/mypage/support" element={<SupportPage />} />
+        <Route path="/mypage/orders" element={<OrdersPage />} />
       </Route>
 
       {/* 영상통화 (모든 역할 접근) */}

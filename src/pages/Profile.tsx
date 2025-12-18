@@ -12,6 +12,8 @@ import {
   ChevronRight,
   Coins,
   Video,
+  ShoppingBag,
+  Shield,
 } from "lucide-react";
 
 export default function Profile() {
@@ -32,12 +34,12 @@ export default function Profile() {
       icon: Coins,
       label: "포인트 내역",
       path: "/profile/points",
-      badge: `${profile.current_points.toLocaleString()}P`,
+      badge: `${(profile.current_points || 0).toLocaleString()}P`,
     },
     {
       icon: Link2,
       label: isGuardian ? "연결된 가족" : "보호자 연결",
-      path: "/guardian",
+      path: "/mypage/guardian",
     },
     {
       icon: Crown,
@@ -55,6 +57,11 @@ export default function Profile() {
         ]
       : []),
     {
+      icon: ShoppingBag,
+      label: "주문 내역",
+      path: "/mypage/orders",
+    },
+    {
       icon: Bell,
       label: "알림 설정",
       path: "/profile/notifications",
@@ -62,12 +69,17 @@ export default function Profile() {
     {
       icon: HelpCircle,
       label: "고객센터",
-      path: "/help",
+      path: "/mypage/support",
+    },
+    {
+      icon: Shield,
+      label: "개인정보 처리방침",
+      path: "/privacy",
     },
     {
       icon: FileText,
       label: "이용약관",
-      path: "/terms",
+      path: "/privacy",
     },
   ];
 
@@ -101,16 +113,22 @@ export default function Profile() {
           </div>
         </div>
 
+        {/* 관리 방식 */}
+        <div className="mt-4 p-3 bg-muted/50 rounded-xl flex items-center justify-between">
+          <span className="text-sm text-muted-foreground">관리 방식</span>
+          <span className="text-sm font-medium text-primary">직접관리 (고정)</span>
+        </div>
+
         {/* 포인트 */}
-        <div className="mt-6 p-4 bg-primary/5 rounded-2xl flex items-center justify-between">
+        <div className="mt-4 p-4 bg-primary/5 rounded-2xl flex items-center justify-between">
           <div>
             <p className="text-sm text-muted-foreground">보유 포인트</p>
             <p className="text-2xl font-bold text-primary">
-              {profile.current_points.toLocaleString()}P
+              {(profile.current_points || 0).toLocaleString()}P
             </p>
           </div>
-          <Button variant="outline" size="sm">
-            사용하기
+          <Button variant="outline" size="sm" asChild>
+            <Link to="/shop">사용하기</Link>
           </Button>
         </div>
       </div>
@@ -119,7 +137,7 @@ export default function Profile() {
       <div className="bg-card rounded-3xl border border-border overflow-hidden">
         {menuItems.map((item, index) => (
           <Link
-            key={item.path}
+            key={`${item.path}-${index}`}
             to={item.path}
             className={`flex items-center gap-4 p-5 hover:bg-muted transition-colors ${
               index !== menuItems.length - 1 ? "border-b border-border" : ""
@@ -150,17 +168,17 @@ export default function Profile() {
       {/* 로그아웃 */}
       <Button
         variant="ghost"
-        size="touch"
+        size="lg"
         className="w-full text-destructive hover:text-destructive hover:bg-destructive/10"
         onClick={signOut}
       >
-        <LogOut className="w-5 h-5" />
+        <LogOut className="w-5 h-5 mr-2" />
         로그아웃
       </Button>
 
       {/* 버전 */}
       <p className="text-center text-sm text-muted-foreground">
-        건강양갱 v1.0.0
+        영양갱 v1.0.0
       </p>
     </div>
   );
