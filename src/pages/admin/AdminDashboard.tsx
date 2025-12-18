@@ -14,6 +14,9 @@ import {
   TrendingUp,
   Crown,
   ChevronRight,
+  ClipboardList,
+  Video,
+  MessageSquare,
 } from "lucide-react";
 
 export default function AdminDashboard() {
@@ -25,16 +28,30 @@ export default function AdminDashboard() {
       id: "users",
       icon: Users,
       label: "사용자 관리",
-      description: "전체 사용자 조회 및 관리",
+      description: "전체 사용자 조회 및 역할 관리",
       path: "/admin/users",
       count: `${stats.totalUsers.toLocaleString()}명`,
     },
     {
-      id: "coaches",
-      icon: UserCog,
-      label: "코치 관리",
-      description: "코치 계정 생성 및 배정",
-      path: "/admin/coaches",
+      id: "orders",
+      icon: ClipboardList,
+      label: "주문 관리",
+      description: "주문 목록 및 상태 변경",
+      path: "/admin/orders",
+    },
+    {
+      id: "coaching",
+      icon: Video,
+      label: "코칭 관리",
+      description: "코칭 신청 목록 및 코치 배정",
+      path: "/admin/coaching",
+    },
+    {
+      id: "tickets",
+      icon: MessageSquare,
+      label: "고객 문의",
+      description: "티켓 상태 관리 및 답변",
+      path: "/admin/tickets",
     },
     {
       id: "health-records",
@@ -51,6 +68,13 @@ export default function AdminDashboard() {
       label: "상품 관리",
       description: "커머스 상품 등록/수정",
       path: "/admin/products",
+    },
+    {
+      id: "coaches",
+      icon: UserCog,
+      label: "코치 관리",
+      description: "코치 계정 생성 및 배정",
+      path: "/admin/coaches",
     },
     {
       id: "points",
