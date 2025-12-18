@@ -1,22 +1,26 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useOrdersServer } from "@/hooks/useServerSync";
 import {
   ArrowLeft,
   ShoppingBag,
   Check,
-  CreditCard,
-  Loader2,
   MessageSquare,
-  ClipboardList,
-  AlertTriangle,
+  Send,
+  Phone,
+  Mail,
+  Clock,
+  Users,
+  Target,
+  Heart,
 } from "lucide-react";
 
 type ProductType = "doctor" | "trainer" | "nutritionist";
-type Step = "list" | "order" | "payment" | "success" | "survey";
+type Step = "list" | "request" | "success";
 
 interface Product {
   id: string;
@@ -25,6 +29,7 @@ interface Product {
   description: string;
   price: number;
   duration: string;
+  features: string[];
 }
 
 const PRODUCTS: Product[] = [
@@ -35,6 +40,12 @@ const PRODUCTS: Product[] = [
     description: "전문 의사와 함께하는 맞춤 건강 관리",
     price: 150000,
     duration: "4주",
+    features: [
+      "주 1회 1:1 화상 코칭",
+      "건강검진 결과 분석",
+      "맞춤 건강 관리 플랜",
+      "카카오톡 질문 무제한",
+    ],
   },
   {
     id: "2",
@@ -43,6 +54,12 @@ const PRODUCTS: Product[] = [
     description: "전문 트레이너와 함께하는 맞춤 운동 프로그램",
     price: 100000,
     duration: "4주",
+    features: [
+      "주 1회 1:1 화상 코칭",
+      "맞춤 운동 프로그램 설계",
+      "운동 자세 피드백",
+      "매일 미션 관리",
+    ],
   },
   {
     id: "3",
@@ -51,13 +68,13 @@ const PRODUCTS: Product[] = [
     description: "전문 영양사와 함께하는 맞춤 식단 관리",
     price: 80000,
     duration: "4주",
+    features: [
+      "주 1회 1:1 화상 코칭",
+      "식단 분석 및 피드백",
+      "맞춤 식단 플랜 제공",
+      "식사 기록 코멘트",
+    ],
   },
-];
-
-const PAYMENT_METHODS = [
-  { id: "kakao", name: "카카오페이", icon: "💛" },
-  { id: "naver", name: "네이버페이", icon: "💚" },
-  { id: "card", name: "신용카드", icon: "💳" },
 ];
 
 export default function Shop() {
@@ -67,59 +84,41 @@ export default function Shop() {
 
   const [step, setStep] = useState<Step>("list");
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [paymentMethod, setPaymentMethod] = useState<string>("");
-  const [orderId, setOrderId] = useState<string>("");
-  const [inquiry, setInquiry] = useState("");
+  const [requestForm, setRequestForm] = useState({
+    name: "",
+    phone: "",
+    goal: "",
+    message: "",
+  });
 
   const selectProduct = (product: Product) => {
     setSelectedProduct(product);
-    setStep("order");
+    setStep("request");
   };
 
-  const proceedToPayment = () => {
-    if (!paymentMethod) {
-      toast({ title: "결제수단을 선택해주세요", variant: "destructive" });
+  const handleSubmitRequest = async () => {
+    if (!requestForm.name.trim() || !requestForm.phone.trim()) {
+      toast({ title: "이름과 연락처를 입력해주세요", variant: "destructive" });
       return;
     }
-    setStep("payment");
-  };
 
-  const processPayment = async () => {
     if (!selectedProduct) return;
 
+    // Create order with 'requested' status
     const result = await addOrder({
       product_name: selectedProduct.name,
       product_type: selectedProduct.type,
       price: selectedProduct.price,
-      payment_method: paymentMethod,
+      payment_method: "external", // External payment
     });
 
     if (result.error) {
-      toast({ title: "주문 실패", variant: "destructive" });
+      toast({ title: "요청 실패", variant: "destructive" });
       return;
     }
 
-    setOrderId(result.data?.id || '');
     setStep("success");
-    toast({ title: "결제 완료!", description: "코칭이 시작됩니다." });
-  };
-
-  const startCoaching = () => {
-    setStep("survey");
-  };
-
-  const submitSurvey = () => {
-    toast({ title: "설문 제출 완료!", description: "곧 코치가 연락드릴 예정입니다." });
-    navigate("/mypage/orders");
-  };
-
-  const submitInquiry = () => {
-    if (!inquiry.trim()) {
-      toast({ title: "문의 내용을 입력해주세요", variant: "destructive" });
-      return;
-    }
-    toast({ title: "문의가 접수되었습니다", description: "빠른 시일 내 답변드리겠습니다." });
-    setInquiry("");
+    toast({ title: "신청이 완료되었습니다!" });
   };
 
   return (
@@ -135,34 +134,48 @@ export default function Shop() {
           >
             <ArrowLeft className="h-6 w-6" />
           </Button>
-          <h1 className="text-2xl font-bold">1:1 코칭 상점</h1>
+          <h1 className="text-2xl font-bold">1:1 코칭 신청</h1>
         </div>
         <p className="text-white/90">전문가와 함께하는 맞춤 건강 관리</p>
       </div>
 
       <div className="p-4 space-y-4">
-        {/* Beta Notice - Always visible */}
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex gap-2">
-          <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
-          <div>
-            <p className="font-medium text-amber-800">베타 테스트</p>
-            <p className="text-sm text-amber-700">실제 결제가 이루어지지 않습니다.</p>
-          </div>
-        </div>
-
         {/* 상품 목록 */}
         {step === "list" && (
           <>
-            <h2 className="text-lg font-semibold flex items-center gap-2">
+            {/* 서비스 안내 */}
+            <div className="bg-card rounded-2xl border border-border p-4 space-y-3">
+              <h2 className="font-semibold flex items-center gap-2">
+                <Users className="w-5 h-5 text-primary" />
+                1:1 코칭 서비스 안내
+              </h2>
+              <ul className="space-y-2 text-sm text-muted-foreground">
+                <li className="flex items-start gap-2">
+                  <Check className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                  <span>상담 신청 후 담당자가 연락드립니다</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                  <span>결제는 상담 후 안내되는 링크로 진행됩니다</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                  <span>카카오페이, 계좌이체 등 다양한 결제 지원</span>
+                </li>
+              </ul>
+            </div>
+
+            <h2 className="text-lg font-semibold flex items-center gap-2 mt-6">
               <ShoppingBag className="w-5 h-5" />
-              코칭 상품
+              코칭 프로그램
             </h2>
+            
             {PRODUCTS.map((product) => (
               <div
                 key={product.id}
-                className="bg-card rounded-2xl border border-border p-4"
+                className="bg-card rounded-2xl border border-border p-5"
               >
-                <div className="flex justify-between items-start mb-2">
+                <div className="flex justify-between items-start mb-3">
                   <div>
                     <h3 className="font-semibold text-lg">{product.name}</h3>
                     <p className="text-sm text-muted-foreground">{product.description}</p>
@@ -171,160 +184,187 @@ export default function Shop() {
                     {product.duration}
                   </span>
                 </div>
-                <div className="flex justify-between items-center mt-4">
+
+                <ul className="space-y-2 mb-4">
+                  {product.features.map((feature, idx) => (
+                    <li key={idx} className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Check className="w-4 h-4 text-green-500 flex-shrink-0" />
+                      {feature}
+                    </li>
+                  ))}
+                </ul>
+
+                <div className="flex justify-between items-center pt-3 border-t border-border">
                   <span className="text-xl font-bold text-primary">
                     ₩{product.price.toLocaleString()}
                   </span>
-                  <Button onClick={() => selectProduct(product)}>신청하기</Button>
+                  <Button onClick={() => selectProduct(product)}>
+                    <MessageSquare className="w-4 h-4 mr-2" />
+                    상담 신청
+                  </Button>
                 </div>
               </div>
             ))}
+
+            {/* 환불 정책 링크 */}
+            <div className="text-center pt-4">
+              <Link to="/refund-policy" className="text-sm text-muted-foreground underline">
+                환불 정책 보기
+              </Link>
+            </div>
           </>
         )}
 
-        {/* 주문서 */}
-        {step === "order" && selectedProduct && (
+        {/* 상담 신청 폼 */}
+        {step === "request" && selectedProduct && (
           <div className="space-y-4">
-            <h2 className="text-lg font-semibold">주문서</h2>
+            <h2 className="text-lg font-semibold">상담 신청</h2>
             
-            {/* Beta Badge on Order */}
-            <div className="inline-flex items-center gap-1 px-2 py-1 bg-amber-100 text-amber-700 rounded text-xs font-medium">
-              <AlertTriangle className="w-3 h-3" />
-              베타 테스트 주문 (실제 결제 없음)
+            <div className="bg-card rounded-2xl border border-border p-4">
+              <div className="flex justify-between items-start mb-2">
+                <div>
+                  <h3 className="font-semibold">{selectedProduct.name}</h3>
+                  <p className="text-sm text-muted-foreground">{selectedProduct.duration}</p>
+                </div>
+                <span className="text-lg font-bold text-primary">
+                  ₩{selectedProduct.price.toLocaleString()}
+                </span>
+              </div>
             </div>
 
-            <div className="bg-card rounded-2xl border border-border p-4">
-              <h3 className="font-semibold">{selectedProduct.name}</h3>
-              <p className="text-sm text-muted-foreground">{selectedProduct.description}</p>
-              <p className="text-xl font-bold text-primary mt-2">
-                ₩{selectedProduct.price.toLocaleString()}
+            <div className="bg-muted/50 rounded-xl p-4 space-y-1">
+              <p className="text-sm font-medium flex items-center gap-2">
+                <Clock className="w-4 h-4" />
+                상담 절차 안내
+              </p>
+              <p className="text-sm text-muted-foreground">
+                신청 후 1-2일 내로 담당자가 연락드리며, 상담 후 결제 링크가 발송됩니다.
               </p>
             </div>
 
-            <div className="space-y-2">
-              <h3 className="font-semibold">결제수단 선택</h3>
-              {PAYMENT_METHODS.map((method) => (
-                <button
-                  key={method.id}
-                  onClick={() => setPaymentMethod(method.id)}
-                  className={`w-full p-4 rounded-xl border-2 flex items-center gap-3 transition-all ${
-                    paymentMethod === method.id
-                      ? "border-primary bg-primary/5"
-                      : "border-border"
-                  }`}
-                >
-                  <span className="text-2xl">{method.icon}</span>
-                  <span className="font-medium">{method.name}</span>
-                  {paymentMethod === method.id && (
-                    <Check className="w-5 h-5 text-primary ml-auto" />
-                  )}
-                </button>
-              ))}
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">이름 *</label>
+                <Input
+                  placeholder="홍길동"
+                  value={requestForm.name}
+                  onChange={(e) => setRequestForm(f => ({ ...f, name: e.target.value }))}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">연락처 *</label>
+                <Input
+                  placeholder="010-1234-5678"
+                  value={requestForm.phone}
+                  onChange={(e) => setRequestForm(f => ({ ...f, phone: e.target.value }))}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium flex items-center gap-2">
+                  <Target className="w-4 h-4" />
+                  건강 목표 (선택)
+                </label>
+                <Input
+                  placeholder="예: 체중 감량, 근력 향상, 식습관 개선"
+                  value={requestForm.goal}
+                  onChange={(e) => setRequestForm(f => ({ ...f, goal: e.target.value }))}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium flex items-center gap-2">
+                  <Heart className="w-4 h-4" />
+                  추가 요청사항 (선택)
+                </label>
+                <Textarea
+                  placeholder="현재 건강 상태나 궁금한 점을 적어주세요"
+                  value={requestForm.message}
+                  onChange={(e) => setRequestForm(f => ({ ...f, message: e.target.value }))}
+                  rows={3}
+                />
+              </div>
             </div>
 
-            <Button size="lg" className="w-full h-14" onClick={proceedToPayment}>
-              결제하기 (테스트)
+            <Button 
+              size="lg" 
+              className="w-full h-14" 
+              onClick={handleSubmitRequest}
+              disabled={syncing}
+            >
+              <Send className="w-5 h-5 mr-2" />
+              {syncing ? "신청 중..." : "상담 신청하기"}
             </Button>
+
+            <p className="text-xs text-center text-muted-foreground">
+              신청 후 결제가 진행되지 않습니다. 상담 후 결제 안내를 받으실 수 있습니다.
+            </p>
           </div>
         )}
 
-        {/* 결제 처리 */}
-        {step === "payment" && (
-          <div className="text-center py-12">
-            {syncing ? (
-              <>
-                <Loader2 className="w-12 h-12 animate-spin mx-auto mb-4 text-primary" />
-                <p className="text-lg font-semibold">결제 처리 중...</p>
-                <p className="text-sm text-muted-foreground mt-2">베타 테스트 - 실제 결제 없음</p>
-              </>
-            ) : (
-              <>
-                <CreditCard className="w-12 h-12 mx-auto mb-4 text-primary" />
-                <p className="text-lg font-semibold mb-2">결제를 진행합니다</p>
-                <p className="text-sm text-amber-600 mb-4">베타 테스트: 실제 금액이 청구되지 않습니다</p>
-                <Button size="lg" onClick={processPayment}>
-                  결제 확인
-                </Button>
-              </>
-            )}
-          </div>
-        )}
-
-        {/* 결제 완료 */}
+        {/* 신청 완료 */}
         {step === "success" && (
           <div className="space-y-6">
             <div className="text-center py-8">
               <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Check className="w-8 h-8 text-green-600" />
               </div>
-              <h2 className="text-2xl font-bold mb-2">결제 완료!</h2>
-              <p className="text-muted-foreground">주문번호: {orderId.slice(0, 8)}</p>
-              <p className="text-sm text-amber-600 bg-amber-50 inline-block px-3 py-1 rounded-full mt-2">
-                베타 테스트 - 실제 결제 없음
+              <h2 className="text-2xl font-bold mb-2">상담 신청 완료!</h2>
+              <p className="text-muted-foreground">
+                담당자가 1-2일 내로 연락드리겠습니다
               </p>
             </div>
 
-            <div className="bg-card rounded-2xl border border-border p-4">
-              <h3 className="font-semibold mb-2">다음 단계</h3>
-              <ol className="space-y-2 text-sm text-muted-foreground">
-                <li>1. 간단한 설문 작성</li>
-                <li>2. 담당 코치 배정 (1-2일 내)</li>
-                <li>3. 코칭 일정 안내</li>
-                <li>4. 1:1 코칭 시작</li>
+            <div className="bg-card rounded-2xl border border-border p-5 space-y-4">
+              <h3 className="font-semibold">다음 단계</h3>
+              <ol className="space-y-3 text-sm text-muted-foreground">
+                <li className="flex items-start gap-3">
+                  <span className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-medium flex-shrink-0">1</span>
+                  <span>담당자가 전화로 상담 일정을 안내드립니다</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <span className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-medium flex-shrink-0">2</span>
+                  <span>상담 후 결제 링크가 카카오톡으로 발송됩니다</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <span className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-medium flex-shrink-0">3</span>
+                  <span>결제 완료 후 코치가 배정됩니다</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <span className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-medium flex-shrink-0">4</span>
+                  <span>코칭 시작!</span>
+                </li>
               </ol>
             </div>
 
-            <Button size="lg" className="w-full h-14" onClick={startCoaching}>
-              코칭 시작하기
-            </Button>
-          </div>
-        )}
-
-        {/* 간단 설문 */}
-        {step === "survey" && (
-          <div className="space-y-4">
-            <h2 className="text-lg font-semibold flex items-center gap-2">
-              <ClipboardList className="w-5 h-5" />
-              간단 설문
-            </h2>
-            <p className="text-sm text-muted-foreground">
-              코칭에 필요한 정보를 알려주세요
-            </p>
-
-            <div className="space-y-4">
-              <div>
-                <label className="text-sm font-medium block mb-2">건강 목표</label>
-                <Input placeholder="예: 체중 감량, 근력 향상" />
-              </div>
-              <div>
-                <label className="text-sm font-medium block mb-2">현재 건강 상태</label>
-                <Input placeholder="예: 특이사항 없음, 고혈압 약 복용 중" />
-              </div>
-              <div>
-                <label className="text-sm font-medium block mb-2">선호하는 연락 시간</label>
-                <Input placeholder="예: 평일 저녁 7시 이후" />
+            <div className="bg-muted/50 rounded-xl p-4 space-y-2">
+              <p className="text-sm font-medium">문의가 필요하신가요?</p>
+              <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                <span className="flex items-center gap-1">
+                  <Mail className="w-4 h-4" />
+                  support@yanggaeng.kr
+                </span>
               </div>
             </div>
 
-            <div className="bg-muted rounded-xl p-4 mt-6">
-              <h3 className="font-semibold flex items-center gap-2 mb-2">
-                <MessageSquare className="w-4 h-4" />
-                문의하기
-              </h3>
-              <Input
-                placeholder="추가 문의사항이 있으시면 입력해주세요"
-                value={inquiry}
-                onChange={(e) => setInquiry(e.target.value)}
-                className="mb-2"
-              />
-              <Button variant="outline" size="sm" onClick={submitInquiry}>
-                문의 제출
+            <div className="space-y-2">
+              <Button 
+                size="lg" 
+                className="w-full h-14" 
+                onClick={() => navigate("/mypage/orders")}
+              >
+                신청 내역 확인
+              </Button>
+              <Button 
+                variant="outline"
+                size="lg" 
+                className="w-full h-14" 
+                onClick={() => navigate("/dashboard")}
+              >
+                홈으로 돌아가기
               </Button>
             </div>
-
-            <Button size="lg" className="w-full h-14" onClick={submitSurvey}>
-              설문 제출하기
-            </Button>
           </div>
         )}
       </div>

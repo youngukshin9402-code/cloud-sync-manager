@@ -49,6 +49,50 @@ export type Database = {
           },
         ]
       }
+      coaching_feedback: {
+        Row: {
+          audio_url: string | null
+          coach_id: string
+          content: string | null
+          created_at: string
+          feedback_type: string
+          id: string
+          is_read: boolean
+          session_id: string | null
+          user_id: string
+        }
+        Insert: {
+          audio_url?: string | null
+          coach_id: string
+          content?: string | null
+          created_at?: string
+          feedback_type: string
+          id?: string
+          is_read?: boolean
+          session_id?: string | null
+          user_id: string
+        }
+        Update: {
+          audio_url?: string | null
+          coach_id?: string
+          content?: string | null
+          created_at?: string
+          feedback_type?: string
+          id?: string
+          is_read?: boolean
+          session_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coaching_feedback_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "coaching_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       coaching_sessions: {
         Row: {
           coach_id: string
@@ -720,6 +764,71 @@ export type Database = {
           },
         ]
       }
+      support_ticket_replies: {
+        Row: {
+          created_at: string
+          id: string
+          is_admin: boolean
+          message: string
+          ticket_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_admin?: boolean
+          message: string
+          ticket_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_admin?: boolean
+          message?: string
+          ticket_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_ticket_replies_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "support_tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      support_tickets: {
+        Row: {
+          created_at: string
+          id: string
+          message: string
+          status: string
+          subject: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          message: string
+          status?: string
+          subject: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          message?: string
+          status?: string
+          subject?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_consents: {
         Row: {
           agreed_at: string | null
@@ -918,7 +1027,14 @@ export type Database = {
         | "pending_review"
         | "completed"
         | "rejected"
-      order_status: "pending" | "paid" | "cancel_requested" | "cancelled"
+      order_status:
+        | "requested"
+        | "pending"
+        | "paid"
+        | "coaching_started"
+        | "cancel_requested"
+        | "cancelled"
+        | "refunded"
       subscription_tier: "basic" | "premium"
       user_type: "user" | "guardian" | "coach" | "admin"
     }
@@ -1063,7 +1179,15 @@ export const Constants = {
         "completed",
         "rejected",
       ],
-      order_status: ["pending", "paid", "cancel_requested", "cancelled"],
+      order_status: [
+        "requested",
+        "pending",
+        "paid",
+        "coaching_started",
+        "cancel_requested",
+        "cancelled",
+        "refunded",
+      ],
       subscription_tier: ["basic", "premium"],
       user_type: ["user", "guardian", "coach", "admin"],
     },

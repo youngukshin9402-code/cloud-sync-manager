@@ -30,6 +30,7 @@ import DataExport from "./pages/DataExport";
 import Consent from "./pages/Consent";
 import Terms from "./pages/Terms";
 import HealthPrivacy from "./pages/HealthPrivacy";
+import RefundPolicy from "./pages/RefundPolicy";
 
 // MyPage Pages
 import ProfileEdit from "./pages/mypage/ProfileEdit";
@@ -47,6 +48,10 @@ import CoachUserDetail from "./pages/coach/CoachUserDetail";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminUsers from "./pages/admin/AdminUsers";
 import AdminProducts from "./pages/admin/AdminProducts";
+import AdminOrders from "./pages/admin/AdminOrders";
+import AdminCoaching from "./pages/admin/AdminCoaching";
+import AdminTickets from "./pages/admin/AdminTickets";
+import CoachingFeedback from "./pages/mypage/CoachingFeedback";
 
 // Components
 import { ProtectedRoute } from "@/components/ProtectedRoute";
@@ -101,6 +106,7 @@ function AppRoutes() {
       <Route path="/consent" element={<Consent />} />
       <Route path="/terms" element={<Terms />} />
       <Route path="/health-privacy" element={<HealthPrivacy />} />
+      <Route path="/refund-policy" element={<RefundPolicy />} />
 
       {/* 일반 사용자 / 보호자 페이지 */}
       <Route
@@ -131,6 +137,7 @@ function AppRoutes() {
         <Route path="/mypage/guardian" element={<GuardianSettingsPage />} />
         <Route path="/mypage/support" element={<SupportPage />} />
         <Route path="/mypage/orders" element={<OrdersPage />} />
+        <Route path="/mypage/feedback" element={<CoachingFeedback />} />
         <Route path="/data-export" element={<DataExport />} />
       </Route>
 
@@ -192,6 +199,30 @@ function AppRoutes() {
         element={
           <ProtectedRoute allowedTypes={["admin"]}>
             <AdminProducts />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/orders"
+        element={
+          <ProtectedRoute allowedTypes={["admin"]}>
+            <AdminOrders />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/coaching"
+        element={
+          <ProtectedRoute allowedTypes={["admin"]}>
+            <AdminCoaching />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/tickets"
+        element={
+          <ProtectedRoute allowedTypes={["admin"]}>
+            <AdminTickets />
           </ProtectedRoute>
         }
       />

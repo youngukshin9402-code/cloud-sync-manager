@@ -601,7 +601,7 @@ export function useGymRecords() {
 // Orders Hook
 // ========================
 
-export type OrderStatus = 'pending' | 'paid' | 'cancel_requested' | 'cancelled';
+export type OrderStatus = 'requested' | 'pending' | 'paid' | 'coaching_started' | 'cancel_requested' | 'cancelled' | 'refunded';
 
 export interface OrderServer {
   id: string;
