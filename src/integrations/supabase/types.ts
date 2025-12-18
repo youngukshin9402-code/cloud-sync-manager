@@ -14,6 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_audit_logs: {
+        Row: {
+          action_type: string
+          admin_id: string
+          after_value: Json | null
+          before_value: Json | null
+          created_at: string
+          id: string
+          metadata: Json | null
+          target_id: string
+          target_table: string
+        }
+        Insert: {
+          action_type: string
+          admin_id: string
+          after_value?: Json | null
+          before_value?: Json | null
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          target_id: string
+          target_table: string
+        }
+        Update: {
+          action_type?: string
+          admin_id?: string
+          after_value?: Json | null
+          before_value?: Json | null
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          target_id?: string
+          target_table?: string
+        }
+        Relationships: []
+      }
       coach_availability: {
         Row: {
           available_date: string
@@ -801,6 +837,7 @@ export type Database = {
       }
       support_tickets: {
         Row: {
+          additional_messages: Json | null
           created_at: string
           id: string
           message: string
@@ -810,6 +847,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          additional_messages?: Json | null
           created_at?: string
           id?: string
           message: string
@@ -819,6 +857,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          additional_messages?: Json | null
           created_at?: string
           id?: string
           message?: string

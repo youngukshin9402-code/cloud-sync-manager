@@ -36,6 +36,11 @@ const faqs = [
   },
 ];
 
+interface AdditionalMessage {
+  message: string;
+  created_at: string;
+}
+
 interface Ticket {
   id: string;
   subject: string;
@@ -43,6 +48,7 @@ interface Ticket {
   status: string;
   created_at: string;
   updated_at: string;
+  additional_messages: AdditionalMessage[];
 }
 
 interface TicketReply {
@@ -80,7 +86,14 @@ export default function SupportPage() {
       .order("created_at", { ascending: false });
 
     if (!error && data) {
-      setTickets(data);
+      // additional_messages JSON을 타입 변환
+      const mappedTickets: Ticket[] = data.map((t: any) => ({
+        ...t,
+        additional_messages: Array.isArray(t.additional_messages) 
+          ? t.additional_messages 
+          : []
+      }));
+      setTickets(mappedTickets);
     }
     setLoading(false);
   };
@@ -122,22 +135,39 @@ export default function SupportPage() {
     setSubmitting(false);
   };
 
-  const handleAddReply = async () => {
+  // 사용자 추가 메시지 (additional_messages에 추가)
+  const handleAddMessage = async () => {
     if (!user || !selectedTicket || !newReply.trim()) return;
 
     setSubmitting(true);
-    const { error } = await supabase.from("support_ticket_replies").insert({
-      ticket_id: selectedTicket.id,
-      user_id: user.id,
-      message: newReply,
-      is_admin: false,
-    });
+    
+    // 현재 additional_messages 배열에 새 메시지 추가
+    const newMessage: AdditionalMessage = {
+      message: newReply.trim(),
+      created_at: new Date().toISOString()
+    };
+    
+    const currentMessages = selectedTicket.additional_messages || [];
+    const updatedMessages = [...currentMessages, newMessage];
+    
+    const { error } = await supabase
+      .from("support_tickets")
+      .update({ 
+        additional_messages: updatedMessages as any,
+        updated_at: new Date().toISOString()
+      })
+      .eq("id", selectedTicket.id);
 
     if (error) {
-      toast({ title: "답변 등록에 실패했습니다", variant: "destructive" });
+      toast({ title: "메시지 등록에 실패했습니다", variant: "destructive" });
     } else {
+      // 로컬 상태 업데이트
+      setSelectedTicket({
+        ...selectedTicket,
+        additional_messages: updatedMessages
+      });
       setNewReply("");
-      fetchReplies(selectedTicket.id);
+      toast({ title: "메시지가 추가되었습니다" });
     }
     setSubmitting(false);
   };
@@ -195,20 +225,14 @@ export default function SupportPage() {
             <p className="whitespace-pre-wrap">{selectedTicket.message}</p>
           </div>
 
-          {/* 답변 목록 */}
-          {replies.map((reply) => (
+          {/* 관리자 답변 목록 (replies 테이블) */}
+          {replies.filter(r => r.is_admin).map((reply) => (
             <div
               key={reply.id}
-              className={`rounded-2xl border p-4 ${
-                reply.is_admin
-                  ? "bg-primary/5 border-primary/20 ml-4"
-                  : "bg-card border-border mr-4"
-              }`}
+              className="rounded-2xl border p-4 bg-primary/5 border-primary/20 ml-4"
             >
               <div className="flex items-center gap-2 mb-2">
-                <span className={`text-sm font-medium ${reply.is_admin ? "text-primary" : ""}`}>
-                  {reply.is_admin ? "관리자" : "나"}
-                </span>
+                <span className="text-sm font-medium text-primary">관리자 답변</span>
                 <span className="text-xs text-muted-foreground">
                   {new Date(reply.created_at).toLocaleDateString("ko-KR")}
                 </span>
@@ -217,7 +241,23 @@ export default function SupportPage() {
             </div>
           ))}
 
-          {/* 추가 답변 입력 */}
+          {/* 사용자 추가 메시지 (additional_messages) */}
+          {selectedTicket.additional_messages?.map((msg, index) => (
+            <div
+              key={`msg-${index}`}
+              className="rounded-2xl border p-4 bg-card border-border mr-4"
+            >
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-sm font-medium">내 추가 문의</span>
+                <span className="text-xs text-muted-foreground">
+                  {new Date(msg.created_at).toLocaleDateString("ko-KR")}
+                </span>
+              </div>
+              <p className="whitespace-pre-wrap">{msg.message}</p>
+            </div>
+          ))}
+
+          {/* 추가 메시지 입력 */}
           {selectedTicket.status !== "closed" && (
             <div className="bg-card rounded-2xl border border-border p-4 space-y-3">
               <Textarea
@@ -228,11 +268,11 @@ export default function SupportPage() {
               />
               <Button
                 className="w-full"
-                onClick={handleAddReply}
+                onClick={handleAddMessage}
                 disabled={submitting || !newReply.trim()}
               >
                 <Send className="w-4 h-4 mr-2" />
-                답변 추가
+                추가 문의 보내기
               </Button>
             </div>
           )}

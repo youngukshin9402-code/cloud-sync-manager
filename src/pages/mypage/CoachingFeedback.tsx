@@ -3,9 +3,10 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, MessageCircle, Play, Volume2 } from "lucide-react";
+import { ArrowLeft, MessageCircle, Play, Square, Volume2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAudioPlayer } from "@/hooks/useAudioPlayer";
 
 interface CoachingFeedback {
   id: string;
@@ -22,7 +23,7 @@ export default function CoachingFeedback() {
   const { user } = useAuth();
   const [feedbacks, setFeedbacks] = useState<CoachingFeedback[]>([]);
   const [loading, setLoading] = useState(true);
-  const [playingAudio, setPlayingAudio] = useState<string | null>(null);
+  const audioPlayer = useAudioPlayer('voice-files');
 
   useEffect(() => {
     if (!user) return;
@@ -64,26 +65,9 @@ export default function CoachingFeedback() {
     fetchFeedbacks();
   }, [user]);
 
-  const playAudio = async (feedbackId: string, audioUrl: string) => {
-    if (playingAudio === feedbackId) {
-      setPlayingAudio(null);
-      return;
-    }
-
-    try {
-      const { data } = await supabase.storage
-        .from('voice-files')
-        .createSignedUrl(audioUrl, 3600);
-
-      if (data?.signedUrl) {
-        const audio = new Audio(data.signedUrl);
-        audio.onended = () => setPlayingAudio(null);
-        audio.play();
-        setPlayingAudio(feedbackId);
-      }
-    } catch (error) {
-      console.error('Error playing audio:', error);
-    }
+  // 오디오 재생 - useAudioPlayer 훅 사용 (웹/앱 공통 추상화)
+  const handlePlayAudio = (audioUrl: string) => {
+    audioPlayer.play(audioUrl);
   };
 
   if (loading) {
@@ -164,10 +148,10 @@ export default function CoachingFeedback() {
                 <Button 
                   variant="outline" 
                   className="w-full"
-                  onClick={() => playAudio(feedback.id, feedback.audio_url!)}
+                  onClick={() => handlePlayAudio(feedback.audio_url!)}
                 >
-                  {playingAudio === feedback.id ? (
-                    <>재생 중...</>
+                  {audioPlayer.isPlaying && audioPlayer.currentUrl === feedback.audio_url ? (
+                    <><Square className="w-4 h-4 mr-2" /> 재생 중...</>
                   ) : (
                     <><Play className="w-4 h-4 mr-2" /> 음성 메시지 재생</>
                   )}
