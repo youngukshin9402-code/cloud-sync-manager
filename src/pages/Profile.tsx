@@ -14,6 +14,7 @@ import {
   Video,
   ShoppingBag,
   Shield,
+  Download,
 } from "lucide-react";
 
 export default function Profile() {
@@ -65,6 +66,11 @@ export default function Profile() {
       icon: Bell,
       label: "알림 설정",
       path: "/profile/notifications",
+    },
+    {
+      icon: Download,
+      label: "데이터 내보내기",
+      path: "/data-export",
     },
     {
       icon: HelpCircle,
