@@ -15,6 +15,7 @@ import {
   ShoppingBag,
   Shield,
   Download,
+  MessageSquare,
 } from "lucide-react";
 
 export default function Profile() {
@@ -57,6 +58,11 @@ export default function Profile() {
           },
         ]
       : []),
+    {
+      icon: MessageSquare,
+      label: "코칭 피드백",
+      path: "/mypage/coaching-feedback",
+    },
     {
       icon: ShoppingBag,
       label: "주문 내역",

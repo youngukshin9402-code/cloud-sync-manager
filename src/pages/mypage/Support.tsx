@@ -1,11 +1,13 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, HelpCircle, MessageSquare, Send, Mail, Phone } from "lucide-react";
+import { ArrowLeft, HelpCircle, MessageSquare, Send, Plus, Clock, CheckCircle, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 const faqs = [
   {
@@ -34,28 +36,210 @@ const faqs = [
   },
 ];
 
+interface Ticket {
+  id: string;
+  subject: string;
+  message: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+interface TicketReply {
+  id: string;
+  message: string;
+  is_admin: boolean;
+  created_at: string;
+}
+
 export default function SupportPage() {
   const { toast } = useToast();
-  const [inquiryForm, setInquiryForm] = useState({
-    email: "",
-    subject: "",
-    message: "",
-  });
+  const { user } = useAuth();
+  const [activeTab, setActiveTab] = useState<"faq" | "tickets" | "new">("faq");
+  const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
+  const [replies, setReplies] = useState<TicketReply[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [newTicket, setNewTicket] = useState({ subject: "", message: "" });
+  const [newReply, setNewReply] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = async () => {
-    if (!inquiryForm.email || !inquiryForm.subject || !inquiryForm.message) {
-      toast({ title: "모든 필드를 입력해주세요", variant: "destructive" });
+  useEffect(() => {
+    if (user) {
+      fetchTickets();
+    }
+  }, [user]);
+
+  const fetchTickets = async () => {
+    if (!user) return;
+    setLoading(true);
+    const { data, error } = await supabase
+      .from("support_tickets")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false });
+
+    if (!error && data) {
+      setTickets(data);
+    }
+    setLoading(false);
+  };
+
+  const fetchReplies = async (ticketId: string) => {
+    const { data, error } = await supabase
+      .from("support_ticket_replies")
+      .select("*")
+      .eq("ticket_id", ticketId)
+      .order("created_at", { ascending: true });
+
+    if (!error && data) {
+      setReplies(data);
+    }
+  };
+
+  const handleCreateTicket = async () => {
+    if (!user || !newTicket.subject || !newTicket.message) {
+      toast({ title: "제목과 내용을 입력해주세요", variant: "destructive" });
       return;
     }
 
     setSubmitting(true);
-    // Mock submit
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    toast({ title: "문의가 접수되었습니다", description: "빠른 시일 내에 답변 드리겠습니다." });
-    setInquiryForm({ email: "", subject: "", message: "" });
+    const { error } = await supabase.from("support_tickets").insert({
+      user_id: user.id,
+      subject: newTicket.subject,
+      message: newTicket.message,
+      status: "open",
+    });
+
+    if (error) {
+      toast({ title: "문의 등록에 실패했습니다", variant: "destructive" });
+    } else {
+      toast({ title: "문의가 접수되었습니다" });
+      setNewTicket({ subject: "", message: "" });
+      setActiveTab("tickets");
+      fetchTickets();
+    }
     setSubmitting(false);
   };
+
+  const handleAddReply = async () => {
+    if (!user || !selectedTicket || !newReply.trim()) return;
+
+    setSubmitting(true);
+    const { error } = await supabase.from("support_ticket_replies").insert({
+      ticket_id: selectedTicket.id,
+      user_id: user.id,
+      message: newReply,
+      is_admin: false,
+    });
+
+    if (error) {
+      toast({ title: "답변 등록에 실패했습니다", variant: "destructive" });
+    } else {
+      setNewReply("");
+      fetchReplies(selectedTicket.id);
+    }
+    setSubmitting(false);
+  };
+
+  const openTicketDetail = (ticket: Ticket) => {
+    setSelectedTicket(ticket);
+    fetchReplies(ticket.id);
+  };
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case "open":
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-blue-100 text-blue-700 text-xs">
+            <Clock className="w-3 h-3" /> 접수
+          </span>
+        );
+      case "in_progress":
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-amber-100 text-amber-700 text-xs">
+            <Loader2 className="w-3 h-3" /> 처리중
+          </span>
+        );
+      case "closed":
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-100 text-emerald-700 text-xs">
+            <CheckCircle className="w-3 h-3" /> 완료
+          </span>
+        );
+      default:
+        return null;
+    }
+  };
+
+  // 티켓 상세 보기
+  if (selectedTicket) {
+    return (
+      <div className="min-h-screen bg-background pb-24">
+        <div className="sticky top-0 bg-background/95 backdrop-blur-sm border-b border-border p-4 z-10">
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="icon" onClick={() => setSelectedTicket(null)}>
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
+            <h1 className="text-xl font-bold flex-1 truncate">{selectedTicket.subject}</h1>
+            {getStatusBadge(selectedTicket.status)}
+          </div>
+        </div>
+
+        <div className="p-4 space-y-4">
+          {/* 원본 문의 */}
+          <div className="bg-card rounded-2xl border border-border p-4">
+            <p className="text-sm text-muted-foreground mb-2">
+              {new Date(selectedTicket.created_at).toLocaleDateString("ko-KR")}
+            </p>
+            <p className="whitespace-pre-wrap">{selectedTicket.message}</p>
+          </div>
+
+          {/* 답변 목록 */}
+          {replies.map((reply) => (
+            <div
+              key={reply.id}
+              className={`rounded-2xl border p-4 ${
+                reply.is_admin
+                  ? "bg-primary/5 border-primary/20 ml-4"
+                  : "bg-card border-border mr-4"
+              }`}
+            >
+              <div className="flex items-center gap-2 mb-2">
+                <span className={`text-sm font-medium ${reply.is_admin ? "text-primary" : ""}`}>
+                  {reply.is_admin ? "관리자" : "나"}
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {new Date(reply.created_at).toLocaleDateString("ko-KR")}
+                </span>
+              </div>
+              <p className="whitespace-pre-wrap">{reply.message}</p>
+            </div>
+          ))}
+
+          {/* 추가 답변 입력 */}
+          {selectedTicket.status !== "closed" && (
+            <div className="bg-card rounded-2xl border border-border p-4 space-y-3">
+              <Textarea
+                placeholder="추가 문의 내용을 입력하세요"
+                value={newReply}
+                onChange={(e) => setNewReply(e.target.value)}
+                rows={3}
+              />
+              <Button
+                className="w-full"
+                onClick={handleAddReply}
+                disabled={submitting || !newReply.trim()}
+              >
+                <Send className="w-4 h-4 mr-2" />
+                답변 추가
+              </Button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background pb-24">
@@ -70,36 +254,45 @@ export default function SupportPage() {
         </div>
       </div>
 
-      <div className="p-4 space-y-6">
-        {/* Contact Info */}
-        <div className="bg-card rounded-2xl border border-border p-5 space-y-4">
-          <h2 className="font-semibold flex items-center gap-2">
-            <Phone className="w-5 h-5 text-primary" />
-            연락처
-          </h2>
-          <div className="space-y-2 text-muted-foreground">
-            <p className="flex items-center gap-2">
-              <Mail className="w-4 h-4" />
-              support@yanggaeng.kr
-            </p>
-            <p className="flex items-center gap-2">
-              <Phone className="w-4 h-4" />
-              1588-0000 (평일 09:00-18:00)
-            </p>
-          </div>
-        </div>
+      {/* 탭 */}
+      <div className="flex border-b border-border">
+        <button
+          className={`flex-1 py-3 text-center font-medium ${
+            activeTab === "faq" ? "text-primary border-b-2 border-primary" : "text-muted-foreground"
+          }`}
+          onClick={() => setActiveTab("faq")}
+        >
+          자주 묻는 질문
+        </button>
+        <button
+          className={`flex-1 py-3 text-center font-medium ${
+            activeTab === "tickets" ? "text-primary border-b-2 border-primary" : "text-muted-foreground"
+          }`}
+          onClick={() => setActiveTab("tickets")}
+        >
+          내 문의
+        </button>
+        <button
+          className={`flex-1 py-3 text-center font-medium ${
+            activeTab === "new" ? "text-primary border-b-2 border-primary" : "text-muted-foreground"
+          }`}
+          onClick={() => setActiveTab("new")}
+        >
+          문의하기
+        </button>
+      </div>
 
+      <div className="p-4 space-y-4">
         {/* FAQ */}
-        <div className="space-y-3">
-          <h2 className="font-semibold flex items-center gap-2">
-            <HelpCircle className="w-5 h-5 text-primary" />
-            자주 묻는 질문
-          </h2>
+        {activeTab === "faq" && (
           <Accordion type="single" collapsible className="bg-card rounded-2xl border border-border">
             {faqs.map((faq, index) => (
               <AccordionItem key={index} value={`item-${index}`} className="border-border">
                 <AccordionTrigger className="px-4 hover:no-underline">
-                  <span className="text-left">{faq.q}</span>
+                  <span className="text-left flex items-center gap-2">
+                    <HelpCircle className="w-4 h-4 text-primary shrink-0" />
+                    {faq.q}
+                  </span>
                 </AccordionTrigger>
                 <AccordionContent className="px-4 pb-4 text-muted-foreground">
                   {faq.a}
@@ -107,47 +300,88 @@ export default function SupportPage() {
               </AccordionItem>
             ))}
           </Accordion>
-        </div>
+        )}
 
-        {/* Inquiry Form */}
-        <div className="bg-card rounded-2xl border border-border p-5 space-y-4">
-          <h2 className="font-semibold flex items-center gap-2">
-            <MessageSquare className="w-5 h-5 text-primary" />
-            문의하기
-          </h2>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">이메일</label>
-              <Input
-                type="email"
-                placeholder="답변 받을 이메일"
-                value={inquiryForm.email}
-                onChange={e => setInquiryForm({ ...inquiryForm, email: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">제목</label>
-              <Input
-                placeholder="문의 제목"
-                value={inquiryForm.subject}
-                onChange={e => setInquiryForm({ ...inquiryForm, subject: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">내용</label>
-              <Textarea
-                placeholder="문의 내용을 자세히 작성해주세요"
-                rows={4}
-                value={inquiryForm.message}
-                onChange={e => setInquiryForm({ ...inquiryForm, message: e.target.value })}
-              />
-            </div>
-            <Button className="w-full" onClick={handleSubmit} disabled={submitting}>
-              <Send className="w-4 h-4 mr-2" />
-              {submitting ? "전송 중..." : "문의 보내기"}
-            </Button>
+        {/* 내 문의 목록 */}
+        {activeTab === "tickets" && (
+          <div className="space-y-3">
+            {loading ? (
+              <div className="text-center py-8 text-muted-foreground">로딩 중...</div>
+            ) : tickets.length === 0 ? (
+              <div className="text-center py-8">
+                <MessageSquare className="w-12 h-12 mx-auto text-muted-foreground mb-3" />
+                <p className="text-muted-foreground">문의 내역이 없습니다</p>
+                <Button className="mt-4" onClick={() => setActiveTab("new")}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  새 문의하기
+                </Button>
+              </div>
+            ) : (
+              tickets.map((ticket) => (
+                <button
+                  key={ticket.id}
+                  className="w-full text-left bg-card rounded-2xl border border-border p-4 hover:border-primary transition-colors"
+                  onClick={() => openTicketDetail(ticket)}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-medium truncate">{ticket.subject}</h3>
+                      <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                        {ticket.message}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        {new Date(ticket.created_at).toLocaleDateString("ko-KR")}
+                      </p>
+                    </div>
+                    {getStatusBadge(ticket.status)}
+                  </div>
+                </button>
+              ))
+            )}
           </div>
-        </div>
+        )}
+
+        {/* 새 문의 작성 */}
+        {activeTab === "new" && (
+          <div className="bg-card rounded-2xl border border-border p-5 space-y-4">
+            <h2 className="font-semibold flex items-center gap-2">
+              <MessageSquare className="w-5 h-5 text-primary" />
+              문의하기
+            </h2>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">제목</label>
+                <Input
+                  placeholder="문의 제목을 입력하세요"
+                  value={newTicket.subject}
+                  onChange={(e) => setNewTicket({ ...newTicket, subject: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">내용</label>
+                <Textarea
+                  placeholder="문의 내용을 자세히 작성해주세요"
+                  rows={6}
+                  value={newTicket.message}
+                  onChange={(e) => setNewTicket({ ...newTicket, message: e.target.value })}
+                />
+              </div>
+              <Button className="w-full" onClick={handleCreateTicket} disabled={submitting}>
+                <Send className="w-4 h-4 mr-2" />
+                {submitting ? "전송 중..." : "문의 보내기"}
+              </Button>
+            </div>
+
+            <div className="pt-4 border-t border-border">
+              <p className="text-sm text-muted-foreground">
+                문의 접수 후 영업일 기준 1~2일 내에 답변 드립니다.
+              </p>
+              <p className="text-sm text-muted-foreground mt-1">
+                이메일: support@yanggaeng.kr
+              </p>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
