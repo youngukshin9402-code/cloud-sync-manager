@@ -30,10 +30,6 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const isUserType = (v: unknown): v is UserType =>
   v === "user" || v === "guardian" || v === "coach" || v === "admin";
-
-// 관리자 이메일 패턴 체크 (보안상 코드에 비밀번호 저장 금지)
-const ADMIN_EMAIL_PATTERN = /^admin@s23270351.*\.com$/;
-
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
@@ -173,9 +169,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setRoles([]);
   };
 
-  // 관리자 여부: user_roles 테이블 또는 이메일 패턴으로 확인
-  const isAdmin = roles.includes("admin") || 
-    (user?.email ? ADMIN_EMAIL_PATTERN.test(user.email) : false);
+  // 관리자 여부: user_roles 테이블 기반으로만 확인 (이메일 패턴 백도어 제거)
+  const isAdmin = roles.includes("admin");
   
   const isCoach = roles.includes("coach") || profile?.user_type === "coach";
 

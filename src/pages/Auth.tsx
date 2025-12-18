@@ -50,10 +50,7 @@ export default function Auth() {
         
         // 역할 확인 후 적절한 페이지로 리다이렉트
         setTimeout(async () => {
-          // admin 이메일 패턴 체크
-          const isAdminEmail = /^admin@s23270351.*\.com$/.test(session.user.email || "");
-          
-          // user_roles 테이블에서 admin 역할 확인
+          // user_roles 테이블에서 역할 확인 (이메일 패턴 백도어 제거)
           const { data: roles } = await supabase
             .from("user_roles")
             .select("role")
@@ -61,7 +58,7 @@ export default function Auth() {
           
           const hasAdminRole = roles?.some(r => r.role === "admin");
           
-          if (isAdminEmail || hasAdminRole) {
+          if (hasAdminRole) {
             navigate("/admin/dashboard", { replace: true });
           } else {
             // coach 역할 체크
@@ -134,9 +131,7 @@ export default function Auth() {
       description: "로그인에 성공했어요.",
     });
 
-    // 역할 확인 후 적절한 페이지로 리다이렉트
-    const isAdminEmail = /^admin@s23270351.*\.com$/.test(email);
-    
+    // 역할 확인 후 적절한 페이지로 리다이렉트 (이메일 패턴 백도어 제거)
     const { data: roles } = await supabase
       .from("user_roles")
       .select("role")
@@ -145,7 +140,7 @@ export default function Auth() {
     const hasAdminRole = roles?.some(r => r.role === "admin");
     const hasCoachRole = roles?.some(r => r.role === "coach");
     
-    if (isAdminEmail || hasAdminRole) {
+    if (hasAdminRole) {
       navigate("/admin/dashboard", { replace: true });
     } else if (hasCoachRole) {
       navigate("/coach/dashboard", { replace: true });

@@ -100,6 +100,18 @@ export function CoachFeedbackForm({
 
       if (insertError) {
         console.error("Insert error:", insertError);
+        
+        // DB 저장 실패 시 업로드된 파일 롤백 (원자성 보장)
+        if (audioUrl) {
+          console.log("Rolling back uploaded file:", audioUrl);
+          const { error: deleteError } = await supabase.storage
+            .from('voice-files')
+            .remove([audioUrl]);
+          if (deleteError) {
+            console.error("Rollback failed:", deleteError);
+          }
+        }
+        
         toast({
           title: "피드백 저장 실패",
           description: insertError.message,
