@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { format, parseISO, isSameDay } from "date-fns";
+import { format, isSameDay } from "date-fns";
 import { ko } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,18 +27,12 @@ import {
   ChevronRight,
   Pencil,
   Trash2,
-  Check,
   X,
   CalendarIcon,
+  WifiOff,
 } from "lucide-react";
-import {
-  getMealRecords,
-  setMealRecords,
-  MealRecord,
-  generateId,
-  getTodayString,
-} from "@/lib/localStorage";
 import { cn } from "@/lib/utils";
+import { useMealRecords, MealRecordServer, MealFood } from "@/hooks/useServerSync";
 
 type MealType = "breakfast" | "lunch" | "dinner" | "snack";
 
@@ -101,25 +95,44 @@ export default function Nutrition() {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
-
-  const [records, setRecords] = useState<MealRecord[]>([]);
+  
+  // 서버 동기화 훅 사용
+  const { data: records, loading, syncing, add, remove, refetch, getTodayCalories } = useMealRecords();
+  
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [showCalendar, setShowCalendar] = useState(false);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
 
   // 기록 플로우 상태
   const [step, setStep] = useState<Step>("idle");
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [analyzedFoods, setAnalyzedFoods] = useState<AnalyzedFood[]>([]);
   const [selectedMealType, setSelectedMealType] = useState<MealType>("lunch");
-  const [editingRecord, setEditingRecord] = useState<MealRecord | null>(null);
+  const [editingRecord, setEditingRecord] = useState<MealRecordServer | null>(null);
 
+  // 온라인/오프라인 상태 감지
   useEffect(() => {
-    setRecords(getMealRecords());
-  }, []);
+    const handleOnline = () => {
+      setIsOnline(true);
+      refetch();
+      toast({ title: "온라인 복귀", description: "데이터를 동기화합니다." });
+    };
+    const handleOffline = () => {
+      setIsOnline(false);
+      toast({ title: "오프라인 모드", description: "인터넷 연결을 확인해주세요.", variant: "destructive" });
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [refetch, toast]);
 
   const dateStr = format(selectedDate, "yyyy-MM-dd");
   const todayRecords = records.filter((r) => r.date === dateStr);
-  const todayCalories = todayRecords.reduce((sum, r) => sum + r.totalCalories, 0);
+  const todayCalories = todayRecords.reduce((sum, r) => sum + (r.total_calories || 0), 0);
 
   // 날짜별 기록 여부 체크
   const hasRecordOnDate = (date: Date) => {
@@ -133,7 +146,6 @@ export default function Nutrition() {
     if (!file) return;
     e.target.value = "";
 
-    // 이미지를 base64로 변환 (청크 처리)
     const reader = new FileReader();
     reader.onload = async () => {
       const base64 = reader.result as string;
@@ -178,7 +190,6 @@ export default function Nutrition() {
       toast({ title: "음식을 추가해주세요", variant: "destructive" });
       return;
     }
-    // 모든 음식에 포션이 선택되었는지 확인
     const allHavePortion = analyzedFoods.every((f) => f.portion);
     if (!allHavePortion) {
       toast({ title: "모든 음식의 양을 선택해주세요", variant: "destructive" });
@@ -188,35 +199,37 @@ export default function Nutrition() {
   };
 
   // 저장
-  const handleSave = () => {
-    const newRecord: MealRecord = {
-      id: editingRecord?.id || generateId(),
-      date: dateStr,
-      mealType: selectedMealType,
-      imageUrl: uploadedImage || undefined,
-      foods: analyzedFoods.map((f) => ({
-        name: f.name,
-        portion: f.portion,
-        calories: f.calories,
-        carbs: f.carbs,
-        protein: f.protein,
-        fat: f.fat,
-      })),
-      totalCalories: analyzedFoods.reduce((sum, f) => sum + f.calories, 0),
-      createdAt: editingRecord?.createdAt || new Date().toISOString(),
-    };
+  const handleSave = async () => {
+    const foods: MealFood[] = analyzedFoods.map((f) => ({
+      name: f.name,
+      portion: f.portion,
+      calories: f.calories,
+      carbs: f.carbs,
+      protein: f.protein,
+      fat: f.fat,
+    }));
+    
+    const totalCalories = foods.reduce((sum, f) => sum + f.calories, 0);
 
-    let updatedRecords: MealRecord[];
-    if (editingRecord) {
-      updatedRecords = records.map((r) => (r.id === editingRecord.id ? newRecord : r));
-    } else {
-      updatedRecords = [...records, newRecord];
+    try {
+      // 수정 모드인 경우 기존 기록 삭제 후 새로 추가
+      if (editingRecord) {
+        await remove(editingRecord.id);
+      }
+      
+      await add({
+        date: dateStr,
+        meal_type: selectedMealType,
+        foods,
+        total_calories: totalCalories,
+        image_url: uploadedImage || undefined,
+      });
+      
+      resetFlow();
+      toast({ title: "저장 완료!", description: `${MEAL_TYPE_LABELS[selectedMealType]} 기록이 저장되었습니다.` });
+    } catch (error) {
+      toast({ title: "저장 실패", description: "다시 시도해주세요", variant: "destructive" });
     }
-
-    setMealRecords(updatedRecords);
-    setRecords(updatedRecords);
-    resetFlow();
-    toast({ title: "저장 완료!", description: `${MEAL_TYPE_LABELS[selectedMealType]} 기록이 저장되었습니다.` });
   };
 
   // 플로우 리셋
@@ -228,18 +241,20 @@ export default function Nutrition() {
   };
 
   // 기록 삭제
-  const handleDeleteRecord = (id: string) => {
-    const updatedRecords = records.filter((r) => r.id !== id);
-    setMealRecords(updatedRecords);
-    setRecords(updatedRecords);
-    toast({ title: "삭제 완료" });
+  const handleDeleteRecord = async (id: string) => {
+    try {
+      await remove(id);
+      toast({ title: "삭제 완료" });
+    } catch (error) {
+      toast({ title: "삭제 실패", variant: "destructive" });
+    }
   };
 
   // 기록 수정
-  const handleEditRecord = (record: MealRecord) => {
+  const handleEditRecord = (record: MealRecordServer) => {
     setEditingRecord(record);
-    setSelectedMealType(record.mealType);
-    setUploadedImage(record.imageUrl || null);
+    setSelectedMealType(record.meal_type as MealType);
+    setUploadedImage(record.image_url || null);
     setAnalyzedFoods(
       record.foods.map((f) => ({
         ...f,
@@ -258,8 +273,32 @@ export default function Nutrition() {
 
   const isToday = isSameDay(selectedDate, new Date());
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 pb-24">
+      {/* 오프라인 배너 */}
+      {!isOnline && (
+        <div className="bg-yellow-100 dark:bg-yellow-900 border border-yellow-300 dark:border-yellow-700 rounded-xl p-3 flex items-center gap-2">
+          <WifiOff className="w-5 h-5 text-yellow-600" />
+          <span className="text-sm text-yellow-800 dark:text-yellow-200">오프라인 모드 - 데이터가 로컬에 임시 저장됩니다</span>
+        </div>
+      )}
+
+      {/* 동기화 중 표시 */}
+      {syncing && (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="w-4 h-4 animate-spin" />
+          <span>동기화 중...</span>
+        </div>
+      )}
+
       {/* Hidden inputs */}
       <input
         type="file"
@@ -402,7 +441,7 @@ export default function Nutrition() {
             ) : (
               <div className="space-y-3">
                 {(["breakfast", "lunch", "dinner", "snack"] as MealType[]).map((mealType) => {
-                  const mealRecords = todayRecords.filter((r) => r.mealType === mealType);
+                  const mealRecords = todayRecords.filter((r) => r.meal_type === mealType);
                   if (mealRecords.length === 0) return null;
                   
                   return (
@@ -416,9 +455,9 @@ export default function Nutrition() {
                           className="bg-card rounded-2xl border border-border p-4 mb-2"
                         >
                           <div className="flex gap-4">
-                            {record.imageUrl && (
+                            {record.image_url && (
                               <img
-                                src={record.imageUrl}
+                                src={record.image_url}
                                 alt="식사"
                                 className="w-20 h-20 rounded-xl object-cover"
                               />
@@ -452,7 +491,7 @@ export default function Nutrition() {
                                 </div>
                               </div>
                               <p className="text-lg font-bold mt-2 text-primary">
-                                총 {record.totalCalories} kcal
+                                총 {record.total_calories} kcal
                               </p>
                             </div>
                           </div>
@@ -498,9 +537,9 @@ export default function Nutrition() {
 
           {/* 식사 타입 */}
           <div>
-            <label className="text-sm font-medium mb-2 block">식사 종류</label>
+            <label className="text-sm font-medium text-muted-foreground">식사 종류</label>
             <Select value={selectedMealType} onValueChange={(v) => setSelectedMealType(v as MealType)}>
-              <SelectTrigger>
+              <SelectTrigger className="mt-1">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -513,178 +552,128 @@ export default function Nutrition() {
             </Select>
           </div>
 
-          {/* 분석된 음식 목록 */}
-          {analyzedFoods.map((food, index) => (
-            <div key={index} className="bg-card rounded-2xl border border-border p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <Input
-                  value={food.name}
-                  onChange={(e) => handleFoodEdit(index, "name", e.target.value)}
-                  className="font-semibold text-lg border-none p-0 h-auto focus-visible:ring-0"
-                />
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 text-destructive"
-                  onClick={() => handleFoodRemove(index)}
-                >
-                  <Trash2 className="w-4 h-4" />
-                </Button>
-              </div>
+          {/* 음식 목록 */}
+          <div className="space-y-4">
+            {analyzedFoods.map((food, index) => (
+              <div key={index} className="bg-card rounded-2xl border border-border p-4">
+                <div className="flex items-start justify-between mb-3">
+                  <Input
+                    value={food.name}
+                    onChange={(e) => handleFoodEdit(index, "name", e.target.value)}
+                    className="font-semibold text-lg border-0 p-0 h-auto focus-visible:ring-0"
+                  />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-destructive"
+                    onClick={() => handleFoodRemove(index)}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
 
-              {/* 양 선택 (필수) */}
-              <div>
-                <label className="text-sm text-muted-foreground mb-2 block">
-                  양 (필수) *
-                </label>
-                <div className="flex gap-2 flex-wrap">
-                  {food.portionOptions.map((opt) => (
-                    <Button
-                      key={opt}
-                      variant={food.portion === opt ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => handlePortionChange(index, opt)}
-                    >
-                      {opt}
-                    </Button>
-                  ))}
-                  <Input
-                    placeholder="직접 입력"
-                    className="w-24 h-9"
-                    value={food.portionOptions.includes(food.portion) ? "" : food.portion}
-                    onChange={(e) => handlePortionChange(index, e.target.value)}
-                  />
+                {/* 양 선택 */}
+                <div className="mb-3">
+                  <label className="text-sm text-muted-foreground">양</label>
+                  <div className="flex gap-2 mt-1">
+                    {food.portionOptions.map((opt) => (
+                      <Button
+                        key={opt}
+                        variant={food.portion === opt ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => handlePortionChange(index, opt)}
+                      >
+                        {opt}
+                      </Button>
+                    ))}
+                  </div>
                 </div>
-              </div>
 
-              {/* 영양 정보 수정 */}
-              <div className="grid grid-cols-4 gap-2">
-                <div>
-                  <label className="text-xs text-muted-foreground">칼로리</label>
-                  <Input
-                    type="number"
-                    value={food.calories}
-                    onChange={(e) => handleFoodEdit(index, "calories", Number(e.target.value))}
-                    className="h-9"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs text-muted-foreground">탄수화물</label>
-                  <Input
-                    type="number"
-                    value={food.carbs}
-                    onChange={(e) => handleFoodEdit(index, "carbs", Number(e.target.value))}
-                    className="h-9"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs text-muted-foreground">단백질</label>
-                  <Input
-                    type="number"
-                    value={food.protein}
-                    onChange={(e) => handleFoodEdit(index, "protein", Number(e.target.value))}
-                    className="h-9"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs text-muted-foreground">지방</label>
-                  <Input
-                    type="number"
-                    value={food.fat}
-                    onChange={(e) => handleFoodEdit(index, "fat", Number(e.target.value))}
-                    className="h-9"
-                  />
+                {/* 영양 정보 */}
+                <div className="grid grid-cols-4 gap-2 text-center text-sm">
+                  <div>
+                    <p className="text-muted-foreground">칼로리</p>
+                    <Input
+                      type="number"
+                      value={food.calories}
+                      onChange={(e) => handleFoodEdit(index, "calories", Number(e.target.value))}
+                      className="text-center h-8 mt-1"
+                    />
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">탄수화물</p>
+                    <Input
+                      type="number"
+                      value={food.carbs}
+                      onChange={(e) => handleFoodEdit(index, "carbs", Number(e.target.value))}
+                      className="text-center h-8 mt-1"
+                    />
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">단백질</p>
+                    <Input
+                      type="number"
+                      value={food.protein}
+                      onChange={(e) => handleFoodEdit(index, "protein", Number(e.target.value))}
+                      className="text-center h-8 mt-1"
+                    />
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">지방</p>
+                    <Input
+                      type="number"
+                      value={food.fat}
+                      onChange={(e) => handleFoodEdit(index, "fat", Number(e.target.value))}
+                      className="text-center h-8 mt-1"
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
-
-          <Button variant="outline" className="w-full" onClick={() => {
-            setAnalyzedFoods([...analyzedFoods, {
-              name: "새 음식",
-              portion: "",
-              portionOptions: PORTION_OPTIONS.default,
-              calories: 0,
-              carbs: 0,
-              protein: 0,
-              fat: 0,
-            }]);
-          }}>
-            + 음식 추가
-          </Button>
+            ))}
+          </div>
 
           <Button size="lg" className="w-full h-14" onClick={goToConfirm}>
-            다음: 확인하기
+            다음
           </Button>
         </div>
       )}
 
-      {/* 확인 단계 */}
+      {/* 최종 확인 */}
       {step === "confirm" && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold">최종 확인</h2>
+            <h2 className="text-xl font-semibold">기록 확인</h2>
             <Button variant="ghost" size="sm" onClick={() => setStep("portion")}>
-              <ChevronLeft className="w-4 h-4 mr-1" />
               수정
             </Button>
           </div>
 
           <div className="bg-card rounded-2xl border border-border p-4">
-            <div className="flex items-center gap-2 mb-4">
-              <span className="text-lg font-semibold">
-                {format(selectedDate, "M월 d일", { locale: ko })} {MEAL_TYPE_LABELS[selectedMealType]}
+            <p className="text-sm text-muted-foreground mb-2">
+              {MEAL_TYPE_LABELS[selectedMealType]} • {format(selectedDate, "M월 d일", { locale: ko })}
+            </p>
+            
+            {analyzedFoods.map((food, i) => (
+              <div key={i} className="flex justify-between py-2 border-b border-border last:border-0">
+                <span>{food.name} ({food.portion})</span>
+                <span className="font-semibold">{food.calories} kcal</span>
+              </div>
+            ))}
+            
+            <div className="flex justify-between pt-3 mt-2 border-t-2 border-border">
+              <span className="font-semibold">총 칼로리</span>
+              <span className="text-xl font-bold text-primary">
+                {analyzedFoods.reduce((sum, f) => sum + f.calories, 0)} kcal
               </span>
-            </div>
-
-            {uploadedImage && (
-              <img
-                src={uploadedImage}
-                alt="식사"
-                className="w-full h-40 object-cover rounded-xl mb-4"
-              />
-            )}
-
-            <div className="space-y-2 mb-4">
-              {analyzedFoods.map((f, i) => (
-                <div key={i} className="flex justify-between text-sm">
-                  <span>{f.name} ({f.portion})</span>
-                  <span className="font-medium">{f.calories} kcal</span>
-                </div>
-              ))}
-            </div>
-
-            <div className="border-t pt-3">
-              <div className="flex justify-between text-lg font-bold">
-                <span>총 칼로리</span>
-                <span className="text-primary">
-                  {analyzedFoods.reduce((sum, f) => sum + f.calories, 0)} kcal
-                </span>
-              </div>
-              <div className="flex justify-between text-sm text-muted-foreground mt-1">
-                <span>탄 / 단 / 지</span>
-                <span>
-                  {analyzedFoods.reduce((sum, f) => sum + f.carbs, 0)}g / 
-                  {analyzedFoods.reduce((sum, f) => sum + f.protein, 0)}g / 
-                  {analyzedFoods.reduce((sum, f) => sum + f.fat, 0)}g
-                </span>
-              </div>
             </div>
           </div>
 
           <div className="flex gap-3">
-            <Button
-              variant="outline"
-              size="lg"
-              className="flex-1 h-14"
-              onClick={resetFlow}
-            >
-              <X className="w-5 h-5 mr-2" />
+            <Button variant="outline" size="lg" className="flex-1 h-14" onClick={resetFlow}>
               취소
             </Button>
             <Button size="lg" className="flex-1 h-14" onClick={handleSave}>
-              <Check className="w-5 h-5 mr-2" />
-              저장하기
+              저장
             </Button>
           </div>
         </div>

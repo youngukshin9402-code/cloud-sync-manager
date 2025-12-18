@@ -381,11 +381,31 @@ export function useMealRecords() {
     }
   };
 
+  const remove = async (id: string) => {
+    if (!user) return { error: 'Not authenticated' };
+    setSyncing(true);
+    try {
+      const { error } = await supabase
+        .from('meal_records')
+        .delete()
+        .eq('id', id)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+      setData(prev => prev.filter(item => item.id !== id));
+      return { error: null };
+    } catch (error) {
+      return { error };
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   const getTodayCalories = (dateStr: string) => {
     return data.filter(r => r.date === dateStr).reduce((sum, r) => sum + r.total_calories, 0);
   };
 
-  return { data, loading, syncing, add, refetch: fetchFromServer, getTodayCalories };
+  return { data, loading, syncing, add, remove, refetch: fetchFromServer, getTodayCalories };
 }
 
 // ========================
