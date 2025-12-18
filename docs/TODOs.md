@@ -9,12 +9,12 @@
 
 | Phase | 진행률 | 상태 |
 |-------|--------|------|
-| 기반 구조 | 10% | 🟡 진행중 |
-| Phase 1 (의료양갱) | 0% | ⛔ 미시작 |
-| Phase 2 (영양/운동양갱) | 0% | ⛔ 미시작 |
-| Phase 3 (프리미엄/커머스) | 0% | ⛔ 미시작 |
-| 코치 대시보드 | 0% | ⛔ 미시작 |
-| 관리자 대시보드 | 0% | ⛔ 미시작 |
+| 기반 구조 | 70% | 🟡 진행중 |
+| Phase 1 (의료양갱) | 30% | 🟡 진행중 |
+| Phase 2 (영양/운동양갱) | 20% | 🟡 진행중 |
+| Phase 3 (프리미엄/커머스) | 10% | 🟡 진행중 |
+| 코치 대시보드 | 30% | 🟡 진행중 |
+| 관리자 대시보드 | 30% | 🟡 진행중 |
 
 ---
 
@@ -23,15 +23,70 @@
 ### 문서화
 | 기능 | Phase | 사용자 | 비고 |
 |------|-------|--------|------|
-| PRD 상세 문서 | - | All | docs/PRD.md |
+| PRD 상세 문서 | - | All | docs/PRD.md (v2.0 완성) |
 | TODO 관리 문서 | - | All | docs/TODOs.md |
+
+### 데이터베이스 (Lovable Cloud)
+| 기능 | Phase | 사용자 | 비고 |
+|------|-------|--------|------|
+| profiles 테이블 | 1 | All | 사용자 프로필 |
+| user_roles 테이블 | 1 | All | 역할 관리 (보안용 별도) |
+| guardian_connections 테이블 | 1 | User/Guardian | 보호자 연결 |
+| health_records 테이블 | 1 | User/Coach | 건강검진 데이터 |
+| daily_logs 테이블 | 2 | User | 일일 활동 기록 |
+| mission_templates 테이블 | 2 | User/Coach | 미션 설정 |
+| point_history 테이블 | 2 | User | 포인트 내역 |
+| coaching_sessions 테이블 | 3 | User/Coach | 코칭 세션 |
+| coach_availability 테이블 | 3 | Coach | 코치 가용 시간 |
+| products 테이블 | 3 | User/Admin | 커머스 상품 |
+| subscriptions 테이블 | 3 | User/Guardian | 구독 정보 |
+| has_role() 함수 | 1 | All | 역할 체크 (Security Definer) |
+| handle_new_user() 트리거 | 1 | All | 자동 프로필 생성 |
+| RLS 정책 전체 | 1-3 | All | 모든 테이블 권한 설정 완료 |
+
+### 인증 시스템
+| 기능 | Phase | 사용자 | 비고 |
+|------|-------|--------|------|
+| 이메일/비밀번호 로그인 | 1 | All | 구현 완료 |
+| 이메일/비밀번호 회원가입 | 1 | All | 구현 완료 |
+| 회원 유형 선택 | 1 | User/Guardian | 가입 시 선택 |
+| 자동 프로필 생성 | 1 | All | DB 트리거로 자동 |
+| 로그아웃 | 1 | All | 구현 완료 |
+| 이메일 자동 확인 | 1 | All | 설정 완료 |
 
 ### 프론트엔드 기반
 | 기능 | Phase | 사용자 | 비고 |
 |------|-------|--------|------|
 | 디자인 시스템 | - | All | 시니어 친화적 색상/폰트/간격 |
 | 랜딩 페이지 | - | All | 서비스 소개 페이지 |
-| 기본 컴포넌트 | - | All | Button, Card 등 커스텀 |
+| Button 컴포넌트 | - | All | 시니어 친화적 변형 추가 |
+| AuthContext | 1 | All | 인증 상태 관리 |
+| ProtectedRoute | 1 | All | 역할별 접근 제어 |
+| AppLayout | 1 | User/Guardian | 하단 네비게이션 포함 |
+
+### 고객 앱 페이지
+| 기능 | Phase | 사용자 | 비고 |
+|------|-------|--------|------|
+| 로그인/회원가입 페이지 | 1 | All | /auth |
+| 메인 대시보드 | 1 | User/Guardian | /dashboard |
+| 의료양갱 페이지 | 1 | User | /medical (UI만) |
+| 영양양갱 페이지 | 2 | User | /nutrition (UI만) |
+| 운동양갱 페이지 | 2 | User | /exercise (UI만) |
+| 프로필 페이지 | 1 | User/Guardian | /profile |
+| 하단 네비게이션 | 1 | User/Guardian | 5개 탭 |
+
+### 코치 대시보드
+| 기능 | Phase | 사용자 | 비고 |
+|------|-------|--------|------|
+| 코치 대시보드 메인 | 1 | Coach | /coach (UI만) |
+| 담당 회원 리스트 | 1 | Coach | 테이블 형태 |
+
+### 관리자 대시보드
+| 기능 | Phase | 사용자 | 비고 |
+|------|-------|--------|------|
+| 관리자 대시보드 메인 | 1 | Admin | /admin (UI만) |
+| 통계 요약 카드 | 1 | Admin | 회원/매출 등 |
+| 메뉴 그리드 | 1 | Admin | 6개 관리 메뉴 |
 
 ---
 
@@ -39,166 +94,129 @@
 
 | 기능 | Phase | 사용자 | 현재 상태 | 다음 액션 |
 |------|-------|--------|----------|----------|
-| 랜딩 페이지 | - | All | UI만 존재 | 실제 라우팅 연결, CTA 동작 구현 |
+| 의료양갱 | 1 | User | UI만 존재 | 이미지 업로드 + AI 분석 연동 |
+| 영양양갱 | 2 | User | UI만 존재 | 카메라 + AI 분석 연동 |
+| 운동양갱 | 2 | User | UI만 (로컬 상태) | DB 연동 + 포인트 시스템 |
+| 코치 대시보드 | 1 | Coach | Mock 데이터 | 실제 DB 연동 |
+| 관리자 대시보드 | 1 | Admin | Mock 데이터 | 실제 DB 연동 |
 
 ---
 
 ## ⛔ 미구현 (필수 작업)
 
-### 🔐 인증 시스템 (최우선)
+### 🔐 인증 추가 기능
 | 기능 | Phase | 사용자 | 다음 액션 |
 |------|-------|--------|----------|
-| Supabase 연동 | 1 | All | **Supabase 활성화 필요** |
-| 카카오 로그인 | 1 | All | Supabase Auth + Kakao Provider 설정 |
-| 전화번호 인증 | 1 | User | Supabase Phone Auth 또는 외부 SMS API |
-| 회원 유형 선택 | 1 | All | 가입 후 user_type 선택 화면 |
-| 로그아웃 | 1 | All | 세션 종료 처리 |
-
-### 📊 데이터베이스 (최우선)
-| 기능 | Phase | 사용자 | 다음 액션 |
-|------|-------|--------|----------|
-| profiles 테이블 | 1 | All | 마이그레이션 작성 |
-| user_roles 테이블 | 1 | All | 권한 관리용 별도 테이블 |
-| guardian_connections 테이블 | 1 | User/Guardian | 보호자 연결 |
-| health_records 테이블 | 1 | User/Coach | 건강검진 데이터 |
-| daily_logs 테이블 | 2 | User | 일일 활동 기록 |
-| mission_templates 테이블 | 2 | User/Coach | 미션 설정 |
-| point_history 테이블 | 2 | User | 포인트 내역 |
-| coaching_sessions 테이블 | 3 | User/Coach | 코칭 세션 |
-| products 테이블 | 3 | User/Admin | 커머스 상품 |
-| subscriptions 테이블 | 3 | User/Guardian | 구독 정보 |
-| RLS 정책 전체 | 1-3 | All | 각 테이블별 권한 설정 |
+| 카카오 로그인 | 1 | All | Kakao OAuth Provider 설정 필요 |
+| 전화번호 인증 | 1 | User | SMS API 연동 필요 |
 
 ### 👥 보호자 기능 (Phase 1)
 | 기능 | Phase | 사용자 | 다음 액션 |
 |------|-------|--------|----------|
-| 연결 코드 생성 | 1 | User | 6자리 코드 생성 로직 |
-| 연결 코드 입력 | 1 | Guardian | 코드 검증 및 연결 |
-| 부모 건강 리포트 열람 | 1 | Guardian | 연결된 부모 데이터 조회 |
+| 연결 코드 생성 | 1 | User | Edge Function 구현 |
+| 연결 코드 입력 | 1 | Guardian | 코드 검증 페이지 |
+| 부모 건강 리포트 열람 | 1 | Guardian | 연결된 부모 데이터 조회 UI |
 | 부모 미션 현황 확인 | 2 | Guardian | 미션 완료율 표시 |
 | 부모 프리미엄 대리 결제 | 3 | Guardian | 결제 API 연동 |
 
-### 📱 고객 앱 - 공통 (Phase 1)
+### 🏥 의료양갱 기능 (Phase 1)
 | 기능 | Phase | 사용자 | 다음 액션 |
 |------|-------|--------|----------|
-| 메인 대시보드 | 1 | User | 3개 양갱 + 오늘 할 일 요약 |
-| 하단 네비게이션 | 1 | User | 홈/의료/영양/운동/마이 탭 |
-| 프로필 페이지 | 1 | User | 닉네임, 포인트, 설정 |
-| 설정 페이지 | 1 | User | 알림, 보호자 연결, 로그아웃 |
-
-### 🏥 의료양갱 (Phase 1)
-| 기능 | Phase | 사용자 | 다음 액션 |
-|------|-------|--------|----------|
-| 건강검진 업로드 화면 | 1 | User | 카메라/갤러리 선택 UI |
 | 이미지 업로드 | 1 | User | Supabase Storage 연동 |
 | AI 분석 Edge Function | 1 | System | GPT-4o Vision API 연동 |
-| 분석 상태 표시 | 1 | User | "분석 중" → "검토 중" → "완료" |
-| 건강 리포트 화면 | 1 | User | 정상/주의/관리필요 표시 |
-| 건강 나이 계산 | 1 | System | 분석 결과 기반 계산 로직 |
+| 분석 상태 실시간 표시 | 1 | User | Realtime 구독 |
+| 코치 검토 페이지 | 1 | Coach | 검토 UI + 코멘트 작성 |
 | 카카오톡 공유 | 1 | User | Kakao SDK 연동 |
 
-### 🍽 영양양갱 (Phase 2)
+### 🍽 영양양갱 기능 (Phase 2)
 | 기능 | Phase | 사용자 | 다음 액션 |
 |------|-------|--------|----------|
-| 음식 사진 촬영 화면 | 2 | User | 카메라 UI |
+| 음식 사진 촬영 | 2 | User | 카메라 API 연동 |
 | 음식 AI 분석 | 2 | System | GPT-4o Vision 음식 인식 |
-| AI 피드백 표시 | 2 | User | 나트륨/칼로리 피드백 |
-| 식사 기록 목록 | 2 | User | 날짜별 기록 조회 |
+| 식사 기록 저장 | 2 | User | DB 연동 |
 
-### 🏃 운동양갱 (Phase 2)
+### 🏃 운동양갱 기능 (Phase 2)
 | 기능 | Phase | 사용자 | 다음 액션 |
 |------|-------|--------|----------|
-| 일일 미션 체크리스트 | 2 | User | 미션 목록 + 체크박스 |
-| 미션 완료 처리 | 2 | User | 원터치 완료 + 포인트 적립 |
-| 포인트 현황 | 2 | User | 오늘/누적 포인트 표시 |
-| 연속 달성 보너스 | 2 | System | 7일/30일 연속 보너스 |
-| 주간 요약 리포트 | 2 | User | 주간 활동 통계 화면 |
+| 미션 DB 연동 | 2 | User | mission_templates 조회 |
+| 미션 완료 저장 | 2 | User | daily_logs 저장 |
+| 포인트 적립 | 2 | User | point_history 저장 + 프로필 업데이트 |
+| 연속 달성 계산 | 2 | System | 연속일 계산 로직 |
+| 주간 요약 리포트 | 2 | User | 통계 쿼리 + UI |
 
 ### ⭐ 프리미엄 & 코칭 (Phase 3)
 | 기능 | Phase | 사용자 | 다음 액션 |
 |------|-------|--------|----------|
-| 프리미엄 안내 페이지 | 3 | User | 혜택 소개 UI |
+| 프리미엄 안내 페이지 | 3 | User | /premium 페이지 |
 | 구독 결제 | 3 | User/Guardian | PortOne 결제 연동 |
-| 결제 상태 관리 | 3 | System | 구독 만료 체크 |
-| 코치 일정 조회 | 3 | User | 가용 시간 목록 |
-| 코칭 예약 | 3 | User | 예약 생성 |
-| 예약 취소 | 3 | User | 예약 취소 처리 |
-| 영상통화 입장 | 3 | User/Coach | Agora SDK 연동 |
-| 세션 완료 처리 | 3 | Coach | 상태 변경 + 메모 |
+| 결제 상태 관리 | 3 | System | Webhook + 만료 체크 |
+| 코치 일정 조회 | 3 | User | coach_availability 조회 |
+| 코칭 예약 | 3 | User | coaching_sessions 생성 |
+| 영상통화 진입 | 3 | User/Coach | Agora SDK 연동 |
 
 ### 🛒 커머스 (Phase 3)
 | 기능 | Phase | 사용자 | 다음 액션 |
 |------|-------|--------|----------|
-| 상품 목록 페이지 | 3 | User | 추천 상품 표시 |
+| 상품 목록 페이지 | 3 | User | products 조회 |
 | 맞춤 추천 로직 | 3 | System | health_tags 매칭 |
-| 포인트 할인 적용 | 3 | User | 포인트 차감 + 할인 계산 |
-| 외부 구매 링크 연결 | 3 | User | purchase_link 이동 |
+| 포인트 할인 적용 | 3 | User | 포인트 차감 |
 
-### 👨‍⚕️ 코치 웹 대시보드
+### 👨‍⚕️ 코치 대시보드 상세
 | 기능 | Phase | 사용자 | 다음 액션 |
 |------|-------|--------|----------|
-| 코치 전용 라우트 | 1 | Coach | /coach/* 라우팅 |
-| 담당 회원 리스트 | 1 | Coach | 회원 목록 테이블 |
-| 회원 상세 페이지 | 1 | Coach | 건강 데이터 + 활동 현황 |
-| 건강검진 검토 | 1 | Coach | 분석 결과 확인 + 코멘트 |
-| 검토 승인/반려 | 1 | Coach | 상태 변경 |
-| 미션 설정 | 2 | Coach | 회원별 미션 커스텀 |
+| 실제 데이터 연동 | 1 | Coach | profiles/health_records 조회 |
+| 회원 상세 페이지 | 1 | Coach | /coach/user/:id |
+| 건강검진 검토 | 1 | Coach | 상태 변경 + 코멘트 |
+| 미션 설정 | 2 | Coach | mission_templates 수정 |
 | 영상통화 시작 | 3 | Coach | Agora 룸 생성 |
-| 세션 메모 작성 | 3 | Coach | 코칭 내용 기록 |
 
-### 🔧 관리자 웹 대시보드
+### 🔧 관리자 대시보드 상세
 | 기능 | Phase | 사용자 | 다음 액션 |
 |------|-------|--------|----------|
-| 관리자 전용 라우트 | 1 | Admin | /admin/* 라우팅 |
-| 대시보드 메인 | 1 | Admin | 주요 지표 요약 |
-| 전체 사용자 관리 | 1 | Admin | 사용자 CRUD |
-| 코치 계정 관리 | 1 | Admin | 코치 생성/수정 |
-| 코치-회원 배정 | 1 | Admin | assigned_coach_id 설정 |
-| 건강검진 최종 승인 | 1 | Admin | 관리자 승인 플로우 |
-| 상품 관리 | 3 | Admin | 상품 CRUD |
-| 포인트 정책 관리 | 2 | Admin | 적립 기준 설정 |
-| 통계 대시보드 | 1 | Admin | 가입자/매출/활동률 차트 |
+| 사용자 관리 페이지 | 1 | Admin | /admin/users |
+| 코치 계정 관리 | 1 | Admin | /admin/coaches |
+| 건강검진 최종 승인 | 1 | Admin | /admin/health-records |
+| 상품 관리 | 3 | Admin | /admin/products |
+| 포인트 정책 관리 | 2 | Admin | /admin/points |
+| 통계 대시보드 | 1 | Admin | /admin/stats |
 
 ### 📲 모바일 앱 배포
 | 기능 | Phase | 사용자 | 다음 액션 |
 |------|-------|--------|----------|
 | PWA 설정 | 1 | User | vite-plugin-pwa 설정 |
-| Capacitor 설정 | 1 | User | iOS/Android 빌드 준비 |
-| 앱 아이콘/스플래시 | 1 | User | 이미지 에셋 생성 |
+| Capacitor 설정 | 1 | User | iOS/Android 빌드 |
 
 ---
 
-## 📋 우선순위 작업 목록
+## 📋 다음 단계 우선순위
 
-### 🔴 즉시 필요 (이번 세션)
-1. **Supabase 활성화** - 모든 기능의 전제조건
-2. **DB 스키마 생성** - profiles, user_roles, health_records 등
-3. **인증 시스템** - 카카오 로그인 + 회원 유형 분기
-4. **기본 라우팅** - 고객/코치/관리자 페이지 분리
+### 🔴 즉시 필요
+1. **의료양갱 이미지 업로드** - Storage 연동
+2. **의료양갱 AI 분석** - Edge Function + GPT-4o Vision
+3. **보호자 연결 기능** - 연결 코드 생성/입력
 
-### 🟡 다음 단계 (Phase 1 완료)
-1. 보호자 연결 기능
-2. 건강검진 업로드 + AI 분석
-3. 건강 리포트 화면
-4. 코치 대시보드 기본
+### 🟡 Phase 1 완료 목표
+1. 코치 대시보드 실제 데이터 연동
+2. 건강검진 검토 기능
+3. 카카오 로그인 (선택)
 
-### 🟢 이후 단계 (Phase 2-3)
-1. 영양/운동양갱 기능
-2. 포인트 시스템
+### 🟢 이후 단계
+1. 영양/운동양갱 DB 연동
+2. 포인트 시스템 완성
 3. 프리미엄 결제
 4. 영상 코칭
-5. 커머스
 
 ---
 
 ## 📝 기술 의사결정 필요
 
-| 항목 | 옵션 | 결정 |
-|------|------|------|
+| 항목 | 옵션 | 결정 상태 |
+|------|------|----------|
 | 모바일 앱 방식 | PWA vs Capacitor | 미정 |
 | 영상통화 SDK | Agora vs Twilio vs Daily.co | 미정 |
 | 결제 PG | PortOne (Toss) vs 직접연동 | 미정 |
 | SMS 인증 | Supabase Phone vs 외부(알리고 등) | 미정 |
+| AI 서비스 | Lovable AI vs OpenAI 직접 | Lovable AI 권장 |
 
 ---
 
@@ -206,4 +224,5 @@
 
 | 날짜 | 내용 |
 |------|------|
-| 2024-XX-XX | 초기 문서 작성, PRD v2.0 완성 |
+| 2024-XX-XX | 초기 문서 작성 |
+| 2024-XX-XX | PRD v2.0 완성, DB 스키마 구현, 기본 앱 구조 완성 |
