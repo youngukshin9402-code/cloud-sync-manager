@@ -156,6 +156,22 @@ export default function RefundPolicy() {
           </p>
         </section>
 
+        {/* 관련 정책 링크 */}
+        <section className="bg-muted/50 rounded-2xl p-4 space-y-3">
+          <p className="text-sm font-medium">관련 정책</p>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" size="sm" asChild>
+              <Link to="/terms">이용약관</Link>
+            </Button>
+            <Button variant="outline" size="sm" asChild>
+              <Link to="/privacy">개인정보 처리방침</Link>
+            </Button>
+            <Button variant="outline" size="sm" asChild>
+              <Link to="/health-privacy">건강정보 처리 고지</Link>
+            </Button>
+          </div>
+        </section>
+
         <div className="text-center text-sm text-muted-foreground pt-6 border-t border-border">
           <p>본 환불 정책은 2025년 1월 1일부터 시행됩니다.</p>
         </div>

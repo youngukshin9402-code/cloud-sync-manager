@@ -41,13 +41,38 @@ export default function Auth() {
   useEffect(() => {
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === "SIGNED_IN" && session) {
         toast({
           title: "환영합니다!",
           description: "로그인에 성공했어요.",
         });
-        navigate(from, { replace: true });
+        
+        // 역할 확인 후 적절한 페이지로 리다이렉트
+        setTimeout(async () => {
+          // admin 이메일 패턴 체크
+          const isAdminEmail = /^admin@s23270351.*\.com$/.test(session.user.email || "");
+          
+          // user_roles 테이블에서 admin 역할 확인
+          const { data: roles } = await supabase
+            .from("user_roles")
+            .select("role")
+            .eq("user_id", session.user.id);
+          
+          const hasAdminRole = roles?.some(r => r.role === "admin");
+          
+          if (isAdminEmail || hasAdminRole) {
+            navigate("/admin/dashboard", { replace: true });
+          } else {
+            // coach 역할 체크
+            const hasCoachRole = roles?.some(r => r.role === "coach");
+            if (hasCoachRole) {
+              navigate("/coach/dashboard", { replace: true });
+            } else {
+              navigate(from, { replace: true });
+            }
+          }
+        }, 0);
       }
     });
 
@@ -86,7 +111,7 @@ export default function Auth() {
     e.preventDefault();
     setLoading(true);
 
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
@@ -100,13 +125,34 @@ export default function Auth() {
             : "다시 시도해주세요.",
         variant: "destructive",
       });
+      setLoading(false);
+      return;
+    }
+    
+    toast({
+      title: "환영합니다!",
+      description: "로그인에 성공했어요.",
+    });
+
+    // 역할 확인 후 적절한 페이지로 리다이렉트
+    const isAdminEmail = /^admin@s23270351.*\.com$/.test(email);
+    
+    const { data: roles } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", data.user.id);
+    
+    const hasAdminRole = roles?.some(r => r.role === "admin");
+    const hasCoachRole = roles?.some(r => r.role === "coach");
+    
+    if (isAdminEmail || hasAdminRole) {
+      navigate("/admin/dashboard", { replace: true });
+    } else if (hasCoachRole) {
+      navigate("/coach/dashboard", { replace: true });
     } else {
-      toast({
-        title: "환영합니다!",
-        description: "로그인에 성공했어요.",
-      });
       navigate(from, { replace: true });
     }
+    
     setLoading(false);
   };
 

@@ -105,9 +105,25 @@ export default function HealthPrivacy() {
           </div>
         </section>
 
+        {/* 관련 정책 링크 */}
+        <section className="bg-muted/50 rounded-xl p-4 space-y-3">
+          <p className="text-sm font-medium">관련 정책</p>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" size="sm" asChild>
+              <Link to="/terms">이용약관</Link>
+            </Button>
+            <Button variant="outline" size="sm" asChild>
+              <Link to="/privacy">개인정보 처리방침</Link>
+            </Button>
+            <Button variant="outline" size="sm" asChild>
+              <Link to="/refund-policy">환불정책</Link>
+            </Button>
+          </div>
+        </section>
+
         <div className="text-center text-sm text-muted-foreground pt-6 border-t border-border">
           <p>문의: support@yanggaeng.kr</p>
-          <p className="mt-1">본 고지는 2024년 12월 1일부터 시행됩니다.</p>
+          <p className="mt-1">본 고지는 2025년 1월 1일부터 시행됩니다.</p>
         </div>
       </div>
     </div>

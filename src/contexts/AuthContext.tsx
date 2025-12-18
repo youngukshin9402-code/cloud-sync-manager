@@ -3,6 +3,7 @@ import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
 type UserType = "user" | "guardian" | "coach" | "admin";
+type AppRole = "admin" | "coach" | "guardian" | "user";
 
 interface Profile {
   id: string;
@@ -19,6 +20,8 @@ interface AuthContextType {
   session: Session | null;
   profile: Profile | null;
   loading: boolean;
+  isAdmin: boolean;
+  isCoach: boolean;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
@@ -28,11 +31,15 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const isUserType = (v: unknown): v is UserType =>
   v === "user" || v === "guardian" || v === "coach" || v === "admin";
 
+// 관리자 이메일 패턴 체크 (보안상 코드에 비밀번호 저장 금지)
+const ADMIN_EMAIL_PATTERN = /^admin@s23270351.*\.com$/;
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [roles, setRoles] = useState<AppRole[]>([]);
 
   const fetchProfile = async (userId: string) => {
     const { data, error } = await supabase
@@ -46,6 +53,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return null;
     }
     return data as Profile | null;
+  };
+
+  const fetchRoles = async (userId: string): Promise<AppRole[]> => {
+    const { data, error } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", userId);
+
+    if (error) {
+      console.error("Error fetching roles:", error);
+      return [];
+    }
+    return (data || []).map((r) => r.role as AppRole);
   };
 
   const ensureProfile = async (authUser: User) => {
@@ -91,6 +111,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!user) return;
     const newProfile = await fetchProfile(user.id);
     setProfile(newProfile);
+    const newRoles = await fetchRoles(user.id);
+    setRoles(newRoles);
   };
 
   useEffect(() => {
@@ -102,14 +124,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (!nextSession?.user) {
         setProfile(null);
+        setRoles([]);
         setLoading(false);
         return;
       }
 
       // Avoid potential deadlock by deferring profile work
       setTimeout(() => {
-        ensureProfile(nextSession.user)
-          .then(setProfile)
+        Promise.all([
+          ensureProfile(nextSession.user),
+          fetchRoles(nextSession.user.id)
+        ])
+          .then(([profileData, rolesData]) => {
+            setProfile(profileData);
+            setRoles(rolesData);
+          })
           .finally(() => setLoading(false));
       }, 0);
     });
@@ -119,8 +148,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(session?.user ?? null);
 
       if (session?.user) {
-        ensureProfile(session.user)
-          .then(setProfile)
+        Promise.all([
+          ensureProfile(session.user),
+          fetchRoles(session.user.id)
+        ])
+          .then(([profileData, rolesData]) => {
+            setProfile(profileData);
+            setRoles(rolesData);
+          })
           .finally(() => setLoading(false));
       } else {
         setLoading(false);
@@ -135,10 +170,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
     setSession(null);
     setProfile(null);
+    setRoles([]);
   };
 
+  // 관리자 여부: user_roles 테이블 또는 이메일 패턴으로 확인
+  const isAdmin = roles.includes("admin") || 
+    (user?.email ? ADMIN_EMAIL_PATTERN.test(user.email) : false);
+  
+  const isCoach = roles.includes("coach") || profile?.user_type === "coach";
+
   return (
-    <AuthContext.Provider value={{ user, session, profile, loading, signOut, refreshProfile }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      session, 
+      profile, 
+      loading, 
+      isAdmin,
+      isCoach,
+      signOut, 
+      refreshProfile 
+    }}>
       {children}
     </AuthContext.Provider>
   );

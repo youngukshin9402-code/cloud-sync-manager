@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useCoachData } from "@/hooks/useCoachData";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { CoachFeedbackForm } from "@/components/CoachFeedbackForm";
 import {
   Users,
   Search,
@@ -12,6 +13,7 @@ import {
   FileText,
   AlertCircle,
   Clock,
+  MessageSquare,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -20,6 +22,8 @@ export default function CoachDashboard() {
   const navigate = useNavigate();
   const { assignedUsers, pendingReviews, todaySessions, loading } = useCoachData();
   const [searchQuery, setSearchQuery] = useState("");
+  const [feedbackUserId, setFeedbackUserId] = useState<string | null>(null);
+  const [feedbackUserNickname, setFeedbackUserNickname] = useState<string>("");
 
   const filteredUsers = assignedUsers.filter((user) =>
     user.nickname?.toLowerCase().includes(searchQuery.toLowerCase())
@@ -49,6 +53,11 @@ export default function CoachDashboard() {
       default:
         return "-";
     }
+  };
+
+  const openFeedbackForm = (userId: string, nickname: string) => {
+    setFeedbackUserId(userId);
+    setFeedbackUserNickname(nickname || "사용자");
   };
 
   if (loading) {
@@ -139,6 +148,16 @@ export default function CoachDashboard() {
               검토하기
             </Button>
           </div>
+        )}
+
+        {/* 피드백 작성 폼 */}
+        {feedbackUserId && (
+          <CoachFeedbackForm
+            userId={feedbackUserId}
+            userNickname={feedbackUserNickname}
+            onSuccess={() => setFeedbackUserId(null)}
+            onCancel={() => setFeedbackUserId(null)}
+          />
         )}
 
         {/* 회원 리스트 */}
@@ -233,6 +252,13 @@ export default function CoachDashboard() {
                             onClick={() => navigate(`/coach/user/${user.id}`)}
                           >
                             상세
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => openFeedbackForm(user.id, user.nickname || "")}
+                          >
+                            <MessageSquare className="w-4 h-4" />
                           </Button>
                           <Button
                             variant="default"

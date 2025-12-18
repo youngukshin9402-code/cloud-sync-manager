@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Shield, Database, Lock, Trash2 } from "lucide-react";
+import { ArrowLeft, Shield, Database, Lock, Trash2, FileText } from "lucide-react";
 
 export default function Privacy() {
   return (
@@ -79,9 +79,29 @@ export default function Privacy() {
             <h2 className="text-lg font-semibold">데이터 삭제</h2>
           </div>
           <p className="text-muted-foreground">
-            회원 탈퇴 시 모든 개인정보가 즉시 삭제됩니다.
+            회원 탈퇴 시 모든 개인정보가 삭제됩니다. 단, 전자상거래법에 따라 
+            결제 관련 기록은 5년간 보관됩니다.
             마이페이지 &gt; 회원탈퇴에서 진행할 수 있습니다.
           </p>
+        </section>
+
+        {/* 관련 페이지 링크 */}
+        <section className="bg-muted/50 rounded-2xl p-5 space-y-3">
+          <div className="flex items-center gap-2 mb-2">
+            <FileText className="w-4 h-4 text-muted-foreground" />
+            <span className="font-medium">관련 정책</span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" size="sm" asChild>
+              <Link to="/terms">이용약관</Link>
+            </Button>
+            <Button variant="outline" size="sm" asChild>
+              <Link to="/health-privacy">건강정보 처리 고지</Link>
+            </Button>
+            <Button variant="outline" size="sm" asChild>
+              <Link to="/refund-policy">환불정책</Link>
+            </Button>
+          </div>
         </section>
 
         {/* 문의 */}

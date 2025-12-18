@@ -1,4 +1,4 @@
-import { Navigate, useLocation, Link } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserConsent } from "@/hooks/useUserConsent";
 import { Loader2 } from "lucide-react";
@@ -14,7 +14,7 @@ export function ProtectedRoute({
   allowedTypes,
   requireConsent = true 
 }: ProtectedRouteProps) {
-  const { user, profile, loading: authLoading } = useAuth();
+  const { user, profile, loading: authLoading, isAdmin, isCoach } = useAuth();
   const { hasRequiredConsents, loading: consentLoading } = useUserConsent();
   const location = useLocation();
 
@@ -37,23 +37,47 @@ export function ProtectedRoute({
     return <Navigate to="/auth" state={{ from: location }} replace />;
   }
 
+  // user는 있지만 profile이 null인 경우 - 오류 복구 페이지로 이동
+  if (!profile) {
+    // 로그아웃 후 다시 로그인하도록 유도
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-6">
+        <div className="text-center max-w-md">
+          <h2 className="text-xl font-bold text-foreground mb-4">프로필 로드 오류</h2>
+          <p className="text-muted-foreground mb-6">
+            프로필 정보를 불러오는 데 문제가 발생했습니다. 
+            로그아웃 후 다시 로그인해주세요.
+          </p>
+          <button
+            onClick={() => window.location.href = "/auth"}
+            className="bg-primary text-primary-foreground px-6 py-3 rounded-xl font-medium"
+          >
+            로그인 페이지로 이동
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   // Check consent (only for user/guardian types)
-  if (requireConsent && profile && ['user', 'guardian'].includes(profile.user_type)) {
+  if (requireConsent && ['user', 'guardian'].includes(profile.user_type)) {
     if (!hasRequiredConsents) {
       return <Navigate to="/consent" state={{ from: location }} replace />;
     }
   }
 
-  // Check profile completion (nickname required)
-  if (profile && !profile.nickname) {
-    // Could redirect to profile setup page if needed
-    // For now, allow access but this could be expanded
-  }
+  // 권한 체크 (allowedTypes 기반)
+  if (allowedTypes) {
+    // admin은 isAdmin으로 체크, coach는 isCoach로 체크
+    const hasAccess = allowedTypes.some(type => {
+      if (type === 'admin') return isAdmin;
+      if (type === 'coach') return isCoach;
+      return profile.user_type === type;
+    });
 
-  // 권한 체크
-  if (allowedTypes && profile && !allowedTypes.includes(profile.user_type)) {
-    // Redirect to /forbidden instead of showing inline error
-    return <Navigate to="/forbidden" replace />;
+    if (!hasAccess) {
+      return <Navigate to="/forbidden" replace />;
+    }
   }
 
   return <>{children}</>;
