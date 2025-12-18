@@ -26,9 +26,11 @@ import {
   Camera,
   X,
   WifiOff,
+  CloudOff,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useGymRecords, GymRecordServer, GymExercise, GymSet } from "@/hooks/useServerSync";
+import { usePendingQueue } from "@/hooks/usePendingQueue";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -58,7 +60,8 @@ export default function Exercise() {
   const machineInputRef = useRef<HTMLInputElement>(null);
 
   // 서버 동기화 훅 사용
-  const { data: gymRecords, loading, syncing, add, update, refetch } = useGymRecords();
+  const { data: gymRecords, loading, syncing, add, addOffline, update, refetch } = useGymRecords();
+  const { pendingCount, isSyncing: pendingSyncing, addToPending, syncPending } = usePendingQueue();
   
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [showCalendar, setShowCalendar] = useState(false);
@@ -80,16 +83,23 @@ export default function Exercise() {
   const isToday = isSameDay(selectedDate, new Date());
   const todayStr = format(new Date(), "yyyy-MM-dd");
 
-  // 온라인/오프라인 상태 감지
+  // 온라인/오프라인 상태 감지 및 자동 동기화
   useEffect(() => {
-    const handleOnline = () => {
+    const handleOnline = async () => {
       setIsOnline(true);
-      refetch();
       toast({ title: "온라인 복귀", description: "데이터를 동기화합니다." });
+      
+      // Sync pending items first
+      const result = await syncPending();
+      if (result.success > 0) {
+        toast({ title: "동기화 완료", description: `${result.success}개 기록이 서버에 업로드되었습니다.` });
+      }
+      
+      refetch();
     };
     const handleOffline = () => {
       setIsOnline(false);
-      toast({ title: "오프라인 모드", description: "인터넷 연결을 확인해주세요.", variant: "destructive" });
+      toast({ title: "오프라인 모드", description: "데이터가 로컬에 임시 저장됩니다.", variant: "destructive" });
     };
 
     window.addEventListener('online', handleOnline);
@@ -98,7 +108,7 @@ export default function Exercise() {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
-  }, [refetch, toast]);
+  }, [refetch, toast, syncPending]);
 
   // 미션 로드 (mission_templates + daily_logs)
   useEffect(() => {
@@ -334,36 +344,64 @@ export default function Exercise() {
       return;
     }
 
+    if (!user) {
+      toast({ title: "로그인이 필요합니다", variant: "destructive" });
+      return;
+    }
+
     try {
       const existingRecord = gymRecords.find((r) => r.date === dateStr);
 
-      if (existingRecord) {
-        let newExercises: GymExercise[];
-        
-        if (editingExerciseId) {
-          // 수정
-          newExercises = existingRecord.exercises.map((ex) =>
-            ex.id === editingExerciseId ? currentExercise : ex
-          );
+      if (isOnline) {
+        // 온라인: 서버에 직접 저장
+        if (existingRecord) {
+          let newExercises: GymExercise[];
+          
+          if (editingExerciseId) {
+            newExercises = existingRecord.exercises.map((ex) =>
+              ex.id === editingExerciseId ? currentExercise : ex
+            );
+          } else {
+            newExercises = [...existingRecord.exercises, currentExercise];
+          }
+          
+          await update(existingRecord.id, newExercises);
         } else {
-          // 추가
-          newExercises = [...existingRecord.exercises, currentExercise];
+          await add({
+            date: dateStr,
+            exercises: [currentExercise],
+          });
         }
-        
-        await update(existingRecord.id, newExercises);
+        toast({ title: "운동 기록 저장 완료!" });
       } else {
-        // 새 기록 생성
-        await add({
+        // 오프라인: pending queue에 저장 및 로컬 캐시에 추가
+        const localId = addToPending('gym_record', {
+          user_id: user.id,
           date: dateStr,
-          exercises: [currentExercise],
+          exercises: existingRecord 
+            ? [...existingRecord.exercises, currentExercise]
+            : [currentExercise],
+        });
+        
+        // 로컬 UI 업데이트
+        addOffline({
+          date: dateStr,
+          exercises: existingRecord 
+            ? [...existingRecord.exercises, currentExercise]
+            : [currentExercise],
+        }, localId);
+        
+        toast({ 
+          title: "로컬에 저장됨", 
+          description: "온라인 복귀 시 자동으로 서버에 업로드됩니다." 
         });
       }
 
       setCurrentExercise(null);
       setShowAddExercise(false);
       setEditingExerciseId(null);
-      toast({ title: "운동 기록 저장 완료!" });
     } catch (error) {
+      console.error('Save error:', error);
       toast({ title: "저장 실패", description: "다시 시도해주세요", variant: "destructive" });
     }
   };
@@ -439,8 +477,25 @@ export default function Exercise() {
         </div>
       )}
 
+      {/* 대기 중인 업로드 표시 */}
+      {pendingCount > 0 && (
+        <div className="bg-blue-100 dark:bg-blue-900 border border-blue-300 dark:border-blue-700 rounded-xl p-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <CloudOff className="w-5 h-5 text-blue-600" />
+            <span className="text-sm text-blue-800 dark:text-blue-200">
+              {pendingCount}개 기록이 서버 업로드 대기 중
+            </span>
+          </div>
+          {isOnline && !pendingSyncing && (
+            <Button variant="ghost" size="sm" onClick={syncPending}>
+              지금 동기화
+            </Button>
+          )}
+        </div>
+      )}
+
       {/* 동기화 중 표시 */}
-      {syncing && (
+      {(syncing || pendingSyncing) && (
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Loader2 className="w-4 h-4 animate-spin" />
           <span>동기화 중...</span>
