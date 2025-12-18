@@ -36,7 +36,7 @@ export default function Profile() {
     {
       icon: Link2,
       label: isGuardian ? "연결된 가족" : "보호자 연결",
-      path: "/profile/connect",
+      path: "/guardian",
     },
     {
       icon: Crown,

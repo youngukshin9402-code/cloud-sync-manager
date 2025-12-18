@@ -1,24 +1,75 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Heart, ArrowLeft, User, Users } from "lucide-react";
+import { Heart, ArrowLeft, User, Users, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
-type AuthMode = "login" | "signup" | "select-type";
+type AuthMode = "login" | "signup";
 type UserType = "user" | "guardian";
+
+// Kakao icon component
+const KakaoIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M12 3C6.48 3 2 6.48 2 10.8c0 2.88 1.92 5.4 4.8 6.84-.21.78-.78 2.82-.89 3.27-.14.54.2.53.42.39.17-.11 2.73-1.85 3.84-2.6.59.09 1.21.14 1.83.14 5.52 0 10-3.48 10-7.8S17.52 3 12 3z" />
+  </svg>
+);
 
 export default function Auth() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [mode, setMode] = useState<AuthMode>("login");
   const [loading, setLoading] = useState(false);
+  const [kakaoLoading, setKakaoLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [nickname, setNickname] = useState("");
   const [selectedUserType, setSelectedUserType] = useState<UserType>("user");
+
+  // Check for auth state changes (for OAuth callbacks)
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_IN" && session) {
+        toast({
+          title: "환영합니다!",
+          description: "로그인에 성공했어요.",
+        });
+        navigate("/dashboard");
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [navigate, toast]);
+
+  const handleKakaoLogin = async () => {
+    setKakaoLoading(true);
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "kakao",
+        options: {
+          redirectTo: `${window.location.origin}/dashboard`,
+        },
+      });
+
+      if (error) {
+        toast({
+          title: "카카오 로그인 실패",
+          description: "다시 시도해주세요.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "오류 발생",
+        description: "다시 시도해주세요.",
+        variant: "destructive",
+      });
+    } finally {
+      setKakaoLoading(false);
+    }
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -133,6 +184,35 @@ export default function Auth() {
     </div>
   );
 
+  const SocialLoginButtons = () => (
+    <div className="space-y-4">
+      <div className="relative">
+        <div className="absolute inset-0 flex items-center">
+          <span className="w-full border-t border-border" />
+        </div>
+        <div className="relative flex justify-center text-sm">
+          <span className="bg-card px-4 text-muted-foreground">또는</span>
+        </div>
+      </div>
+
+      <Button
+        type="button"
+        variant="outline"
+        size="lg"
+        className="w-full h-14 text-lg bg-[#FEE500] hover:bg-[#FDD835] text-[#3C1E1E] border-none"
+        onClick={handleKakaoLogin}
+        disabled={kakaoLoading}
+      >
+        {kakaoLoading ? (
+          <Loader2 className="w-5 h-5 animate-spin" />
+        ) : (
+          <KakaoIcon />
+        )}
+        <span className="ml-2">카카오로 시작하기</span>
+      </Button>
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-6">
       <div className="w-full max-w-md">
@@ -150,42 +230,45 @@ export default function Auth() {
         {/* 폼 */}
         <div className="bg-card rounded-3xl p-8 shadow-card border border-border">
           {mode === "login" ? (
-            <form onSubmit={handleLogin} className="space-y-6">
-              <div className="space-y-2">
-                <Label htmlFor="email" className="text-lg">이메일</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="email@example.com"
-                  required
-                  className="h-14 text-lg"
-                />
-              </div>
+            <div className="space-y-6">
+              <form onSubmit={handleLogin} className="space-y-6">
+                <div className="space-y-2">
+                  <Label htmlFor="email" className="text-lg">이메일</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="email@example.com"
+                    required
+                    className="h-14 text-lg"
+                  />
+                </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="password" className="text-lg">비밀번호</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="비밀번호를 입력하세요"
-                  required
-                  className="h-14 text-lg"
-                />
-              </div>
+                <div className="space-y-2">
+                  <Label htmlFor="password" className="text-lg">비밀번호</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="비밀번호를 입력하세요"
+                    required
+                    className="h-14 text-lg"
+                  />
+                </div>
 
-              <Button
-                type="submit"
-                disabled={loading}
-                className="w-full"
-                size="touch-lg"
-                variant="yanggaeng"
-              >
-                {loading ? "로그인 중..." : "로그인"}
-              </Button>
+                <Button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full"
+                  size="lg"
+                >
+                  {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : "로그인"}
+                </Button>
+              </form>
+
+              <SocialLoginButtons />
 
               <div className="text-center">
                 <button
@@ -196,7 +279,7 @@ export default function Auth() {
                   계정이 없으신가요? <span className="font-semibold">회원가입</span>
                 </button>
               </div>
-            </form>
+            </div>
           ) : (
             <form onSubmit={handleSignup} className="space-y-6">
               <button
@@ -254,11 +337,12 @@ export default function Auth() {
                 type="submit"
                 disabled={loading}
                 className="w-full"
-                size="touch-lg"
-                variant="yanggaeng"
+                size="lg"
               >
-                {loading ? "가입 중..." : "회원가입"}
+                {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : "회원가입"}
               </Button>
+
+              <SocialLoginButtons />
             </form>
           )}
         </div>

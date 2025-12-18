@@ -13,6 +13,7 @@ import Medical from "./pages/Medical";
 import Nutrition from "./pages/Nutrition";
 import Exercise from "./pages/Exercise";
 import Profile from "./pages/Profile";
+import Guardian from "./pages/Guardian";
 import NotFound from "./pages/NotFound";
 
 // Coach Pages
@@ -77,6 +78,7 @@ function AppRoutes() {
         <Route path="/medical" element={<Medical />} />
         <Route path="/nutrition" element={<Nutrition />} />
         <Route path="/exercise" element={<Exercise />} />
+        <Route path="/guardian" element={<Guardian />} />
         <Route path="/profile" element={<Profile />} />
       </Route>
 

@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Camera,
@@ -10,10 +10,19 @@ import {
   Loader2,
   ChevronRight,
   History,
+  Share2,
+  MessageCircle,
 } from "lucide-react";
 import { useHealthRecords, HealthRecord, HealthRecordItem } from "@/hooks/useHealthRecords";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
+import { toast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 function StatusBadge({ status }: { status: "normal" | "warning" | "danger" }) {
   const styles = {
@@ -107,6 +116,7 @@ function RecordCard({
 
 export default function Medical() {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [showShareDialog, setShowShareDialog] = useState(false);
   const {
     records,
     currentRecord,
@@ -115,6 +125,72 @@ export default function Medical() {
     uploadHealthCheckup,
     setCurrentRecord,
   } = useHealthRecords();
+
+  const handleShareToKakao = () => {
+    if (!currentRecord?.parsed_data) return;
+
+    const healthAge = currentRecord.health_age;
+    const summary = currentRecord.parsed_data.summary || "건강검진 결과가 도착했어요!";
+
+    // Check if Kakao SDK is available
+    if (typeof window !== "undefined" && (window as any).Kakao) {
+      const Kakao = (window as any).Kakao;
+      
+      if (!Kakao.isInitialized()) {
+        // In production, you would initialize with your app key
+        toast.error("카카오 SDK가 초기화되지 않았어요. 관리자에게 문의해주세요.");
+        return;
+      }
+
+      Kakao.Share.sendDefault({
+        objectType: "feed",
+        content: {
+          title: "건강양갱 - 건강검진 결과",
+          description: healthAge 
+            ? `건강나이: ${healthAge}세\n${summary.slice(0, 50)}...` 
+            : summary.slice(0, 100),
+          imageUrl: "https://your-domain.com/og-image.png", // Replace with actual image
+          link: {
+            mobileWebUrl: window.location.origin,
+            webUrl: window.location.origin,
+          },
+        },
+        buttons: [
+          {
+            title: "자세히 보기",
+            link: {
+              mobileWebUrl: window.location.origin,
+              webUrl: window.location.origin,
+            },
+          },
+        ],
+      });
+    } else {
+      // Fallback: Copy to clipboard
+      const shareText = healthAge
+        ? `[건강양갱] 건강검진 결과\n건강나이: ${healthAge}세\n${summary}`
+        : `[건강양갱] 건강검진 결과\n${summary}`;
+
+      navigator.clipboard.writeText(shareText);
+      toast.success("공유 내용이 복사되었어요! 카카오톡에 붙여넣기 해주세요.");
+    }
+    setShowShareDialog(false);
+  };
+
+  const handleShareCopy = () => {
+    if (!currentRecord?.parsed_data) return;
+
+    const healthAge = currentRecord.health_age;
+    const summary = currentRecord.parsed_data.summary || "";
+
+    const shareText = healthAge
+      ? `[건강양갱] 건강검진 결과\n건강나이: ${healthAge}세\n${summary}`
+      : `[건강양갱] 건강검진 결과\n${summary}`;
+
+    navigator.clipboard.writeText(shareText);
+    toast.success("공유 내용이 복사되었어요!");
+    setShowShareDialog(false);
+  };
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
@@ -381,6 +457,16 @@ export default function Medical() {
               )}
             </div>
 
+            {/* 가족에게 공유 */}
+            <Button 
+              size="lg" 
+              className="w-full h-14"
+              onClick={() => setShowShareDialog(true)}
+            >
+              <Share2 className="w-5 h-5 mr-2" />
+              가족에게 공유하기
+            </Button>
+
             {/* 새 검진 업로드 */}
             <input
               ref={fileInputRef}
@@ -439,6 +525,40 @@ export default function Medical() {
           </div>
         </div>
       )}
+
+      {/* 공유 다이얼로그 */}
+      <Dialog open={showShareDialog} onOpenChange={setShowShareDialog}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>가족에게 공유하기</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 mt-4">
+            <Button
+              variant="outline"
+              size="lg"
+              className="w-full h-14 justify-start bg-[#FEE500] hover:bg-[#FDD835] text-[#3C1E1E] border-none"
+              onClick={handleShareToKakao}
+            >
+              <MessageCircle className="w-5 h-5 mr-3" />
+              카카오톡으로 공유
+            </Button>
+            <Button
+              variant="outline"
+              size="lg"
+              className="w-full h-14 justify-start"
+              onClick={handleShareCopy}
+            >
+              <Share2 className="w-5 h-5 mr-3" />
+              텍스트 복사하기
+            </Button>
+          </div>
+          <p className="text-sm text-muted-foreground mt-4 text-center">
+            건강나이와 상태 요약만 공유됩니다.
+            <br />
+            세부 수치는 공유되지 않아요.
+          </p>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
