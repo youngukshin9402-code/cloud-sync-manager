@@ -25,6 +25,7 @@ import Water from "./pages/Water";
 import InBody from "./pages/InBody";
 import WeightTracking from "./pages/WeightTracking";
 import HealthCheckup from "./pages/HealthCheckup";
+import DataExport from "./pages/DataExport";
 
 // MyPage Pages
 import ProfileEdit from "./pages/mypage/ProfileEdit";
@@ -120,6 +121,7 @@ function AppRoutes() {
         <Route path="/mypage/guardian" element={<GuardianSettingsPage />} />
         <Route path="/mypage/support" element={<SupportPage />} />
         <Route path="/mypage/orders" element={<OrdersPage />} />
+        <Route path="/data-export" element={<DataExport />} />
       </Route>
 
       {/* 영상통화 (모든 역할 접근) */}
