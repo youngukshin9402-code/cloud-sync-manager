@@ -14,6 +14,9 @@ import Nutrition from "./pages/Nutrition";
 import Exercise from "./pages/Exercise";
 import Profile from "./pages/Profile";
 import Guardian from "./pages/Guardian";
+import Premium from "./pages/Premium";
+import Coaching from "./pages/Coaching";
+import VideoCall from "./pages/VideoCall";
 import NotFound from "./pages/NotFound";
 
 // Coach Pages
@@ -80,6 +83,9 @@ function AppRoutes() {
         <Route path="/exercise" element={<Exercise />} />
         <Route path="/guardian" element={<Guardian />} />
         <Route path="/profile" element={<Profile />} />
+        <Route path="/premium" element={<Premium />} />
+        <Route path="/coaching" element={<Coaching />} />
+        <Route path="/video-call/:sessionId" element={<VideoCall />} />
       </Route>
 
       {/* 코치 페이지 */}

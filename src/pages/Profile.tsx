@@ -11,6 +11,7 @@ import {
   LogOut,
   ChevronRight,
   Coins,
+  Video,
 } from "lucide-react";
 
 export default function Profile() {
@@ -44,6 +45,15 @@ export default function Profile() {
       path: "/premium",
       highlight: !isPremium,
     },
+    ...(isPremium
+      ? [
+          {
+            icon: Video,
+            label: "1:1 코칭 예약",
+            path: "/coaching",
+          },
+        ]
+      : []),
     {
       icon: Bell,
       label: "알림 설정",
