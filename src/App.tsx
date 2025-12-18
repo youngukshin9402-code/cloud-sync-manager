@@ -26,6 +26,9 @@ import InBody from "./pages/InBody";
 import WeightTracking from "./pages/WeightTracking";
 import HealthCheckup from "./pages/HealthCheckup";
 import DataExport from "./pages/DataExport";
+import Consent from "./pages/Consent";
+import Terms from "./pages/Terms";
+import HealthPrivacy from "./pages/HealthPrivacy";
 
 // MyPage Pages
 import ProfileEdit from "./pages/mypage/ProfileEdit";
@@ -91,6 +94,9 @@ function AppRoutes() {
       {/* 공개 페이지 */}
       <Route path="/forbidden" element={<Forbidden />} />
       <Route path="/privacy" element={<Privacy />} />
+      <Route path="/consent" element={<Consent />} />
+      <Route path="/terms" element={<Terms />} />
+      <Route path="/health-privacy" element={<HealthPrivacy />} />
 
       {/* 일반 사용자 / 보호자 페이지 */}
       <Route

@@ -189,6 +189,78 @@ export type Database = {
           },
         ]
       }
+      gym_records: {
+        Row: {
+          created_at: string | null
+          date: string
+          exercises: Json
+          id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          date: string
+          exercises?: Json
+          id?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          date?: string
+          exercises?: Json
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      health_checkup_records: {
+        Row: {
+          alt: number | null
+          ast: number | null
+          blood_sugar: number | null
+          cholesterol: number | null
+          created_at: string | null
+          creatinine: number | null
+          date: string
+          diastolic_bp: number | null
+          hba1c: number | null
+          id: string
+          systolic_bp: number | null
+          triglyceride: number | null
+          user_id: string
+        }
+        Insert: {
+          alt?: number | null
+          ast?: number | null
+          blood_sugar?: number | null
+          cholesterol?: number | null
+          created_at?: string | null
+          creatinine?: number | null
+          date: string
+          diastolic_bp?: number | null
+          hba1c?: number | null
+          id?: string
+          systolic_bp?: number | null
+          triglyceride?: number | null
+          user_id: string
+        }
+        Update: {
+          alt?: number | null
+          ast?: number | null
+          blood_sugar?: number | null
+          cholesterol?: number | null
+          created_at?: string | null
+          creatinine?: number | null
+          date?: string
+          diastolic_bp?: number | null
+          hba1c?: number | null
+          id?: string
+          systolic_bp?: number | null
+          triglyceride?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       health_records: {
         Row: {
           coach_comment: string | null
@@ -246,6 +318,78 @@ export type Database = {
           },
         ]
       }
+      inbody_records: {
+        Row: {
+          bmr: number | null
+          body_fat: number | null
+          body_fat_percent: number | null
+          created_at: string | null
+          date: string
+          id: string
+          skeletal_muscle: number | null
+          user_id: string
+          visceral_fat: number | null
+          weight: number
+        }
+        Insert: {
+          bmr?: number | null
+          body_fat?: number | null
+          body_fat_percent?: number | null
+          created_at?: string | null
+          date: string
+          id?: string
+          skeletal_muscle?: number | null
+          user_id: string
+          visceral_fat?: number | null
+          weight: number
+        }
+        Update: {
+          bmr?: number | null
+          body_fat?: number | null
+          body_fat_percent?: number | null
+          created_at?: string | null
+          date?: string
+          id?: string
+          skeletal_muscle?: number | null
+          user_id?: string
+          visceral_fat?: number | null
+          weight?: number
+        }
+        Relationships: []
+      }
+      meal_records: {
+        Row: {
+          created_at: string | null
+          date: string
+          foods: Json
+          id: string
+          image_url: string | null
+          meal_type: string
+          total_calories: number | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          date: string
+          foods?: Json
+          id?: string
+          image_url?: string | null
+          meal_type: string
+          total_calories?: number | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          date?: string
+          foods?: Json
+          id?: string
+          image_url?: string | null
+          meal_type?: string
+          total_calories?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       mission_templates: {
         Row: {
           coach_id: string | null
@@ -287,6 +431,86 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notification_settings: {
+        Row: {
+          coaching_reminder: boolean | null
+          exercise_reminder: boolean | null
+          id: string
+          meal_reminder: boolean | null
+          updated_at: string | null
+          user_id: string
+          water_reminder: boolean | null
+        }
+        Insert: {
+          coaching_reminder?: boolean | null
+          exercise_reminder?: boolean | null
+          id?: string
+          meal_reminder?: boolean | null
+          updated_at?: string | null
+          user_id: string
+          water_reminder?: boolean | null
+        }
+        Update: {
+          coaching_reminder?: boolean | null
+          exercise_reminder?: boolean | null
+          id?: string
+          meal_reminder?: boolean | null
+          updated_at?: string | null
+          user_id?: string
+          water_reminder?: boolean | null
+        }
+        Relationships: []
+      }
+      orders: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_beta: boolean | null
+          payment_method: string | null
+          price: number
+          product_id: string | null
+          product_name: string
+          product_type: string
+          status: Database["public"]["Enums"]["order_status"] | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_beta?: boolean | null
+          payment_method?: string | null
+          price: number
+          product_id?: string | null
+          product_name: string
+          product_type: string
+          status?: Database["public"]["Enums"]["order_status"] | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_beta?: boolean | null
+          payment_method?: string | null
+          price?: number
+          product_id?: string | null
+          product_name?: string
+          product_type?: string
+          status?: Database["public"]["Enums"]["order_status"] | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orders_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
             referencedColumns: ["id"]
           },
         ]
@@ -409,6 +633,33 @@ export type Database = {
           },
         ]
       }
+      reminders: {
+        Row: {
+          created_at: string | null
+          enabled: boolean | null
+          id: string
+          reminder_type: string
+          scheduled_time: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          enabled?: boolean | null
+          id?: string
+          reminder_type: string
+          scheduled_time: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          enabled?: boolean | null
+          id?: string
+          reminder_type?: string
+          scheduled_time?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       subscriptions: {
         Row: {
           created_at: string | null
@@ -463,6 +714,39 @@ export type Database = {
           },
         ]
       }
+      user_consents: {
+        Row: {
+          agreed_at: string | null
+          created_at: string | null
+          health_info_agreed: boolean
+          id: string
+          marketing_agreed: boolean | null
+          privacy_agreed: boolean
+          terms_agreed: boolean
+          user_id: string
+        }
+        Insert: {
+          agreed_at?: string | null
+          created_at?: string | null
+          health_info_agreed?: boolean
+          id?: string
+          marketing_agreed?: boolean | null
+          privacy_agreed?: boolean
+          terms_agreed?: boolean
+          user_id: string
+        }
+        Update: {
+          agreed_at?: string | null
+          created_at?: string | null
+          health_info_agreed?: boolean
+          id?: string
+          marketing_agreed?: boolean | null
+          privacy_agreed?: boolean
+          terms_agreed?: boolean
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string | null
@@ -481,6 +765,123 @@ export type Database = {
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
+        }
+        Relationships: []
+      }
+      water_logs: {
+        Row: {
+          amount: number
+          created_at: string | null
+          date: string
+          id: string
+          logged_at: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string | null
+          date?: string
+          id?: string
+          logged_at?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string | null
+          date?: string
+          id?: string
+          logged_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      water_settings: {
+        Row: {
+          daily_goal: number
+          evening_reminder: boolean | null
+          id: string
+          reminder_enabled: boolean | null
+          reminder_end: string | null
+          reminder_interval: number | null
+          reminder_start: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          daily_goal?: number
+          evening_reminder?: boolean | null
+          id?: string
+          reminder_enabled?: boolean | null
+          reminder_end?: string | null
+          reminder_interval?: number | null
+          reminder_start?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          daily_goal?: number
+          evening_reminder?: boolean | null
+          id?: string
+          reminder_enabled?: boolean | null
+          reminder_end?: string | null
+          reminder_interval?: number | null
+          reminder_start?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      weight_goals: {
+        Row: {
+          created_at: string | null
+          id: string
+          start_date: string
+          start_weight: number
+          target_date: string
+          target_weight: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          start_date: string
+          start_weight: number
+          target_date: string
+          target_weight: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          start_date?: string
+          start_weight?: number
+          target_date?: string
+          target_weight?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      weight_records: {
+        Row: {
+          created_at: string | null
+          date: string
+          id: string
+          user_id: string
+          weight: number
+        }
+        Insert: {
+          created_at?: string | null
+          date: string
+          id?: string
+          user_id: string
+          weight: number
+        }
+        Update: {
+          created_at?: string | null
+          date?: string
+          id?: string
+          user_id?: string
+          weight?: number
         }
         Relationships: []
       }
@@ -511,6 +912,7 @@ export type Database = {
         | "pending_review"
         | "completed"
         | "rejected"
+      order_status: "pending" | "paid" | "cancel_requested" | "cancelled"
       subscription_tier: "basic" | "premium"
       user_type: "user" | "guardian" | "coach" | "admin"
     }
@@ -655,6 +1057,7 @@ export const Constants = {
         "completed",
         "rejected",
       ],
+      order_status: ["pending", "paid", "cancel_requested", "cancelled"],
       subscription_tier: ["basic", "premium"],
       user_type: ["user", "guardian", "coach", "admin"],
     },
