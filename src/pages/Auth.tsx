@@ -1,0 +1,273 @@
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Heart, ArrowLeft, User, Users } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+
+type AuthMode = "login" | "signup" | "select-type";
+type UserType = "user" | "guardian";
+
+export default function Auth() {
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const [mode, setMode] = useState<AuthMode>("login");
+  const [loading, setLoading] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [nickname, setNickname] = useState("");
+  const [selectedUserType, setSelectedUserType] = useState<UserType>("user");
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error) {
+      toast({
+        title: "로그인 실패",
+        description: error.message === "Invalid login credentials" 
+          ? "이메일 또는 비밀번호가 올바르지 않아요." 
+          : "다시 시도해주세요.",
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: "환영합니다!",
+        description: "로그인에 성공했어요.",
+      });
+      navigate("/dashboard");
+    }
+    setLoading(false);
+  };
+
+  const handleSignup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!nickname.trim()) {
+      toast({
+        title: "닉네임을 입력해주세요",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setLoading(true);
+
+    const redirectUrl = `${window.location.origin}/`;
+
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: redirectUrl,
+        data: {
+          nickname: nickname,
+          user_type: selectedUserType,
+        },
+      },
+    });
+
+    if (error) {
+      let message = "회원가입에 실패했어요.";
+      if (error.message.includes("already registered")) {
+        message = "이미 가입된 이메일이에요.";
+      }
+      toast({
+        title: "회원가입 실패",
+        description: message,
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: "회원가입 완료!",
+        description: "환영합니다! 로그인해주세요.",
+      });
+      setMode("login");
+      setPassword("");
+    }
+    setLoading(false);
+  };
+
+  const UserTypeSelector = () => (
+    <div className="space-y-4">
+      <Label className="text-lg">어떻게 사용하실 건가요?</Label>
+      <div className="grid grid-cols-2 gap-4">
+        <button
+          type="button"
+          onClick={() => setSelectedUserType("user")}
+          className={`p-6 rounded-2xl border-2 transition-all ${
+            selectedUserType === "user"
+              ? "border-primary bg-primary/10"
+              : "border-border hover:border-primary/50"
+          }`}
+        >
+          <User className="w-10 h-10 mx-auto mb-3 text-primary" />
+          <p className="text-lg font-semibold">직접 관리</p>
+          <p className="text-sm text-muted-foreground mt-1">
+            내 건강을 직접 관리할게요
+          </p>
+        </button>
+        <button
+          type="button"
+          onClick={() => setSelectedUserType("guardian")}
+          className={`p-6 rounded-2xl border-2 transition-all ${
+            selectedUserType === "guardian"
+              ? "border-primary bg-primary/10"
+              : "border-border hover:border-primary/50"
+          }`}
+        >
+          <Users className="w-10 h-10 mx-auto mb-3 text-primary" />
+          <p className="text-lg font-semibold">보호자</p>
+          <p className="text-sm text-muted-foreground mt-1">
+            부모님 건강을 관리할게요
+          </p>
+        </button>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="min-h-screen bg-background flex items-center justify-center p-6">
+      <div className="w-full max-w-md">
+        {/* 헤더 */}
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary mb-4">
+            <Heart className="w-8 h-8 text-primary-foreground" />
+          </div>
+          <h1 className="text-3xl font-bold text-foreground">건강양갱</h1>
+          <p className="text-lg text-muted-foreground mt-2">
+            {mode === "login" ? "다시 만나서 반가워요!" : "새로운 시작을 환영해요!"}
+          </p>
+        </div>
+
+        {/* 폼 */}
+        <div className="bg-card rounded-3xl p-8 shadow-card border border-border">
+          {mode === "login" ? (
+            <form onSubmit={handleLogin} className="space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="email" className="text-lg">이메일</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="email@example.com"
+                  required
+                  className="h-14 text-lg"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="password" className="text-lg">비밀번호</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="비밀번호를 입력하세요"
+                  required
+                  className="h-14 text-lg"
+                />
+              </div>
+
+              <Button
+                type="submit"
+                disabled={loading}
+                className="w-full"
+                size="touch-lg"
+                variant="yanggaeng"
+              >
+                {loading ? "로그인 중..." : "로그인"}
+              </Button>
+
+              <div className="text-center">
+                <button
+                  type="button"
+                  onClick={() => setMode("signup")}
+                  className="text-lg text-primary hover:underline"
+                >
+                  계정이 없으신가요? <span className="font-semibold">회원가입</span>
+                </button>
+              </div>
+            </form>
+          ) : (
+            <form onSubmit={handleSignup} className="space-y-6">
+              <button
+                type="button"
+                onClick={() => setMode("login")}
+                className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <ArrowLeft className="w-5 h-5" />
+                <span>로그인으로 돌아가기</span>
+              </button>
+
+              <div className="space-y-2">
+                <Label htmlFor="nickname" className="text-lg">닉네임</Label>
+                <Input
+                  id="nickname"
+                  type="text"
+                  value={nickname}
+                  onChange={(e) => setNickname(e.target.value)}
+                  placeholder="어떻게 불러드릴까요?"
+                  required
+                  className="h-14 text-lg"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="signup-email" className="text-lg">이메일</Label>
+                <Input
+                  id="signup-email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="email@example.com"
+                  required
+                  className="h-14 text-lg"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="signup-password" className="text-lg">비밀번호</Label>
+                <Input
+                  id="signup-password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="6자 이상"
+                  required
+                  minLength={6}
+                  className="h-14 text-lg"
+                />
+              </div>
+
+              <UserTypeSelector />
+
+              <Button
+                type="submit"
+                disabled={loading}
+                className="w-full"
+                size="touch-lg"
+                variant="yanggaeng"
+              >
+                {loading ? "가입 중..." : "회원가입"}
+              </Button>
+            </form>
+          )}
+        </div>
+
+        {/* 하단 안내 */}
+        <p className="text-center text-muted-foreground mt-6">
+          가입하면 서비스 이용약관에 동의하는 것으로 간주됩니다.
+        </p>
+      </div>
+    </div>
+  );
+}
