@@ -1,9 +1,12 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
+import { useWeightRecords } from "@/hooks/useServerSync";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import {
   ArrowLeft,
   Plus,
@@ -13,112 +16,121 @@ import {
   Scale,
   Calendar,
   Flag,
+  Loader2,
 } from "lucide-react";
-import {
-  getWeightRecords,
-  setWeightRecords,
-  getWeightGoal,
-  setWeightGoal,
-  WeightRecord,
-  WeightGoal,
-  generateId,
-  getTodayString,
-} from "@/lib/localStorage";
+
+interface WeightGoal {
+  target_weight: number;
+  target_date: string;
+  start_weight: number;
+  start_date: string;
+}
 
 export default function WeightTracking() {
   const { toast } = useToast();
-  const [records, setRecords] = useState<WeightRecord[]>([]);
+  const { user } = useAuth();
+  const { data: records, loading, add } = useWeightRecords();
   const [goal, setGoalState] = useState<WeightGoal | null>(null);
   const [recordDialogOpen, setRecordDialogOpen] = useState(false);
   const [goalDialogOpen, setGoalDialogOpen] = useState(false);
   const [newWeight, setNewWeight] = useState("");
-  const [newDate, setNewDate] = useState(getTodayString());
-  const [goalForm, setGoalForm] = useState({
-    targetWeight: "",
-    targetDate: "",
+  const [newDate, setNewDate] = useState(new Date().toISOString().split('T')[0]);
+  const [goalForm, setGoalForm] = useState({ targetWeight: "", targetDate: "" });
+
+  // Fetch goal on mount
+  useState(() => {
+    const fetchGoal = async () => {
+      if (!user) return;
+      const { data } = await supabase
+        .from('weight_goals')
+        .select('*')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      if (data) {
+        setGoalState({
+          target_weight: Number(data.target_weight),
+          target_date: data.target_date,
+          start_weight: Number(data.start_weight),
+          start_date: data.start_date,
+        });
+      }
+    };
+    fetchGoal();
   });
 
-  useEffect(() => {
-    const loaded = getWeightRecords();
-    setRecords(loaded.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
-    setGoalState(getWeightGoal());
-  }, []);
-
-  const handleAddRecord = () => {
+  const handleAddRecord = async () => {
     const weight = parseFloat(newWeight);
     if (!weight || !newDate) {
       toast({ title: "체중과 날짜를 입력해주세요", variant: "destructive" });
       return;
     }
 
-    const newRecord: WeightRecord = {
-      id: generateId(),
-      date: newDate,
-      weight,
-      createdAt: new Date().toISOString(),
-    };
-
-    const updated = [...records, newRecord].sort((a, b) => 
-      new Date(b.date).getTime() - new Date(a.date).getTime()
-    );
-    setRecords(updated);
-    setWeightRecords(updated);
-
-    // If no goal exists, set this as start weight
-    if (!goal && updated.length === 1) {
-      // Prompt to set goal
+    const result = await add({ date: newDate, weight });
+    if (result.error) {
+      toast({ title: "저장 실패", variant: "destructive" });
+    } else {
+      toast({ title: "체중이 기록되었습니다" });
+      setRecordDialogOpen(false);
+      setNewWeight("");
+      setNewDate(new Date().toISOString().split('T')[0]);
     }
-
-    toast({ title: "체중이 기록되었습니다" });
-    setRecordDialogOpen(false);
-    setNewWeight("");
-    setNewDate(getTodayString());
   };
 
-  const handleSetGoal = () => {
+  const handleSetGoal = async () => {
     const targetWeight = parseFloat(goalForm.targetWeight);
-    if (!targetWeight || !goalForm.targetDate) {
+    if (!targetWeight || !goalForm.targetDate || !user) {
       toast({ title: "목표 체중과 기간을 입력해주세요", variant: "destructive" });
       return;
     }
 
     const latestWeight = records[0]?.weight || targetWeight;
-    const newGoal: WeightGoal = {
-      targetWeight,
-      targetDate: goalForm.targetDate,
-      startWeight: latestWeight,
-      startDate: getTodayString(),
+    const newGoal = {
+      target_weight: targetWeight,
+      target_date: goalForm.targetDate,
+      start_weight: latestWeight,
+      start_date: new Date().toISOString().split('T')[0],
     };
 
-    setGoalState(newGoal);
-    setWeightGoal(newGoal);
-    toast({ title: "목표가 설정되었습니다" });
-    setGoalDialogOpen(false);
+    const { error } = await supabase
+      .from('weight_goals')
+      .upsert({ ...newGoal, user_id: user.id }, { onConflict: 'user_id' });
+
+    if (error) {
+      toast({ title: "목표 설정 실패", variant: "destructive" });
+    } else {
+      setGoalState(newGoal);
+      toast({ title: "목표가 설정되었습니다" });
+      setGoalDialogOpen(false);
+    }
   };
 
   const latestRecord = records[0];
   const previousRecord = records[1];
 
-  // Calculate progress
   const getProgress = () => {
     if (!goal || !latestRecord) return null;
-    
-    const totalChange = goal.startWeight - goal.targetWeight;
-    const currentChange = goal.startWeight - latestRecord.weight;
+    const totalChange = goal.start_weight - goal.target_weight;
+    const currentChange = goal.start_weight - Number(latestRecord.weight);
     const progress = totalChange !== 0 ? (currentChange / totalChange) * 100 : 0;
-    
     return {
       progress: Math.min(Math.max(progress, 0), 100),
-      remaining: latestRecord.weight - goal.targetWeight,
-      isLosing: goal.targetWeight < goal.startWeight,
+      remaining: Number(latestRecord.weight) - goal.target_weight,
+      isLosing: goal.target_weight < goal.start_weight,
     };
   };
 
   const progressData = getProgress();
 
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background pb-24">
-      {/* Header */}
       <div className="sticky top-0 bg-background/95 backdrop-blur-sm border-b border-border p-4 z-10">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -149,33 +161,31 @@ export default function WeightTracking() {
                   <div>
                     <p className="text-sm text-muted-foreground">현재 체중</p>
                     <p className="text-3xl font-bold">
-                      {latestRecord.weight}
+                      {Number(latestRecord.weight).toFixed(1)}
                       <span className="text-lg font-normal text-muted-foreground">kg</span>
                     </p>
                   </div>
                 </div>
                 {previousRecord && (
                   <div className={`flex items-center gap-1 px-3 py-1 rounded-full ${
-                    latestRecord.weight < previousRecord.weight 
+                    Number(latestRecord.weight) < Number(previousRecord.weight) 
                       ? 'bg-health-green/10 text-health-green' 
-                      : latestRecord.weight > previousRecord.weight
+                      : Number(latestRecord.weight) > Number(previousRecord.weight)
                         ? 'bg-destructive/10 text-destructive'
                         : 'bg-muted text-muted-foreground'
                   }`}>
-                    {latestRecord.weight < previousRecord.weight ? (
+                    {Number(latestRecord.weight) < Number(previousRecord.weight) ? (
                       <TrendingDown className="w-4 h-4" />
-                    ) : latestRecord.weight > previousRecord.weight ? (
+                    ) : Number(latestRecord.weight) > Number(previousRecord.weight) ? (
                       <TrendingUp className="w-4 h-4" />
                     ) : null}
                     <span className="font-medium">
-                      {(latestRecord.weight - previousRecord.weight).toFixed(1)}kg
+                      {(Number(latestRecord.weight) - Number(previousRecord.weight)).toFixed(1)}kg
                     </span>
                   </div>
                 )}
               </div>
-              <p className="text-sm text-muted-foreground">
-                마지막 기록: {latestRecord.date}
-              </p>
+              <p className="text-sm text-muted-foreground">마지막 기록: {latestRecord.date}</p>
             </div>
           ) : (
             <div className="text-center py-4">
@@ -205,12 +215,12 @@ export default function WeightTracking() {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-2xl font-bold">{goal.targetWeight}kg</p>
-                  <p className="text-sm text-muted-foreground">목표일: {goal.targetDate}</p>
+                  <p className="text-2xl font-bold">{goal.target_weight}kg</p>
+                  <p className="text-sm text-muted-foreground">목표일: {goal.target_date}</p>
                 </div>
                 <div className="text-right">
                   <p className="text-sm text-muted-foreground">시작 체중</p>
-                  <p className="font-medium">{goal.startWeight}kg</p>
+                  <p className="font-medium">{goal.start_weight}kg</p>
                 </div>
               </div>
 
@@ -251,7 +261,7 @@ export default function WeightTracking() {
             <div className="space-y-2">
               {records.slice(0, 10).map((record, index) => {
                 const prev = records[index + 1];
-                const diff = prev ? record.weight - prev.weight : null;
+                const diff = prev ? Number(record.weight) - Number(prev.weight) : null;
                 
                 return (
                   <div
@@ -263,13 +273,9 @@ export default function WeightTracking() {
                         <p className="text-xs text-muted-foreground">
                           {new Date(record.date).toLocaleDateString('ko-KR', { month: 'short' })}
                         </p>
-                        <p className="text-lg font-bold">
-                          {new Date(record.date).getDate()}
-                        </p>
+                        <p className="text-lg font-bold">{new Date(record.date).getDate()}</p>
                       </div>
-                      <div>
-                        <p className="font-semibold">{record.weight}kg</p>
-                      </div>
+                      <p className="font-semibold">{Number(record.weight).toFixed(1)}kg</p>
                     </div>
                     {diff !== null && (
                       <span className={`text-sm font-medium ${
@@ -295,21 +301,11 @@ export default function WeightTracking() {
           <div className="space-y-4 py-2">
             <div className="space-y-2">
               <label className="text-sm font-medium">날짜</label>
-              <Input
-                type="date"
-                value={newDate}
-                onChange={e => setNewDate(e.target.value)}
-              />
+              <Input type="date" value={newDate} onChange={e => setNewDate(e.target.value)} />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">체중 (kg)</label>
-              <Input
-                type="number"
-                step="0.1"
-                placeholder="65.0"
-                value={newWeight}
-                onChange={e => setNewWeight(e.target.value)}
-              />
+              <Input type="number" step="0.1" placeholder="65.0" value={newWeight} onChange={e => setNewWeight(e.target.value)} />
             </div>
           </div>
           <DialogFooter>
@@ -331,21 +327,11 @@ export default function WeightTracking() {
           <div className="space-y-4 py-2">
             <div className="space-y-2">
               <label className="text-sm font-medium">목표 체중 (kg)</label>
-              <Input
-                type="number"
-                step="0.1"
-                placeholder="60.0"
-                value={goalForm.targetWeight}
-                onChange={e => setGoalForm({ ...goalForm, targetWeight: e.target.value })}
-              />
+              <Input type="number" step="0.1" placeholder="60.0" value={goalForm.targetWeight} onChange={e => setGoalForm({ ...goalForm, targetWeight: e.target.value })} />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">목표일</label>
-              <Input
-                type="date"
-                value={goalForm.targetDate}
-                onChange={e => setGoalForm({ ...goalForm, targetDate: e.target.value })}
-              />
+              <Input type="date" value={goalForm.targetDate} onChange={e => setGoalForm({ ...goalForm, targetDate: e.target.value })} />
             </div>
           </div>
           <DialogFooter>

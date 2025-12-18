@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
+import { useOrdersServer } from "@/hooks/useServerSync";
 import {
   ArrowLeft,
   ShoppingBag,
@@ -11,20 +12,8 @@ import {
   Loader2,
   MessageSquare,
   ClipboardList,
+  AlertTriangle,
 } from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  getOrders,
-  setOrders,
-  Order,
-  generateId,
-  getTodayString,
-} from "@/lib/localStorage";
 
 type ProductType = "doctor" | "trainer" | "nutritionist";
 type Step = "list" | "order" | "payment" | "success" | "survey";
@@ -74,12 +63,12 @@ const PAYMENT_METHODS = [
 export default function Shop() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { add: addOrder, syncing } = useOrdersServer();
 
   const [step, setStep] = useState<Step>("list");
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<string>("");
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [createdOrder, setCreatedOrder] = useState<Order | null>(null);
+  const [orderId, setOrderId] = useState<string>("");
   const [inquiry, setInquiry] = useState("");
 
   const selectProduct = (product: Product) => {
@@ -96,23 +85,21 @@ export default function Shop() {
   };
 
   const processPayment = async () => {
-    setIsProcessing(true);
-    await new Promise((r) => setTimeout(r, 2000)); // Mock 결제
+    if (!selectedProduct) return;
 
-    const newOrder: Order = {
-      id: generateId(),
-      date: getTodayString(),
-      productName: selectedProduct!.name,
-      productType: selectedProduct!.type,
-      price: selectedProduct!.price,
-      status: "paid",
-      paymentMethod,
-    };
+    const result = await addOrder({
+      product_name: selectedProduct.name,
+      product_type: selectedProduct.type,
+      price: selectedProduct.price,
+      payment_method: paymentMethod,
+    });
 
-    const orders = getOrders();
-    setOrders([...orders, newOrder]);
-    setCreatedOrder(newOrder);
-    setIsProcessing(false);
+    if (result.error) {
+      toast({ title: "주문 실패", variant: "destructive" });
+      return;
+    }
+
+    setOrderId(result.data?.id || '');
     setStep("success");
     toast({ title: "결제 완료!", description: "코칭이 시작됩니다." });
   };
@@ -154,6 +141,15 @@ export default function Shop() {
       </div>
 
       <div className="p-4 space-y-4">
+        {/* Beta Notice - Always visible */}
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex gap-2">
+          <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="font-medium text-amber-800">베타 테스트</p>
+            <p className="text-sm text-amber-700">실제 결제가 이루어지지 않습니다.</p>
+          </div>
+        </div>
+
         {/* 상품 목록 */}
         {step === "list" && (
           <>
@@ -190,6 +186,13 @@ export default function Shop() {
         {step === "order" && selectedProduct && (
           <div className="space-y-4">
             <h2 className="text-lg font-semibold">주문서</h2>
+            
+            {/* Beta Badge on Order */}
+            <div className="inline-flex items-center gap-1 px-2 py-1 bg-amber-100 text-amber-700 rounded text-xs font-medium">
+              <AlertTriangle className="w-3 h-3" />
+              베타 테스트 주문 (실제 결제 없음)
+            </div>
+
             <div className="bg-card rounded-2xl border border-border p-4">
               <h3 className="font-semibold">{selectedProduct.name}</h3>
               <p className="text-sm text-muted-foreground">{selectedProduct.description}</p>
@@ -220,7 +223,7 @@ export default function Shop() {
             </div>
 
             <Button size="lg" className="w-full h-14" onClick={proceedToPayment}>
-              결제하기
+              결제하기 (테스트)
             </Button>
           </div>
         )}
@@ -228,15 +231,17 @@ export default function Shop() {
         {/* 결제 처리 */}
         {step === "payment" && (
           <div className="text-center py-12">
-            {isProcessing ? (
+            {syncing ? (
               <>
                 <Loader2 className="w-12 h-12 animate-spin mx-auto mb-4 text-primary" />
                 <p className="text-lg font-semibold">결제 처리 중...</p>
+                <p className="text-sm text-muted-foreground mt-2">베타 테스트 - 실제 결제 없음</p>
               </>
             ) : (
               <>
                 <CreditCard className="w-12 h-12 mx-auto mb-4 text-primary" />
-                <p className="text-lg font-semibold mb-4">결제를 진행합니다</p>
+                <p className="text-lg font-semibold mb-2">결제를 진행합니다</p>
+                <p className="text-sm text-amber-600 mb-4">베타 테스트: 실제 금액이 청구되지 않습니다</p>
                 <Button size="lg" onClick={processPayment}>
                   결제 확인
                 </Button>
@@ -246,14 +251,17 @@ export default function Shop() {
         )}
 
         {/* 결제 완료 */}
-        {step === "success" && createdOrder && (
+        {step === "success" && (
           <div className="space-y-6">
             <div className="text-center py-8">
               <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Check className="w-8 h-8 text-green-600" />
               </div>
               <h2 className="text-2xl font-bold mb-2">결제 완료!</h2>
-              <p className="text-muted-foreground">주문번호: {createdOrder.id}</p>
+              <p className="text-muted-foreground">주문번호: {orderId.slice(0, 8)}</p>
+              <p className="text-sm text-amber-600 bg-amber-50 inline-block px-3 py-1 rounded-full mt-2">
+                베타 테스트 - 실제 결제 없음
+              </p>
             </div>
 
             <div className="bg-card rounded-2xl border border-border p-4">

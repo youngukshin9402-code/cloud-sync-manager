@@ -1,10 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
+import { useInBodyRecords } from "@/hooks/useServerSync";
 import {
   ArrowLeft,
   Plus,
@@ -16,89 +17,87 @@ import {
   Dumbbell,
   Flame,
   Activity,
+  Loader2,
 } from "lucide-react";
-import {
-  getInBodyRecords,
-  setInBodyRecords,
-  InBodyRecord,
-  generateId,
-} from "@/lib/localStorage";
 
-const emptyRecord: Omit<InBodyRecord, 'id' | 'createdAt'> = {
+interface InBodyForm {
+  date: string;
+  weight: number;
+  skeletal_muscle: number | null;
+  body_fat: number | null;
+  body_fat_percent: number | null;
+  bmr: number | null;
+  visceral_fat: number | null;
+}
+
+const emptyForm: InBodyForm = {
   date: new Date().toISOString().split('T')[0],
   weight: 0,
-  skeletalMuscle: 0,
-  bodyFat: 0,
-  bodyFatPercent: 0,
-  bmr: 0,
-  visceralFat: 0,
+  skeletal_muscle: null,
+  body_fat: null,
+  body_fat_percent: null,
+  bmr: null,
+  visceral_fat: null,
 };
 
 export default function InBody() {
   const { toast } = useToast();
-  const [records, setRecords] = useState<InBodyRecord[]>([]);
+  const { data: records, loading, add, update, remove } = useInBodyRecords();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [formData, setFormData] = useState(emptyRecord);
+  const [formData, setFormData] = useState<InBodyForm>(emptyForm);
 
-  useEffect(() => {
-    const loaded = getInBodyRecords();
-    setRecords(loaded.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
-  }, []);
-
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formData.weight || !formData.date) {
       toast({ title: "체중과 날짜는 필수입니다", variant: "destructive" });
       return;
     }
 
-    let updated: InBodyRecord[];
     if (editingId) {
-      updated = records.map(r =>
-        r.id === editingId ? { ...formData, id: editingId, createdAt: r.createdAt } : r
-      );
-      toast({ title: "수정되었습니다" });
+      const result = await update(editingId, formData);
+      if (result.error) {
+        toast({ title: "수정 실패", variant: "destructive" });
+      } else {
+        toast({ title: "수정되었습니다" });
+      }
     } else {
-      const newRecord: InBodyRecord = {
-        ...formData,
-        id: generateId(),
-        createdAt: new Date().toISOString(),
-      };
-      updated = [...records, newRecord];
-      toast({ title: "저장되었습니다" });
+      const result = await add(formData);
+      if (result.error) {
+        toast({ title: "저장 실패", variant: "destructive" });
+      } else {
+        toast({ title: "저장되었습니다" });
+      }
     }
-
-    updated = updated.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    setRecords(updated);
-    setInBodyRecords(updated);
     setDialogOpen(false);
     resetForm();
   };
 
-  const handleEdit = (record: InBodyRecord) => {
+  const handleEdit = (record: typeof records[0]) => {
     setEditingId(record.id);
     setFormData({
       date: record.date,
-      weight: record.weight,
-      skeletalMuscle: record.skeletalMuscle,
-      bodyFat: record.bodyFat,
-      bodyFatPercent: record.bodyFatPercent,
+      weight: Number(record.weight),
+      skeletal_muscle: record.skeletal_muscle ? Number(record.skeletal_muscle) : null,
+      body_fat: record.body_fat ? Number(record.body_fat) : null,
+      body_fat_percent: record.body_fat_percent ? Number(record.body_fat_percent) : null,
       bmr: record.bmr,
-      visceralFat: record.visceralFat,
+      visceral_fat: record.visceral_fat,
     });
     setDialogOpen(true);
   };
 
-  const handleDelete = (id: string) => {
-    const updated = records.filter(r => r.id !== id);
-    setRecords(updated);
-    setInBodyRecords(updated);
-    toast({ title: "삭제되었습니다" });
+  const handleDelete = async (id: string) => {
+    const result = await remove(id);
+    if (result.error) {
+      toast({ title: "삭제 실패", variant: "destructive" });
+    } else {
+      toast({ title: "삭제되었습니다" });
+    }
   };
 
   const resetForm = () => {
     setEditingId(null);
-    setFormData({ ...emptyRecord, date: new Date().toISOString().split('T')[0] });
+    setFormData({ ...emptyForm, date: new Date().toISOString().split('T')[0] });
   };
 
   const openNewDialog = () => {
@@ -116,9 +115,16 @@ export default function InBody() {
   const latestRecord = records[0];
   const previousRecord = records[1];
 
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background pb-24">
-      {/* Header */}
       <div className="sticky top-0 bg-background/95 backdrop-blur-sm border-b border-border p-4 z-10">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -137,7 +143,6 @@ export default function InBody() {
       </div>
 
       <div className="p-4 space-y-6">
-        {/* Latest Summary */}
         {latestRecord ? (
           <div className="bg-card rounded-3xl border border-border p-5 space-y-4">
             <div className="flex items-center justify-between">
@@ -146,86 +151,77 @@ export default function InBody() {
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              {/* Weight */}
               <div className="bg-muted/50 rounded-xl p-4">
                 <div className="flex items-center gap-2 mb-2">
                   <Scale className="w-4 h-4 text-primary" />
                   <span className="text-sm text-muted-foreground">체중</span>
                 </div>
                 <div className="flex items-baseline gap-2">
-                  <span className="text-2xl font-bold">{latestRecord.weight}</span>
+                  <span className="text-2xl font-bold">{Number(latestRecord.weight).toFixed(1)}</span>
                   <span className="text-sm text-muted-foreground">kg</span>
-                  {previousRecord && getChange(latestRecord.weight, previousRecord.weight) && (
-                    <span className={`text-sm flex items-center ${getChange(latestRecord.weight, previousRecord.weight)!.positive ? 'text-destructive' : 'text-health-green'}`}>
-                      {getChange(latestRecord.weight, previousRecord.weight)!.positive ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                      {getChange(latestRecord.weight, previousRecord.weight)!.value}
+                  {previousRecord && getChange(Number(latestRecord.weight), Number(previousRecord.weight)) && (
+                    <span className={`text-sm flex items-center ${getChange(Number(latestRecord.weight), Number(previousRecord.weight))!.positive ? 'text-destructive' : 'text-health-green'}`}>
+                      {getChange(Number(latestRecord.weight), Number(previousRecord.weight))!.positive ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                      {getChange(Number(latestRecord.weight), Number(previousRecord.weight))!.value}
                     </span>
                   )}
                 </div>
               </div>
 
-              {/* Skeletal Muscle */}
               <div className="bg-muted/50 rounded-xl p-4">
                 <div className="flex items-center gap-2 mb-2">
                   <Dumbbell className="w-4 h-4 text-health-blue" />
                   <span className="text-sm text-muted-foreground">골격근량</span>
                 </div>
                 <div className="flex items-baseline gap-2">
-                  <span className="text-2xl font-bold">{latestRecord.skeletalMuscle}</span>
+                  <span className="text-2xl font-bold">{latestRecord.skeletal_muscle ? Number(latestRecord.skeletal_muscle).toFixed(1) : '-'}</span>
                   <span className="text-sm text-muted-foreground">kg</span>
-                  {previousRecord && getChange(latestRecord.skeletalMuscle, previousRecord.skeletalMuscle) && (
-                    <span className={`text-sm flex items-center ${getChange(latestRecord.skeletalMuscle, previousRecord.skeletalMuscle)!.positive ? 'text-health-green' : 'text-destructive'}`}>
-                      {getChange(latestRecord.skeletalMuscle, previousRecord.skeletalMuscle)!.positive ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                      {getChange(latestRecord.skeletalMuscle, previousRecord.skeletalMuscle)!.value}
-                    </span>
-                  )}
                 </div>
               </div>
 
-              {/* Body Fat */}
               <div className="bg-muted/50 rounded-xl p-4">
                 <div className="flex items-center gap-2 mb-2">
                   <Flame className="w-4 h-4 text-health-orange" />
                   <span className="text-sm text-muted-foreground">체지방량/률</span>
                 </div>
                 <div className="flex items-baseline gap-2">
-                  <span className="text-2xl font-bold">{latestRecord.bodyFat}</span>
+                  <span className="text-2xl font-bold">{latestRecord.body_fat ? Number(latestRecord.body_fat).toFixed(1) : '-'}</span>
                   <span className="text-sm text-muted-foreground">kg</span>
-                  <span className="text-lg text-muted-foreground">({latestRecord.bodyFatPercent}%)</span>
+                  <span className="text-lg text-muted-foreground">({latestRecord.body_fat_percent ? Number(latestRecord.body_fat_percent).toFixed(1) : '-'}%)</span>
                 </div>
               </div>
 
-              {/* BMR */}
               <div className="bg-muted/50 rounded-xl p-4">
                 <div className="flex items-center gap-2 mb-2">
                   <Activity className="w-4 h-4 text-accent" />
                   <span className="text-sm text-muted-foreground">기초대사량</span>
                 </div>
                 <div className="flex items-baseline gap-2">
-                  <span className="text-2xl font-bold">{latestRecord.bmr}</span>
+                  <span className="text-2xl font-bold">{latestRecord.bmr || '-'}</span>
                   <span className="text-sm text-muted-foreground">kcal</span>
                 </div>
               </div>
             </div>
 
-            {/* Visceral Fat */}
-            <div className="bg-muted/50 rounded-xl p-4">
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">내장지방 레벨</span>
-                <span className="text-xl font-bold">{latestRecord.visceralFat}</span>
+            {latestRecord.visceral_fat !== null && (
+              <div className="bg-muted/50 rounded-xl p-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">내장지방 레벨</span>
+                  <span className="text-xl font-bold">{latestRecord.visceral_fat}</span>
+                </div>
+                <div className="mt-2 h-2 bg-muted rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full ${latestRecord.visceral_fat <= 9 ? 'bg-health-green' : latestRecord.visceral_fat <= 14 ? 'bg-yellow-500' : 'bg-destructive'}`}
+                    style={{ width: `${Math.min(latestRecord.visceral_fat * 5, 100)}%` }}
+                  />
+                </div>
+                <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                  <span>정상 (1-9)</span>
+                  <span>주의 (10-14)</span>
+                  <span>위험 (15+)</span>
+                </div>
               </div>
-              <div className="mt-2 h-2 bg-muted rounded-full overflow-hidden">
-                <div
-                  className={`h-full rounded-full ${latestRecord.visceralFat <= 9 ? 'bg-health-green' : latestRecord.visceralFat <= 14 ? 'bg-yellow-500' : 'bg-destructive'}`}
-                  style={{ width: `${Math.min(latestRecord.visceralFat * 5, 100)}%` }}
-                />
-              </div>
-              <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                <span>정상 (1-9)</span>
-                <span>주의 (10-14)</span>
-                <span>위험 (15+)</span>
-              </div>
-            </div>
+            )}
           </div>
         ) : (
           <div className="bg-card rounded-3xl border border-border p-8 text-center">
@@ -238,20 +234,16 @@ export default function InBody() {
           </div>
         )}
 
-        {/* Records List */}
         {records.length > 0 && (
           <div className="space-y-3">
             <h2 className="text-lg font-semibold">기록 목록</h2>
             <div className="space-y-2">
               {records.map(record => (
-                <div
-                  key={record.id}
-                  className="bg-card rounded-xl border border-border p-4 flex items-center justify-between"
-                >
+                <div key={record.id} className="bg-card rounded-xl border border-border p-4 flex items-center justify-between">
                   <div>
                     <p className="font-medium">{record.date}</p>
                     <p className="text-sm text-muted-foreground">
-                      체중 {record.weight}kg / 골격근 {record.skeletalMuscle}kg / 체지방 {record.bodyFatPercent}%
+                      체중 {Number(record.weight).toFixed(1)}kg / 골격근 {record.skeletal_muscle ? Number(record.skeletal_muscle).toFixed(1) : '-'}kg / 체지방 {record.body_fat_percent ? Number(record.body_fat_percent).toFixed(1) : '-'}%
                     </p>
                   </div>
                   <div className="flex gap-1">
@@ -267,15 +259,11 @@ export default function InBody() {
                       <AlertDialogContent>
                         <AlertDialogHeader>
                           <AlertDialogTitle>기록을 삭제하시겠습니까?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            이 작업은 되돌릴 수 없습니다.
-                          </AlertDialogDescription>
+                          <AlertDialogDescription>이 작업은 되돌릴 수 없습니다.</AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                           <AlertDialogCancel>취소</AlertDialogCancel>
-                          <AlertDialogAction onClick={() => handleDelete(record.id)}>
-                            삭제
-                          </AlertDialogAction>
+                          <AlertDialogAction onClick={() => handleDelete(record.id)}>삭제</AlertDialogAction>
                         </AlertDialogFooter>
                       </AlertDialogContent>
                     </AlertDialog>
@@ -287,7 +275,6 @@ export default function InBody() {
         )}
       </div>
 
-      {/* Add/Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-sm max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -296,64 +283,32 @@ export default function InBody() {
           <div className="space-y-4 py-2">
             <div className="space-y-2">
               <label className="text-sm font-medium">날짜 *</label>
-              <Input
-                type="date"
-                value={formData.date}
-                onChange={e => setFormData({ ...formData, date: e.target.value })}
-              />
+              <Input type="date" value={formData.date} onChange={e => setFormData({ ...formData, date: e.target.value })} />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium">체중 (kg) *</label>
-                <Input
-                  type="number"
-                  step="0.1"
-                  value={formData.weight || ''}
-                  onChange={e => setFormData({ ...formData, weight: parseFloat(e.target.value) || 0 })}
-                />
+                <Input type="number" step="0.1" value={formData.weight || ''} onChange={e => setFormData({ ...formData, weight: parseFloat(e.target.value) || 0 })} />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">골격근량 (kg)</label>
-                <Input
-                  type="number"
-                  step="0.1"
-                  value={formData.skeletalMuscle || ''}
-                  onChange={e => setFormData({ ...formData, skeletalMuscle: parseFloat(e.target.value) || 0 })}
-                />
+                <Input type="number" step="0.1" value={formData.skeletal_muscle || ''} onChange={e => setFormData({ ...formData, skeletal_muscle: parseFloat(e.target.value) || null })} />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">체지방량 (kg)</label>
-                <Input
-                  type="number"
-                  step="0.1"
-                  value={formData.bodyFat || ''}
-                  onChange={e => setFormData({ ...formData, bodyFat: parseFloat(e.target.value) || 0 })}
-                />
+                <Input type="number" step="0.1" value={formData.body_fat || ''} onChange={e => setFormData({ ...formData, body_fat: parseFloat(e.target.value) || null })} />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">체지방률 (%)</label>
-                <Input
-                  type="number"
-                  step="0.1"
-                  value={formData.bodyFatPercent || ''}
-                  onChange={e => setFormData({ ...formData, bodyFatPercent: parseFloat(e.target.value) || 0 })}
-                />
+                <Input type="number" step="0.1" value={formData.body_fat_percent || ''} onChange={e => setFormData({ ...formData, body_fat_percent: parseFloat(e.target.value) || null })} />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">기초대사량 (kcal)</label>
-                <Input
-                  type="number"
-                  value={formData.bmr || ''}
-                  onChange={e => setFormData({ ...formData, bmr: parseInt(e.target.value) || 0 })}
-                />
+                <Input type="number" value={formData.bmr || ''} onChange={e => setFormData({ ...formData, bmr: parseInt(e.target.value) || null })} />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">내장지방 레벨</label>
-                <Input
-                  type="number"
-                  value={formData.visceralFat || ''}
-                  onChange={e => setFormData({ ...formData, visceralFat: parseInt(e.target.value) || 0 })}
-                />
+                <Input type="number" value={formData.visceral_fat || ''} onChange={e => setFormData({ ...formData, visceral_fat: parseInt(e.target.value) || null })} />
               </div>
             </div>
           </div>
