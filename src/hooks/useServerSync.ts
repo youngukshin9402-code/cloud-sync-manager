@@ -285,6 +285,7 @@ export type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snack';
 
 export interface MealRecordServer {
   id: string;
+  localId?: string;  // For offline tracking
   date: string;
   meal_type: MealType;
   image_url: string | null;
@@ -352,16 +353,30 @@ export function useMealRecords() {
     fetchFromServer();
   }, [fetchFromServer]);
 
-  const add = async (item: Omit<MealRecordServer, 'id' | 'created_at'>) => {
+  const add = async (
+    item: Omit<MealRecordServer, 'id' | 'created_at'>,
+    options?: { imageFile?: File | Blob; localId?: string }
+  ) => {
     if (!user) return { error: 'Not authenticated' };
     setSyncing(true);
+    
     try {
+      let imageUrl = item.image_url;
+      
+      // Upload image to storage if provided
+      if (options?.imageFile) {
+        const { uploadMealImage } = await import('@/lib/imageUpload');
+        const localId = options.localId || `upload_${Date.now()}`;
+        const { url } = await uploadMealImage(user.id, options.imageFile, localId);
+        imageUrl = url;
+      }
+      
       const { data: newItem, error } = await supabase
         .from('meal_records')
         .insert({ 
           date: item.date,
           meal_type: item.meal_type,
-          image_url: item.image_url,
+          image_url: imageUrl,
           total_calories: item.total_calories,
           user_id: user.id,
           foods: item.foods as unknown as Json
@@ -379,6 +394,26 @@ export function useMealRecords() {
     } finally {
       setSyncing(false);
     }
+  };
+  
+  // Add offline (saves to pending queue and localStorage cache)
+  const addOffline = (item: Omit<MealRecordServer, 'id' | 'created_at'>, localId: string) => {
+    const newRecord: MealRecordServer = {
+      id: localId,
+      localId,
+      ...item,
+      created_at: new Date().toISOString(),
+    };
+    
+    setData(prev => [newRecord, ...prev]);
+    
+    // Save to cache
+    const cached = localStorage.getItem('yanggaeng_meal_records') || '[]';
+    const cachedData = JSON.parse(cached);
+    cachedData.unshift(newRecord);
+    localStorage.setItem('yanggaeng_meal_records', JSON.stringify(cachedData));
+    
+    return newRecord;
   };
 
   const remove = async (id: string) => {
@@ -405,7 +440,7 @@ export function useMealRecords() {
     return data.filter(r => r.date === dateStr).reduce((sum, r) => sum + r.total_calories, 0);
   };
 
-  return { data, loading, syncing, add, remove, refetch: fetchFromServer, getTodayCalories };
+  return { data, loading, syncing, add, addOffline, remove, refetch: fetchFromServer, getTodayCalories };
 }
 
 // ========================
@@ -426,6 +461,7 @@ export interface GymExercise {
 
 export interface GymRecordServer {
   id: string;
+  localId?: string;  // For offline tracking
   date: string;
   exercises: GymExercise[];
   created_at: string;
@@ -512,6 +548,28 @@ export function useGymRecords() {
     }
   };
 
+  // Add offline (saves to pending queue and localStorage cache)
+  const addOffline = (item: { date: string; exercises: GymExercise[] }, localId: string) => {
+    const newRecord: GymRecordServer = {
+      id: localId,
+      localId,
+      ...item,
+      created_at: new Date().toISOString(),
+    };
+    
+    setData(prev => [newRecord, ...prev].sort((a, b) => 
+      new Date(b.date).getTime() - new Date(a.date).getTime()
+    ));
+    
+    // Save to cache
+    const cached = localStorage.getItem('yanggaeng_gym_records') || '[]';
+    const cachedData = JSON.parse(cached);
+    cachedData.unshift(newRecord);
+    localStorage.setItem('yanggaeng_gym_records', JSON.stringify(cachedData));
+    
+    return newRecord;
+  };
+
   const update = async (id: string, exercises: GymExercise[]) => {
     if (!user) return { error: 'Not authenticated' };
     setSyncing(true);
@@ -536,7 +594,7 @@ export function useGymRecords() {
     }
   };
 
-  return { data, loading, syncing, add, update, refetch: fetchFromServer };
+  return { data, loading, syncing, add, addOffline, update, refetch: fetchFromServer };
 }
 
 // ========================
