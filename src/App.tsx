@@ -17,13 +17,17 @@ import Guardian from "./pages/Guardian";
 import Premium from "./pages/Premium";
 import Coaching from "./pages/Coaching";
 import VideoCall from "./pages/VideoCall";
+import Shop from "./pages/Shop";
 import NotFound from "./pages/NotFound";
 
 // Coach Pages
 import CoachDashboard from "./pages/coach/CoachDashboard";
+import CoachUserDetail from "./pages/coach/CoachUserDetail";
 
 // Admin Pages
 import AdminDashboard from "./pages/admin/AdminDashboard";
+import AdminUsers from "./pages/admin/AdminUsers";
+import AdminProducts from "./pages/admin/AdminProducts";
 
 // Components
 import { ProtectedRoute } from "@/components/ProtectedRoute";
@@ -86,6 +90,7 @@ function AppRoutes() {
         <Route path="/premium" element={<Premium />} />
         <Route path="/coaching" element={<Coaching />} />
         <Route path="/video-call/:sessionId" element={<VideoCall />} />
+        <Route path="/shop" element={<Shop />} />
       </Route>
 
       {/* 코치 페이지 */}
@@ -94,6 +99,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute allowedTypes={["coach", "admin"]}>
             <CoachDashboard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/coach/user/:userId"
+        element={
+          <ProtectedRoute allowedTypes={["coach", "admin"]}>
+            <CoachUserDetail />
           </ProtectedRoute>
         }
       />
@@ -116,10 +129,18 @@ function AppRoutes() {
         }
       />
       <Route
-        path="/admin/*"
+        path="/admin/users"
         element={
           <ProtectedRoute allowedTypes={["admin"]}>
-            <AdminDashboard />
+            <AdminUsers />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/products"
+        element={
+          <ProtectedRoute allowedTypes={["admin"]}>
+            <AdminProducts />
           </ProtectedRoute>
         }
       />
