@@ -337,7 +337,7 @@ export default function Nutrition() {
   }
 
   return (
-    <div className="space-y-6 pb-24">
+    <div className="space-y-6">
       {/* 오프라인 배너 */}
       {!isOnline && (
         <div className="bg-yellow-100 dark:bg-yellow-900 border border-yellow-300 dark:border-yellow-700 rounded-xl p-3 flex items-center gap-2">
@@ -457,16 +457,16 @@ export default function Nutrition() {
       {step === "idle" && (
         <>
           {/* 식사 기록 버튼 */}
-          <div className="bg-card rounded-3xl border border-border p-6">
-            <h2 className="text-xl font-semibold mb-4">식사 기록하기</h2>
-            <p className="text-muted-foreground mb-4">
+          <div className="bg-card rounded-3xl border border-border p-4 sm:p-6">
+            <h2 className="text-xl font-semibold mb-3">식사 기록하기</h2>
+            <p className="text-muted-foreground mb-4 text-base">
               음식 사진을 찍으면 AI가 분석해드려요
             </p>
             
             {/* 식사 타입 선택 */}
             <div className="mb-4">
               <Select value={selectedMealType} onValueChange={(v) => setSelectedMealType(v as MealType)}>
-                <SelectTrigger>
+                <SelectTrigger className="h-12">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -479,23 +479,24 @@ export default function Nutrition() {
               </Select>
             </div>
 
-            <div className="flex gap-4">
+            {/* 버튼 - 세로 스택 (작은 화면) / 가로 (큰 화면) */}
+            <div className="flex flex-col sm:flex-row gap-3">
               <Button
                 size="lg"
-                className="flex-1 h-14"
+                className="w-full sm:flex-1 h-14 min-h-[56px] text-base font-semibold rounded-xl"
                 onClick={() => cameraInputRef.current?.click()}
               >
-                <Camera className="w-5 h-5 mr-2" />
-                카메라
+                <Camera className="w-5 h-5 mr-2 shrink-0" />
+                카메라로 촬영
               </Button>
               <Button
                 size="lg"
                 variant="outline"
-                className="flex-1 h-14"
+                className="w-full sm:flex-1 h-14 min-h-[56px] text-base font-semibold rounded-xl border-2"
                 onClick={() => fileInputRef.current?.click()}
               >
-                <ImageIcon className="w-5 h-5 mr-2" />
-                갤러리
+                <ImageIcon className="w-5 h-5 mr-2 shrink-0" />
+                갤러리에서 선택
               </Button>
             </div>
           </div>

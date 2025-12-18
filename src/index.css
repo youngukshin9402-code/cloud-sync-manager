@@ -143,11 +143,31 @@
 }
 
 @layer utilities {
+  /* iOS Safe Area 지원 */
+  .safe-area-top {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+  
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  
+  /* 하단 탭 높이(64px) + safe area를 고려한 콘텐츠 패딩 */
+  .pb-safe-bottom {
+    padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+  }
+
   /* 양갱 블록 스타일 버튼 */
   .yanggaeng-block {
     @apply rounded-2xl px-8 py-5 font-semibold text-xl transition-all duration-300;
     @apply hover:scale-[1.02] hover:shadow-lg active:scale-[0.98];
     min-height: 56px;
+  }
+
+  /* 모바일 터치 친화적 버튼 */
+  .btn-touch {
+    @apply min-h-[48px] min-w-[48px] rounded-xl px-4 py-3 font-medium;
+    @apply active:scale-[0.98] transition-transform;
   }
 
   /* 카드 호버 효과 */
