@@ -1,271 +1,322 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
-import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Skeleton } from "@/components/ui/skeleton";
+import { useToast } from "@/hooks/use-toast";
 import {
   ArrowLeft,
   ShoppingBag,
-  Search,
-  Heart,
-  Star,
-  ExternalLink,
-  Coins,
+  Check,
+  CreditCard,
+  Loader2,
+  MessageSquare,
+  ClipboardList,
 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  getOrders,
+  setOrders,
+  Order,
+  generateId,
+  getTodayString,
+} from "@/lib/localStorage";
+
+type ProductType = "doctor" | "trainer" | "nutritionist";
+type Step = "list" | "order" | "payment" | "success" | "survey";
 
 interface Product {
   id: string;
   name: string;
-  description: string | null;
+  type: ProductType;
+  description: string;
   price: number;
-  health_tags: string[] | null;
-  image_url: string | null;
-  purchase_link: string | null;
+  duration: string;
 }
+
+const PRODUCTS: Product[] = [
+  {
+    id: "1",
+    name: "의사 1:1 건강 코칭",
+    type: "doctor",
+    description: "전문 의사와 함께하는 맞춤 건강 관리",
+    price: 150000,
+    duration: "4주",
+  },
+  {
+    id: "2",
+    name: "트레이너 1:1 운동 코칭",
+    type: "trainer",
+    description: "전문 트레이너와 함께하는 맞춤 운동 프로그램",
+    price: 100000,
+    duration: "4주",
+  },
+  {
+    id: "3",
+    name: "영양사 1:1 식단 코칭",
+    type: "nutritionist",
+    description: "전문 영양사와 함께하는 맞춤 식단 관리",
+    price: 80000,
+    duration: "4주",
+  },
+];
+
+const PAYMENT_METHODS = [
+  { id: "kakao", name: "카카오페이", icon: "💛" },
+  { id: "naver", name: "네이버페이", icon: "💚" },
+  { id: "card", name: "신용카드", icon: "💳" },
+];
 
 export default function Shop() {
   const navigate = useNavigate();
-  const { profile } = useAuth();
   const { toast } = useToast();
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [userHealthTags, setUserHealthTags] = useState<string[]>([]);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      // 상품 목록
-      const { data: productsData } = await supabase
-        .from("products")
-        .select("*")
-        .eq("is_active", true)
-        .order("created_at", { ascending: false });
+  const [step, setStep] = useState<Step>("list");
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<string>("");
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [createdOrder, setCreatedOrder] = useState<Order | null>(null);
+  const [inquiry, setInquiry] = useState("");
 
-      setProducts(productsData || []);
+  const selectProduct = (product: Product) => {
+    setSelectedProduct(product);
+    setStep("order");
+  };
 
-      // 사용자 건강 태그
-      if (profile?.id) {
-        const { data: healthRecord } = await supabase
-          .from("health_records")
-          .select("health_tags")
-          .eq("user_id", profile.id)
-          .eq("status", "completed")
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
-        if (healthRecord?.health_tags) {
-          setUserHealthTags(healthRecord.health_tags);
-        }
-      }
-
-      setLoading(false);
-    };
-
-    fetchData();
-  }, [profile]);
-
-  // 맞춤 추천 상품 (건강 태그 매칭)
-  const recommendedProducts = products.filter(
-    (p) =>
-      p.health_tags &&
-      p.health_tags.some((tag) => userHealthTags.includes(tag))
-  );
-
-  // 검색 필터
-  const filteredProducts = products.filter((p) =>
-    p.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  const handlePurchase = (product: Product) => {
-    if (product.purchase_link) {
-      window.open(product.purchase_link, "_blank");
-    } else {
-      toast({
-        title: "구매 링크 없음",
-        description: "이 상품은 현재 구매할 수 없습니다.",
-        variant: "destructive",
-      });
+  const proceedToPayment = () => {
+    if (!paymentMethod) {
+      toast({ title: "결제수단을 선택해주세요", variant: "destructive" });
+      return;
     }
+    setStep("payment");
   };
 
-  const formatTagName = (tag: string) => {
-    const tagMap: Record<string, string> = {
-      high_bp: "고혈압",
-      diabetes: "당뇨",
-      liver_issue: "간 건강",
-      kidney_issue: "신장 건강",
-      high_cholesterol: "콜레스테롤",
-      borderline_bp: "혈압 주의",
-      borderline_sugar: "혈당 주의",
+  const processPayment = async () => {
+    setIsProcessing(true);
+    await new Promise((r) => setTimeout(r, 2000)); // Mock 결제
+
+    const newOrder: Order = {
+      id: generateId(),
+      date: getTodayString(),
+      productName: selectedProduct!.name,
+      productType: selectedProduct!.type,
+      price: selectedProduct!.price,
+      status: "paid",
+      paymentMethod,
     };
-    return tagMap[tag] || tag;
+
+    const orders = getOrders();
+    setOrders([...orders, newOrder]);
+    setCreatedOrder(newOrder);
+    setIsProcessing(false);
+    setStep("success");
+    toast({ title: "결제 완료!", description: "코칭이 시작됩니다." });
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-background p-4">
-        <Skeleton className="h-12 w-full mb-4" />
-        <div className="grid grid-cols-2 gap-4">
-          <Skeleton className="h-64" />
-          <Skeleton className="h-64" />
-          <Skeleton className="h-64" />
-          <Skeleton className="h-64" />
-        </div>
-      </div>
-    );
-  }
+  const startCoaching = () => {
+    setStep("survey");
+  };
+
+  const submitSurvey = () => {
+    toast({ title: "설문 제출 완료!", description: "곧 코치가 연락드릴 예정입니다." });
+    navigate("/mypage/orders");
+  };
+
+  const submitInquiry = () => {
+    if (!inquiry.trim()) {
+      toast({ title: "문의 내용을 입력해주세요", variant: "destructive" });
+      return;
+    }
+    toast({ title: "문의가 접수되었습니다", description: "빠른 시일 내 답변드리겠습니다." });
+    setInquiry("");
+  };
 
   return (
     <div className="min-h-screen bg-background pb-24">
       {/* Header */}
       <div className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white p-6">
-        <div className="flex items-center gap-3 mb-4">
+        <div className="flex items-center gap-3 mb-2">
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => navigate(-1)}
+            onClick={() => step === "list" ? navigate(-1) : setStep("list")}
             className="text-white hover:bg-white/20"
           >
             <ArrowLeft className="h-6 w-6" />
           </Button>
-          <h1 className="text-2xl font-bold">건강 상점</h1>
+          <h1 className="text-2xl font-bold">1:1 코칭 상점</h1>
         </div>
-        <p className="text-white/90">건강한 생활을 위한 맞춤 상품</p>
-
-        {/* 포인트 표시 */}
-        <div className="mt-4 bg-white/10 rounded-xl p-3 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Coins className="h-5 w-5" />
-            <span>사용 가능 포인트</span>
-          </div>
-          <span className="font-bold text-lg">
-            {profile?.current_points?.toLocaleString() || 0}P
-          </span>
-        </div>
+        <p className="text-white/90">전문가와 함께하는 맞춤 건강 관리</p>
       </div>
 
-      {/* Search */}
-      <div className="p-4">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-          <Input
-            placeholder="상품 검색..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-      </div>
-
-      {/* 맞춤 추천 */}
-      {!searchQuery && recommendedProducts.length > 0 && (
-        <div className="px-4 mb-6">
-          <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
-            <Star className="h-5 w-5 text-amber-500" />
-            회원님을 위한 추천
-          </h2>
-          <div className="flex gap-4 overflow-x-auto pb-2">
-            {recommendedProducts.map((product) => (
-              <Card
+      <div className="p-4 space-y-4">
+        {/* 상품 목록 */}
+        {step === "list" && (
+          <>
+            <h2 className="text-lg font-semibold flex items-center gap-2">
+              <ShoppingBag className="w-5 h-5" />
+              코칭 상품
+            </h2>
+            {PRODUCTS.map((product) => (
+              <div
                 key={product.id}
-                className="min-w-[200px] border-amber-200 bg-amber-50/50"
+                className="bg-card rounded-2xl border border-border p-4"
               >
-                <CardContent className="p-0">
-                  {product.image_url ? (
-                    <img
-                      src={product.image_url}
-                      alt={product.name}
-                      className="w-full h-32 object-cover rounded-t-lg"
-                    />
-                  ) : (
-                    <div className="w-full h-32 bg-amber-100 flex items-center justify-center rounded-t-lg">
-                      <Heart className="h-8 w-8 text-amber-400" />
-                    </div>
-                  )}
-                  <div className="p-3">
-                    <p className="font-semibold line-clamp-1">{product.name}</p>
-                    <p className="text-primary font-bold">
-                      ₩{product.price.toLocaleString()}
-                    </p>
-                    <Button
-                      size="sm"
-                      className="w-full mt-2"
-                      onClick={() => handlePurchase(product)}
-                    >
-                      구매하기
-                    </Button>
+                <div className="flex justify-between items-start mb-2">
+                  <div>
+                    <h3 className="font-semibold text-lg">{product.name}</h3>
+                    <p className="text-sm text-muted-foreground">{product.description}</p>
                   </div>
-                </CardContent>
-              </Card>
+                  <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full">
+                    {product.duration}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center mt-4">
+                  <span className="text-xl font-bold text-primary">
+                    ₩{product.price.toLocaleString()}
+                  </span>
+                  <Button onClick={() => selectProduct(product)}>신청하기</Button>
+                </div>
+              </div>
             ))}
+          </>
+        )}
+
+        {/* 주문서 */}
+        {step === "order" && selectedProduct && (
+          <div className="space-y-4">
+            <h2 className="text-lg font-semibold">주문서</h2>
+            <div className="bg-card rounded-2xl border border-border p-4">
+              <h3 className="font-semibold">{selectedProduct.name}</h3>
+              <p className="text-sm text-muted-foreground">{selectedProduct.description}</p>
+              <p className="text-xl font-bold text-primary mt-2">
+                ₩{selectedProduct.price.toLocaleString()}
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <h3 className="font-semibold">결제수단 선택</h3>
+              {PAYMENT_METHODS.map((method) => (
+                <button
+                  key={method.id}
+                  onClick={() => setPaymentMethod(method.id)}
+                  className={`w-full p-4 rounded-xl border-2 flex items-center gap-3 transition-all ${
+                    paymentMethod === method.id
+                      ? "border-primary bg-primary/5"
+                      : "border-border"
+                  }`}
+                >
+                  <span className="text-2xl">{method.icon}</span>
+                  <span className="font-medium">{method.name}</span>
+                  {paymentMethod === method.id && (
+                    <Check className="w-5 h-5 text-primary ml-auto" />
+                  )}
+                </button>
+              ))}
+            </div>
+
+            <Button size="lg" className="w-full h-14" onClick={proceedToPayment}>
+              결제하기
+            </Button>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* 전체 상품 */}
-      <div className="px-4">
-        <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
-          <ShoppingBag className="h-5 w-5" />
-          전체 상품
-        </h2>
-
-        {filteredProducts.length === 0 ? (
+        {/* 결제 처리 */}
+        {step === "payment" && (
           <div className="text-center py-12">
-            <ShoppingBag className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-            <p className="text-muted-foreground">
-              {searchQuery ? "검색 결과가 없습니다" : "등록된 상품이 없습니다"}
-            </p>
+            {isProcessing ? (
+              <>
+                <Loader2 className="w-12 h-12 animate-spin mx-auto mb-4 text-primary" />
+                <p className="text-lg font-semibold">결제 처리 중...</p>
+              </>
+            ) : (
+              <>
+                <CreditCard className="w-12 h-12 mx-auto mb-4 text-primary" />
+                <p className="text-lg font-semibold mb-4">결제를 진행합니다</p>
+                <Button size="lg" onClick={processPayment}>
+                  결제 확인
+                </Button>
+              </>
+            )}
           </div>
-        ) : (
-          <div className="grid grid-cols-2 gap-4">
-            {filteredProducts.map((product) => (
-              <Card key={product.id} className="overflow-hidden">
-                <CardContent className="p-0">
-                  {product.image_url ? (
-                    <img
-                      src={product.image_url}
-                      alt={product.name}
-                      className="w-full h-36 object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-36 bg-muted flex items-center justify-center">
-                      <ShoppingBag className="h-10 w-10 text-muted-foreground" />
-                    </div>
-                  )}
-                  <div className="p-3">
-                    <p className="font-semibold line-clamp-1">{product.name}</p>
-                    {product.description && (
-                      <p className="text-xs text-muted-foreground line-clamp-2 mt-1">
-                        {product.description}
-                      </p>
-                    )}
-                    {product.health_tags && product.health_tags.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mt-2">
-                        {product.health_tags.slice(0, 2).map((tag) => (
-                          <Badge key={tag} variant="outline" className="text-xs">
-                            {formatTagName(tag)}
-                          </Badge>
-                        ))}
-                      </div>
-                    )}
-                    <div className="flex items-center justify-between mt-3">
-                      <span className="text-primary font-bold">
-                        ₩{product.price.toLocaleString()}
-                      </span>
-                      <Button size="sm" onClick={() => handlePurchase(product)}>
-                        <ExternalLink className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+        )}
+
+        {/* 결제 완료 */}
+        {step === "success" && createdOrder && (
+          <div className="space-y-6">
+            <div className="text-center py-8">
+              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Check className="w-8 h-8 text-green-600" />
+              </div>
+              <h2 className="text-2xl font-bold mb-2">결제 완료!</h2>
+              <p className="text-muted-foreground">주문번호: {createdOrder.id}</p>
+            </div>
+
+            <div className="bg-card rounded-2xl border border-border p-4">
+              <h3 className="font-semibold mb-2">다음 단계</h3>
+              <ol className="space-y-2 text-sm text-muted-foreground">
+                <li>1. 간단한 설문 작성</li>
+                <li>2. 담당 코치 배정 (1-2일 내)</li>
+                <li>3. 코칭 일정 안내</li>
+                <li>4. 1:1 코칭 시작</li>
+              </ol>
+            </div>
+
+            <Button size="lg" className="w-full h-14" onClick={startCoaching}>
+              코칭 시작하기
+            </Button>
+          </div>
+        )}
+
+        {/* 간단 설문 */}
+        {step === "survey" && (
+          <div className="space-y-4">
+            <h2 className="text-lg font-semibold flex items-center gap-2">
+              <ClipboardList className="w-5 h-5" />
+              간단 설문
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              코칭에 필요한 정보를 알려주세요
+            </p>
+
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-medium block mb-2">건강 목표</label>
+                <Input placeholder="예: 체중 감량, 근력 향상" />
+              </div>
+              <div>
+                <label className="text-sm font-medium block mb-2">현재 건강 상태</label>
+                <Input placeholder="예: 특이사항 없음, 고혈압 약 복용 중" />
+              </div>
+              <div>
+                <label className="text-sm font-medium block mb-2">선호하는 연락 시간</label>
+                <Input placeholder="예: 평일 저녁 7시 이후" />
+              </div>
+            </div>
+
+            <div className="bg-muted rounded-xl p-4 mt-6">
+              <h3 className="font-semibold flex items-center gap-2 mb-2">
+                <MessageSquare className="w-4 h-4" />
+                문의하기
+              </h3>
+              <Input
+                placeholder="추가 문의사항이 있으시면 입력해주세요"
+                value={inquiry}
+                onChange={(e) => setInquiry(e.target.value)}
+                className="mb-2"
+              />
+              <Button variant="outline" size="sm" onClick={submitInquiry}>
+                문의 제출
+              </Button>
+            </div>
+
+            <Button size="lg" className="w-full h-14" onClick={submitSurvey}>
+              설문 제출하기
+            </Button>
           </div>
         )}
       </div>
