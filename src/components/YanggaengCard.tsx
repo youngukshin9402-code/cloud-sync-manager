@@ -1,6 +1,7 @@
 import { cn } from "@/lib/utils";
 import { LucideIcon } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useDailyData } from "@/contexts/DailyDataContext";
 
 interface YanggaengCardProps {
   title: string;
@@ -43,6 +44,8 @@ export function YanggaengCard({
   to,
 }: YanggaengCardProps) {
   const styles = colorStyles[color];
+  const { todayCalories, todayWater } = useDailyData();
+  const showTodaySummary = todayCalories > 0 || todayWater > 0;
 
   const className = cn(
     "group relative rounded-3xl p-8 border-2 transition-all duration-500",
@@ -72,6 +75,15 @@ export function YanggaengCard({
       <p className="text-lg text-muted-foreground mb-6 leading-relaxed">
         {description}
       </p>
+
+      {showTodaySummary && (
+        <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-border/60 bg-background/70 px-3 py-1 text-sm">
+          <span className="text-muted-foreground">오늘</span>
+          <span className="font-semibold text-foreground">{todayCalories.toLocaleString()}kcal</span>
+          <span className="text-muted-foreground">·</span>
+          <span className="font-semibold text-foreground">{todayWater.toLocaleString()}ml</span>
+        </div>
+      )}
 
       {/* 기능 목록 */}
       <ul className="space-y-3">

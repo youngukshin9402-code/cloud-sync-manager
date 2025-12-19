@@ -1,7 +1,11 @@
 import { YanggaengCard } from "./YanggaengCard";
 import { Stethoscope, Utensils, Dumbbell } from "lucide-react";
+import { useDailyData } from "@/contexts/DailyDataContext";
 
 export function YanggaengSection() {
+  const { todayCalories, todayWater } = useDailyData();
+  const showTodaySummary = todayCalories > 0 || todayWater > 0;
+
   return (
     <section id="yanggaengs" className="py-24 bg-secondary/30">
       <div className="container mx-auto px-6">
@@ -17,6 +21,19 @@ export function YanggaengSection() {
             <br />
             한 곳에서 쉽고 재미있게 관리할 수 있어요.
           </p>
+
+          {showTodaySummary && (
+            <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
+              <span className="rounded-full border border-border/60 bg-background/70 px-3 py-1 text-sm">
+                <span className="text-muted-foreground">오늘 섭취</span>{" "}
+                <span className="font-semibold text-foreground">{todayCalories.toLocaleString()}kcal</span>
+              </span>
+              <span className="rounded-full border border-border/60 bg-background/70 px-3 py-1 text-sm">
+                <span className="text-muted-foreground">오늘 물</span>{" "}
+                <span className="font-semibold text-foreground">{todayWater.toLocaleString()}ml</span>
+              </span>
+            </div>
+          )}
         </div>
 
         {/* 3개의 양갱 카드 */}

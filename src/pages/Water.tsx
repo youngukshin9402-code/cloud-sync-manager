@@ -43,7 +43,7 @@ export default function Water() {
   const { toast } = useToast();
   const { user } = useAuth();
   const { data: logs, loading, add, getTodayTotal } = useWaterLogs();
-  const { refreshWater } = useDailyData();
+  const { addWater: addWaterToDailyData } = useDailyData();
   const [settings, setSettingsState] = useState<WaterSettings>(defaultSettings);
   const [settingsLoading, setSettingsLoading] = useState(true);
   const [customAmount, setCustomAmount] = useState("");
@@ -93,7 +93,7 @@ export default function Water() {
     if (result.error) {
       toast({ title: "저장 실패", variant: "destructive" });
     } else {
-      refreshWater(); // Dashboard 동기화
+      addWaterToDailyData(amount); // Dashboard/오늘요약 즉시 반영
       toast({
         title: "물 섭취 기록 완료!",
         description: `${amount}ml 추가됨 (오늘 총 ${todayTotal + amount}ml)`,
