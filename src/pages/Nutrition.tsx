@@ -31,6 +31,7 @@ import {
   CalendarIcon,
   WifiOff,
   CloudOff,
+  PlusCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useMealRecords, MealRecordServer, MealFood } from "@/hooks/useServerSync";
@@ -50,7 +51,7 @@ interface AnalyzedFood {
   fat: number;
 }
 
-type Step = "idle" | "analyzing" | "portion" | "confirm";
+type Step = "idle" | "analyzing" | "portion" | "confirm" | "manual";
 
 const MEAL_TYPE_LABELS: Record<MealType, string> = {
   breakfast: "아침",
@@ -116,6 +117,14 @@ export default function Nutrition() {
   const [analyzedFoods, setAnalyzedFoods] = useState<AnalyzedFood[]>([]);
   const [selectedMealType, setSelectedMealType] = useState<MealType>("lunch");
   const [editingRecord, setEditingRecord] = useState<MealRecordServer | null>(null);
+
+  // 직접 입력 상태
+  const [manualFoodName, setManualFoodName] = useState("");
+  const [manualCalories, setManualCalories] = useState("");
+  const [manualCarbs, setManualCarbs] = useState("");
+  const [manualProtein, setManualProtein] = useState("");
+  const [manualFat, setManualFat] = useState("");
+  const [manualMemo, setManualMemo] = useState("");
 
   // 온라인/오프라인 상태 감지 및 자동 동기화
   useEffect(() => {
@@ -293,6 +302,82 @@ export default function Nutrition() {
     setUploadedFile(null);
     setAnalyzedFoods([]);
     setEditingRecord(null);
+    // 직접 입력 필드도 초기화
+    setManualFoodName("");
+    setManualCalories("");
+    setManualCarbs("");
+    setManualProtein("");
+    setManualFat("");
+    setManualMemo("");
+  };
+
+  // 직접 입력 저장
+  const handleManualSave = async () => {
+    if (!user) {
+      toast({ title: "로그인이 필요합니다", variant: "destructive" });
+      return;
+    }
+
+    if (!manualFoodName.trim()) {
+      toast({ title: "음식명을 입력해주세요", variant: "destructive" });
+      return;
+    }
+
+    const calories = parseInt(manualCalories) || 0;
+    const carbs = parseInt(manualCarbs) || 0;
+    const protein = parseInt(manualProtein) || 0;
+    const fat = parseInt(manualFat) || 0;
+
+    const foods: MealFood[] = [{
+      name: manualFoodName.trim(),
+      portion: manualMemo.trim() || "1인분",
+      calories,
+      carbs,
+      protein,
+      fat,
+    }];
+
+    const totalCalories = calories;
+
+    try {
+      if (isOnline) {
+        await add({
+          date: dateStr,
+          meal_type: selectedMealType,
+          foods,
+          total_calories: totalCalories,
+          image_url: null,
+        });
+        toast({ title: "저장 완료!", description: `${MEAL_TYPE_LABELS[selectedMealType]} 기록이 저장되었습니다.` });
+      } else {
+        const localId = addToPending('meal_record', {
+          user_id: user.id,
+          date: dateStr,
+          meal_type: selectedMealType,
+          foods,
+          total_calories: totalCalories,
+          image_url: null,
+        });
+        
+        addOffline({
+          date: dateStr,
+          meal_type: selectedMealType,
+          foods,
+          total_calories: totalCalories,
+          image_url: null,
+        }, localId);
+        
+        toast({ 
+          title: "로컬에 저장됨", 
+          description: "온라인 복귀 시 자동으로 서버에 업로드됩니다." 
+        });
+      }
+      
+      resetFlow();
+    } catch (error) {
+      console.error('Manual save error:', error);
+      toast({ title: "저장 실패", description: "다시 시도해주세요", variant: "destructive" });
+    }
   };
 
   // 기록 삭제
@@ -484,23 +569,35 @@ export default function Nutrition() {
             </div>
 
             {/* 버튼 - 세로 스택 (작은 화면) / 가로 (큰 화면) */}
-            <div className="flex flex-col sm:flex-row gap-3">
+            <div className="flex flex-col gap-3">
+              <div className="flex flex-col sm:flex-row gap-3">
+                <Button
+                  size="lg"
+                  className="w-full min-w-0 sm:flex-1 h-14 min-h-[56px] text-base font-semibold rounded-xl whitespace-normal break-words"
+                  onClick={() => cameraInputRef.current?.click()}
+                >
+                  <Camera className="w-5 h-5 mr-2 shrink-0" />
+                  <span className="truncate">카메라로 촬영</span>
+                </Button>
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="w-full min-w-0 sm:flex-1 h-14 min-h-[56px] text-base font-semibold rounded-xl border-2 whitespace-normal break-words"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <ImageIcon className="w-5 h-5 mr-2 shrink-0" />
+                  <span className="truncate">갤러리에서 선택</span>
+                </Button>
+              </div>
+              {/* 직접 입력 버튼 */}
               <Button
                 size="lg"
-                className="w-full min-w-0 sm:flex-1 h-14 min-h-[56px] text-base font-semibold rounded-xl whitespace-normal break-words"
-                onClick={() => cameraInputRef.current?.click()}
+                variant="secondary"
+                className="w-full h-12 text-base font-semibold rounded-xl"
+                onClick={() => setStep("manual")}
               >
-                <Camera className="w-5 h-5 mr-2 shrink-0" />
-                <span className="truncate">카메라로 촬영</span>
-              </Button>
-              <Button
-                size="lg"
-                variant="outline"
-                className="w-full min-w-0 sm:flex-1 h-14 min-h-[56px] text-base font-semibold rounded-xl border-2 whitespace-normal break-words"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                <ImageIcon className="w-5 h-5 mr-2 shrink-0" />
-                <span className="truncate">갤러리에서 선택</span>
+                <PlusCircle className="w-5 h-5 mr-2 shrink-0" />
+                <span>직접 입력</span>
               </Button>
             </div>
           </div>
@@ -592,7 +689,115 @@ export default function Nutrition() {
         </div>
       )}
 
-      {/* 양(포션) 입력 단계 */}
+      {/* 직접 입력 단계 */}
+      {step === "manual" && (
+        <div className="bg-card rounded-3xl border border-border p-4 sm:p-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-semibold">직접 입력</h2>
+            <Button variant="ghost" size="sm" onClick={resetFlow}>
+              <X className="w-4 h-4 mr-1" />
+              취소
+            </Button>
+          </div>
+
+          {/* 식사 종류 */}
+          <div>
+            <label className="text-sm font-medium text-muted-foreground">식사 종류</label>
+            <Select value={selectedMealType} onValueChange={(v) => setSelectedMealType(v as MealType)}>
+              <SelectTrigger className="mt-1 h-12">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {(Object.entries(MEAL_TYPE_LABELS) as [MealType, string][]).map(([key, label]) => (
+                  <SelectItem key={key} value={key}>
+                    {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* 음식명 (필수) */}
+          <div>
+            <label className="text-sm font-medium text-muted-foreground">
+              음식명 <span className="text-destructive">*</span>
+            </label>
+            <Input
+              placeholder="예: 김치찌개, 비빔밥"
+              value={manualFoodName}
+              onChange={(e) => setManualFoodName(e.target.value)}
+              className="mt-1 h-12"
+            />
+          </div>
+
+          {/* 칼로리 (선택) */}
+          <div>
+            <label className="text-sm font-medium text-muted-foreground">칼로리 (kcal)</label>
+            <Input
+              type="number"
+              placeholder="예: 500"
+              value={manualCalories}
+              onChange={(e) => setManualCalories(e.target.value)}
+              className="mt-1 h-12"
+            />
+          </div>
+
+          {/* 탄단지 (선택) */}
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="text-sm font-medium text-muted-foreground">탄수화물 (g)</label>
+              <Input
+                type="number"
+                placeholder="0"
+                value={manualCarbs}
+                onChange={(e) => setManualCarbs(e.target.value)}
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium text-muted-foreground">단백질 (g)</label>
+              <Input
+                type="number"
+                placeholder="0"
+                value={manualProtein}
+                onChange={(e) => setManualProtein(e.target.value)}
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium text-muted-foreground">지방 (g)</label>
+              <Input
+                type="number"
+                placeholder="0"
+                value={manualFat}
+                onChange={(e) => setManualFat(e.target.value)}
+                className="mt-1"
+              />
+            </div>
+          </div>
+
+          {/* 메모 (선택) */}
+          <div>
+            <label className="text-sm font-medium text-muted-foreground">메모 / 양</label>
+            <Input
+              placeholder="예: 1인분, 반 그릇"
+              value={manualMemo}
+              onChange={(e) => setManualMemo(e.target.value)}
+              className="mt-1 h-12"
+            />
+          </div>
+
+          {/* 저장 버튼 */}
+          <Button
+            size="lg"
+            className="w-full h-14 text-base font-semibold rounded-xl"
+            onClick={handleManualSave}
+            disabled={!manualFoodName.trim()}
+          >
+            저장하기
+          </Button>
+        </div>
+      )}
       {step === "portion" && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
