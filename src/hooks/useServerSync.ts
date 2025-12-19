@@ -70,11 +70,31 @@ export function useWaterLogs() {
     }
   };
 
+  const remove = async (id: string) => {
+    if (!user) return { error: 'Not authenticated' };
+    setSyncing(true);
+    try {
+      const { error } = await supabase
+        .from('water_logs')
+        .delete()
+        .eq('id', id)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+      setData(prev => prev.filter(item => item.id !== id));
+      return { error: null };
+    } catch (error) {
+      return { error };
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   const getTodayTotal = (dateStr: string) => {
     return data.filter(l => l.date === dateStr).reduce((sum, l) => sum + l.amount, 0);
   };
 
-  return { data, loading, syncing, add, refetch: fetchFromServer, getTodayTotal };
+  return { data, loading, syncing, add, remove, refetch: fetchFromServer, getTodayTotal };
 }
 
 // ========================
