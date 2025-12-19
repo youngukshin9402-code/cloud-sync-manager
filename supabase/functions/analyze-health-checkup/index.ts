@@ -36,6 +36,18 @@ serve(async (req) => {
       .update({ status: "analyzing" })
       .eq("id", recordId);
 
+    // Helper function to convert ArrayBuffer to base64 without stack overflow
+    const arrayBufferToBase64 = (buffer: ArrayBuffer): string => {
+      const bytes = new Uint8Array(buffer);
+      let binary = '';
+      const chunkSize = 0x8000; // 32KB chunks to avoid stack overflow
+      for (let i = 0; i < bytes.length; i += chunkSize) {
+        const chunk = bytes.subarray(i, i + chunkSize);
+        binary += String.fromCharCode.apply(null, Array.from(chunk));
+      }
+      return btoa(binary);
+    };
+
     // Download images and convert to base64
     const imageContents = await Promise.all(
       imageUrls.map(async (url: string) => {
@@ -49,7 +61,7 @@ serve(async (req) => {
         }
         
         const arrayBuffer = await data.arrayBuffer();
-        const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+        const base64 = arrayBufferToBase64(arrayBuffer);
         return `data:image/jpeg;base64,${base64}`;
       })
     );
