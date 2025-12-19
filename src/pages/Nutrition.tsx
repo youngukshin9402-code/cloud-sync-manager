@@ -406,7 +406,11 @@ export default function Nutrition() {
           className="flex items-center gap-2 text-lg font-semibold"
         >
           <CalendarIcon className="w-5 h-5" />
-          {format(selectedDate, "M월 d일 (EEEE)", { locale: ko })}
+          {(() => {
+            const weekdays = ["일", "월", "화", "수", "목", "금", "토"] as const;
+            const weekday = weekdays[selectedDate.getDay()];
+            return `${format(selectedDate, "M월 d일", { locale: ko })} (${weekday})`;
+          })()}
           {isToday && (
             <span className="text-xs bg-primary text-primary-foreground px-2 py-0.5 rounded-full">
               오늘
