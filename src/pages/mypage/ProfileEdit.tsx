@@ -142,13 +142,8 @@ export default function ProfileEdit() {
           </div>
         </div>
 
-        {/* Danger Zone */}
+        {/* 회원 탈퇴 */}
         <div className="space-y-3">
-          <h2 className="text-lg font-semibold text-destructive flex items-center gap-2">
-            <AlertTriangle className="w-5 h-5" />
-            위험 영역
-          </h2>
-          
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button variant="outline" className="w-full border-destructive text-destructive hover:bg-destructive/10">

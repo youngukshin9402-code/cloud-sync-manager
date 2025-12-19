@@ -64,9 +64,6 @@ export function HeroSection() {
                 <ArrowRight className="w-5 h-5" />
               </Link>
             </Button>
-            <Button asChild variant="outline" size="touch">
-              <Link to="/dashboard">서비스 둘러보기</Link>
-            </Button>
           </div>
 
           {/* 신뢰 지표 */}

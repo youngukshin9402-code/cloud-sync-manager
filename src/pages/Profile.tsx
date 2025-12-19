@@ -7,7 +7,6 @@ import {
   Link2,
   Bell,
   HelpCircle,
-  FileText,
   LogOut,
   ChevronRight,
   Coins,
@@ -15,7 +14,6 @@ import {
   ShoppingBag,
   Shield,
   Download,
-  MessageSquare,
 } from "lucide-react";
 
 export default function Profile() {
@@ -40,14 +38,8 @@ export default function Profile() {
     },
     {
       icon: Link2,
-      label: isGuardian ? "연결된 가족" : "보호자 연결",
+      label: "가족 연동",
       path: "/mypage/guardian",
-    },
-    {
-      icon: Crown,
-      label: isPremium ? "프리미엄 관리" : "프리미엄 가입",
-      path: "/premium",
-      highlight: !isPremium,
     },
     ...(isPremium
       ? [
@@ -58,11 +50,6 @@ export default function Profile() {
           },
         ]
       : []),
-    {
-      icon: MessageSquare,
-      label: "코칭 피드백",
-      path: "/mypage/coaching-feedback",
-    },
     {
       icon: ShoppingBag,
       label: "주문 내역",
@@ -86,11 +73,6 @@ export default function Profile() {
     {
       icon: Shield,
       label: "개인정보 처리방침",
-      path: "/privacy",
-    },
-    {
-      icon: FileText,
-      label: "이용약관",
       path: "/privacy",
     },
   ];
@@ -155,16 +137,8 @@ export default function Profile() {
               index !== menuItems.length - 1 ? "border-b border-border" : ""
             }`}
           >
-            <item.icon
-              className={`w-6 h-6 ${
-                item.highlight ? "text-primary" : "text-muted-foreground"
-              }`}
-            />
-            <span
-              className={`flex-1 text-lg ${
-                item.highlight ? "text-primary font-medium" : "text-foreground"
-              }`}
-            >
+            <item.icon className="w-6 h-6 text-muted-foreground" />
+            <span className="flex-1 text-lg text-foreground">
               {item.label}
             </span>
             {item.badge && (

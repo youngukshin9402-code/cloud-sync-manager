@@ -11,8 +11,8 @@ export function Footer() {
               <Heart className="w-5 h-5 text-primary-foreground" />
             </div>
             <div>
-              <h3 className="text-lg font-bold text-foreground">건강양갱</h3>
-              <p className="text-sm text-muted-foreground">Health Yanggaeng</p>
+              <h3 className="text-lg font-bold text-foreground">영양갱</h3>
+              <p className="text-sm text-muted-foreground">Yanggaeng</p>
             </div>
           </div>
 
@@ -46,7 +46,7 @@ export function Footer() {
 
           {/* 저작권 */}
           <p className="text-sm text-muted-foreground">
-            © 2024 건강양갱. All rights reserved.
+            © 2024 영양갱. All rights reserved.
           </p>
         </div>
       </div>

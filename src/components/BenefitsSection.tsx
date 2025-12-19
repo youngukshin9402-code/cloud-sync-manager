@@ -3,7 +3,6 @@ import {
   Eye,
   MessageCircle,
   Gift,
-  Phone,
   Heart,
   Clock,
 } from "lucide-react";
@@ -27,12 +26,6 @@ export function BenefitsSection() {
       title: "양갱 포인트 적립",
       description:
         "건강한 활동을 할 때마다 포인트가 쌓여요. 쿠폰이나 상품으로 교환 가능해요.",
-    },
-    {
-      icon: Phone,
-      title: "1:1 전문 코칭",
-      description:
-        "프리미엄 회원은 전문 코치와 영상통화로 맞춤 건강 상담을 받을 수 있어요.",
     },
     {
       icon: Heart,

@@ -18,7 +18,7 @@ export function CTASection() {
           <h2 className="text-4xl md:text-5xl font-bold text-foreground mb-6">
             지금 바로
             <br />
-            <span className="text-primary">건강양갱</span>을 시작하세요
+            <span className="text-primary">영양갱</span>을 시작하세요
           </h2>
 
           <p className="text-xl text-muted-foreground mb-10 max-w-2xl mx-auto">

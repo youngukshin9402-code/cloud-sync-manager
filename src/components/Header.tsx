@@ -12,8 +12,8 @@ export function Header() {
             <Heart className="w-6 h-6 text-primary-foreground" />
           </div>
           <div>
-            <span className="text-xl font-bold text-foreground">건강양갱</span>
-            <p className="text-sm text-muted-foreground">Health Yanggaeng</p>
+            <span className="text-xl font-bold text-foreground">영양갱</span>
+            <p className="text-sm text-muted-foreground">Yanggaeng</p>
           </div>
         </div>
 
