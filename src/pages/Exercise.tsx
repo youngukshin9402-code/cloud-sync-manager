@@ -567,62 +567,72 @@ export default function Exercise() {
                 </div>
 
                 {currentExercise.sets.map((set, index) => (
-                  <div key={index} className="flex items-center gap-3 bg-muted/50 rounded-xl p-3">
-                    <span className="text-sm font-medium w-12">{index + 1}세트</span>
+                  <div key={index} className="bg-muted/50 rounded-xl p-3 space-y-2">
+                    {/* 세트 번호 + 삭제 버튼 */}
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-semibold text-muted-foreground">{index + 1}세트</span>
+                      {currentExercise.sets && currentExercise.sets.length > 1 && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-destructive"
+                          onClick={() => removeSet(index)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      )}
+                    </div>
                     
-                    {/* 무게 */}
-                    <div className="flex items-center gap-1">
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => updateSet(index, "weight", -5)}
-                      >
-                        <Minus className="w-3 h-3" />
-                      </Button>
-                      <span className="w-14 text-center font-semibold">{set.weight}kg</span>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => updateSet(index, "weight", 5)}
-                      >
-                        <Plus className="w-3 h-3" />
-                      </Button>
-                    </div>
+                    {/* 무게 + 횟수 입력 (2열 그리드) */}
+                    <div className="grid grid-cols-2 gap-3">
+                      {/* 무게 */}
+                      <div className="flex flex-col items-center gap-1">
+                        <span className="text-xs text-muted-foreground">무게</span>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="h-9 w-9 shrink-0"
+                            onClick={() => updateSet(index, "weight", -5)}
+                          >
+                            <Minus className="w-4 h-4" />
+                          </Button>
+                          <span className="w-16 text-center font-bold text-lg">{set.weight}kg</span>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="h-9 w-9 shrink-0"
+                            onClick={() => updateSet(index, "weight", 5)}
+                          >
+                            <Plus className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
 
-                    {/* 횟수 */}
-                    <div className="flex items-center gap-1">
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => updateSet(index, "reps", -1)}
-                      >
-                        <Minus className="w-3 h-3" />
-                      </Button>
-                      <span className="w-10 text-center font-semibold">{set.reps}회</span>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => updateSet(index, "reps", 1)}
-                      >
-                        <Plus className="w-3 h-3" />
-                      </Button>
+                      {/* 횟수 */}
+                      <div className="flex flex-col items-center gap-1">
+                        <span className="text-xs text-muted-foreground">횟수</span>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="h-9 w-9 shrink-0"
+                            onClick={() => updateSet(index, "reps", -1)}
+                          >
+                            <Minus className="w-4 h-4" />
+                          </Button>
+                          <span className="w-12 text-center font-bold text-lg">{set.reps}회</span>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="h-9 w-9 shrink-0"
+                            onClick={() => updateSet(index, "reps", 1)}
+                          >
+                            <Plus className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
                     </div>
-
-                    {/* 삭제 */}
-                    {currentExercise.sets && currentExercise.sets.length > 1 && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-destructive"
-                        onClick={() => removeSet(index)}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    )}
                   </div>
                 ))}
               </div>
