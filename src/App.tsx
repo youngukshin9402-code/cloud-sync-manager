@@ -137,7 +137,6 @@ function AppRoutes() {
         <Route path="/mypage/guardian" element={<GuardianSettingsPage />} />
         <Route path="/mypage/support" element={<SupportPage />} />
         <Route path="/mypage/orders" element={<OrdersPage />} />
-        <Route path="/mypage/feedback" element={<CoachingFeedback />} />
         <Route path="/data-export" element={<DataExport />} />
       </Route>
 

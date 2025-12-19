@@ -1,8 +1,15 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Flame,
   Droplets,
@@ -10,12 +17,10 @@ import {
   ChevronRight,
   Target,
   TrendingUp,
-  Utensils,
-  Heart,
-  ShoppingBag,
   Bell,
   CheckCircle,
-  Stethoscope,
+  RefreshCw,
+  Sparkles,
 } from "lucide-react";
 import {
   getWaterLogs,
@@ -32,22 +37,66 @@ import {
   DailyMission,
 } from "@/lib/localStorage";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
 
-// Default missions
-const defaultMissions = [
+// 10가지 생활습관 Pool
+const HABIT_POOL = [
   "물 6잔(1.2L) 마시기",
   "10분 이상 걷기",
   "아침 식사 기록하기",
+  "계단으로 3층 이상 오르기",
+  "30분 이상 걷기",
+  "스트레칭 10분 하기",
+  "과일/채소 2회 이상 섭취하기",
+  "저녁 8시 이후 음식 안 먹기",
+  "점심 식사 후 10분 산책하기",
+  "잠자기 전 스마트폰 1시간 안 보기",
 ];
+
+// 오늘 날짜 기반으로 3개 랜덤 선택
+function selectRandomHabits(seed: string, count: number = 3): string[] {
+  // Simple seeded random based on date string
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) {
+    const char = seed.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash;
+  }
+  
+  const shuffled = [...HABIT_POOL];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    hash = Math.abs((hash * 16807) % 2147483647);
+    const j = hash % (i + 1);
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  
+  return shuffled.slice(0, count);
+}
 
 export default function Dashboard() {
   const { profile } = useAuth();
+  const { toast } = useToast();
   const [waterTotal, setWaterTotal] = useState(0);
   const [waterGoal, setWaterGoalState] = useState(2000);
   const [caloriesTotal, setCaloriesTotal] = useState(0);
   const [todayMissions, setTodayMissions] = useState<DailyMission | null>(null);
+  const [showAIDialog, setShowAIDialog] = useState(false);
+  const [aiQuestion, setAIQuestion] = useState("");
 
   const today = getTodayString();
+
+  const createNewMissions = useCallback((habits: string[]): DailyMission => {
+    return {
+      id: generateId(),
+      date: today,
+      missions: habits.map((content, idx) => ({
+        id: `mission_${idx}_${Date.now()}`,
+        content,
+        completed: false,
+      })),
+      pointsAwarded: false,
+    };
+  }, [today]);
 
   useEffect(() => {
     // Load water data
@@ -69,22 +118,15 @@ export default function Dashboard() {
     let todayMission = missions.find(m => m.date === today);
     
     if (!todayMission) {
-      todayMission = {
-        id: generateId(),
-        date: today,
-        missions: defaultMissions.map((content, idx) => ({
-          id: `mission_${idx}`,
-          content,
-          completed: false,
-        })),
-        pointsAwarded: false,
-      };
+      // 오늘 날짜 기반 랜덤 3개 선택
+      const todayHabits = selectRandomHabits(today);
+      todayMission = createNewMissions(todayHabits);
       missions = [...missions, todayMission];
       setDailyMissions(missions);
     }
     
     setTodayMissions(todayMission);
-  }, [today]);
+  }, [today, createNewMissions]);
 
   const handleMissionToggle = (missionId: string) => {
     if (!todayMissions) return;
@@ -113,6 +155,8 @@ export default function Dashboard() {
         reason: "일일 미션 완료",
         type: 'earn',
       }]);
+      
+      toast({ title: "🎉 축하합니다!", description: "모든 할 일 완료로 100포인트 획득!" });
     }
 
     setTodayMissions(updatedTodayMission);
@@ -121,6 +165,39 @@ export default function Dashboard() {
     const allMissions = getDailyMissions();
     const updated = allMissions.map(m => m.date === today ? updatedTodayMission : m);
     setDailyMissions(updated);
+  };
+
+  // 다른 제안 받기 - 3개를 다시 랜덤 추첨
+  const handleReshuffle = () => {
+    // 현재 완료 상태를 유지하지 않고 새로운 3개 추천
+    const newSeed = `${today}_${Date.now()}`;
+    const newHabits = selectRandomHabits(newSeed);
+    const newMission = createNewMissions(newHabits);
+    
+    setTodayMissions(newMission);
+    
+    // Save to localStorage
+    const allMissions = getDailyMissions();
+    const updated = allMissions.map(m => m.date === today ? newMission : m);
+    setDailyMissions(updated);
+    
+    toast({ title: "새로운 할 일을 추천했어요!", description: "오늘 지킬 3가지가 변경되었습니다." });
+  };
+
+  // AI에게 물어보기
+  const handleAISubmit = () => {
+    if (!aiQuestion.trim()) {
+      toast({ title: "질문을 입력해주세요", variant: "destructive" });
+      return;
+    }
+    
+    // 간단한 응답 (실제 AI 연동 전 placeholder)
+    toast({ 
+      title: "AI 응답", 
+      description: "아직 AI 기능이 연동되지 않았습니다. 추후 업데이트 예정입니다!" 
+    });
+    setAIQuestion("");
+    setShowAIDialog(false);
   };
 
   if (!profile) return null;
@@ -134,7 +211,7 @@ export default function Dashboard() {
   const incompleteItems = [];
   if (waterTotal < waterGoal) incompleteItems.push("물 섭취");
   if (caloriesTotal === 0) incompleteItems.push("식사 기록");
-  if (completedMissions < totalMissions) incompleteItems.push("운동 미션");
+  if (completedMissions < totalMissions) incompleteItems.push("오늘 할 일");
 
   const isGuardian = profile?.user_type === "guardian";
 
@@ -205,7 +282,7 @@ export default function Dashboard() {
                 <div className="w-8 h-8 rounded-full bg-health-green/10 flex items-center justify-center">
                   <Dumbbell className="w-4 h-4 text-health-green" />
                 </div>
-                <span className="text-sm text-muted-foreground">운동 미션</span>
+                <span className="text-sm text-muted-foreground">오늘 할 일</span>
               </div>
               <p className="text-xl font-bold">{completedMissions}/{totalMissions}</p>
               <p className="text-xs text-muted-foreground">완료</p>
@@ -276,47 +353,60 @@ export default function Dashboard() {
           ))}
         </div>
 
+        {/* Action Buttons */}
+        <div className="flex gap-2 pt-2">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="flex-1"
+            onClick={handleReshuffle}
+          >
+            <RefreshCw className="w-4 h-4 mr-2" />
+            다른 제안 받기
+          </Button>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="flex-1"
+            onClick={() => setShowAIDialog(true)}
+          >
+            <Sparkles className="w-4 h-4 mr-2" />
+            AI에게 물어보기
+          </Button>
+        </div>
+
         {completedMissions === totalMissions && !todayMissions?.pointsAwarded && (
           <p className="text-center text-sm text-muted-foreground">
-            모든 미션을 완료하면 100포인트가 적립됩니다!
+            모든 할 일을 완료하면 100포인트가 적립됩니다!
           </p>
         )}
       </div>
 
-      {/* Quick Access Cards */}
-      <div className="space-y-3">
-        <h2 className="text-lg font-semibold">바로가기</h2>
-        <div className="grid grid-cols-2 gap-3">
-          <Link to="/medical" className="block">
-            <div className="bg-gradient-to-br from-red-50 to-red-100 rounded-2xl p-4 border border-red-200 hover:shadow-md transition-shadow">
-              <Stethoscope className="w-8 h-8 text-red-500 mb-2" />
-              <p className="font-semibold text-red-900">의료양갱</p>
-              <p className="text-sm text-red-700">건강검진 분석</p>
-            </div>
-          </Link>
-          <Link to="/nutrition" className="block">
-            <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-2xl p-4 border border-orange-200 hover:shadow-md transition-shadow">
-              <Utensils className="w-8 h-8 text-orange-500 mb-2" />
-              <p className="font-semibold text-orange-900">식단양갱</p>
-              <p className="text-sm text-orange-700">식사 기록</p>
-            </div>
-          </Link>
-          <Link to="/exercise" className="block">
-            <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-2xl p-4 border border-green-200 hover:shadow-md transition-shadow">
-              <Dumbbell className="w-8 h-8 text-green-500 mb-2" />
-              <p className="font-semibold text-green-900">운동양갱</p>
-              <p className="text-sm text-green-700">운동 기록</p>
-            </div>
-          </Link>
-          <Link to="/shop" className="block">
-            <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-2xl p-4 border border-purple-200 hover:shadow-md transition-shadow">
-              <ShoppingBag className="w-8 h-8 text-purple-500 mb-2" />
-              <p className="font-semibold text-purple-900">건강상점</p>
-              <p className="text-sm text-purple-700">1:1 코칭</p>
-            </div>
-          </Link>
-        </div>
-      </div>
+      {/* AI Dialog */}
+      <Dialog open={showAIDialog} onOpenChange={setShowAIDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-primary" />
+              AI에게 물어보기
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              오늘의 할 일에 대해 궁금한 점이나 대안을 요청해보세요.
+            </p>
+            <Textarea
+              placeholder="예: 걷기 대신 실내에서 할 수 있는 운동을 추천해줘"
+              value={aiQuestion}
+              onChange={(e) => setAIQuestion(e.target.value)}
+              rows={3}
+            />
+            <Button className="w-full" onClick={handleAISubmit}>
+              질문하기
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Guardian Family Section */}
       {isGuardian && (
@@ -332,19 +422,6 @@ export default function Dashboard() {
               </div>
             </div>
             <ChevronRight className="w-5 h-5 text-muted-foreground" />
-          </div>
-        </Link>
-      )}
-
-      {/* Premium Upsell */}
-      {profile?.subscription_tier !== "premium" && (
-        <Link to="/premium" className="block">
-          <div className="bg-gradient-to-r from-primary to-yanggaeng-amber rounded-2xl p-5 text-primary-foreground">
-            <p className="font-bold text-lg">프리미엄으로 업그레이드</p>
-            <p className="text-sm opacity-90">전문가 1:1 코칭을 받아보세요</p>
-            <Button variant="secondary" size="sm" className="mt-3">
-              자세히 보기
-            </Button>
           </div>
         </Link>
       )}

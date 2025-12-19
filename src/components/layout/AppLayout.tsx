@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils";
 
 const navItems = [
   { path: "/dashboard", icon: Home, label: "홈" },
-  { path: "/medical", icon: Stethoscope, label: "의료" },
+  { path: "/medical", icon: Stethoscope, label: "건강" },
   { path: "/nutrition", icon: Utensils, label: "영양" },
   { path: "/exercise", icon: Dumbbell, label: "운동" },
   { path: "/shop", icon: ShoppingBag, label: "상점" },
@@ -37,7 +37,7 @@ export function AppLayout() {
             <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
               <Heart className="w-5 h-5 text-primary-foreground" />
             </div>
-            <span className="text-xl font-bold text-foreground">건강양갱</span>
+            <span className="text-xl font-bold text-foreground">영양갱</span>
           </Link>
 
           <div className="flex items-center gap-4">

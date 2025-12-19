@@ -10,11 +10,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import {
-  CheckCircle2,
-  Circle,
-  Trophy,
   Calendar as CalendarIcon,
   Loader2,
   Plus,
@@ -27,14 +32,26 @@ import {
   X,
   WifiOff,
   CloudOff,
+  Footprints,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useGymRecords, GymRecordServer, GymExercise, GymSet } from "@/hooks/useServerSync";
 import { usePendingQueue } from "@/hooks/usePendingQueue";
 import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
 
-// Mock 머신명 후보
+// 운동 종목 목록
+const SPORT_TYPES = [
+  { value: "health", label: "헬스" },
+  { value: "swimming", label: "수영" },
+  { value: "cycling", label: "자전거" },
+  { value: "hiking", label: "등산" },
+  { value: "parkgolf", label: "파크골프" },
+  { value: "running", label: "달리기" },
+  { value: "yoga", label: "요가" },
+  { value: "other", label: "기타" },
+];
+
+// Mock 머신명 후보 (헬스용)
 const MACHINE_SUGGESTIONS = [
   "레그 프레스",
   "레그 익스텐션",
@@ -48,10 +65,25 @@ const MACHINE_SUGGESTIONS = [
   "덤벨 벤치 프레스",
 ];
 
-interface Mission {
+// 요일 한글 변환 (한 글자)
+const DAY_MAP: Record<string, string> = {
+  "일요일": "일",
+  "월요일": "월",
+  "화요일": "화",
+  "수요일": "수",
+  "목요일": "목",
+  "금요일": "금",
+  "토요일": "토",
+};
+
+interface ExerciseRecord {
   id: string;
-  content: string;
-  completed: boolean;
+  sportType: string;
+  name: string;
+  sets?: GymSet[];
+  duration?: number; // 운동시간(분)
+  memo?: string;
+  imageUrl?: string;
 }
 
 export default function Exercise() {
@@ -67,21 +99,22 @@ export default function Exercise() {
   const [showCalendar, setShowCalendar] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
-  // 미션 상태 (서버에서 가져옴)
-  const [missions, setMissions] = useState<Mission[]>([]);
-  const [missionsLoading, setMissionsLoading] = useState(true);
-  const [pointsAwarded, setPointsAwarded] = useState(false);
-
-  // 헬스 기록 상태
+  // 운동 기록 상태
   const [showAddExercise, setShowAddExercise] = useState(false);
-  const [currentExercise, setCurrentExercise] = useState<GymExercise | null>(null);
+  const [currentExercise, setCurrentExercise] = useState<ExerciseRecord | null>(null);
   const [machineImage, setMachineImage] = useState<string | null>(null);
   const [showMachineSuggestions, setShowMachineSuggestions] = useState(false);
   const [editingExerciseId, setEditingExerciseId] = useState<string | null>(null);
 
   const dateStr = format(selectedDate, "yyyy-MM-dd");
   const isToday = isSameDay(selectedDate, new Date());
-  const todayStr = format(new Date(), "yyyy-MM-dd");
+
+  // 날짜 표시 포맷: M월 d일 (요일 한 글자)
+  const formatDateDisplay = (date: Date) => {
+    const fullDay = format(date, "EEEE", { locale: ko });
+    const shortDay = DAY_MAP[fullDay] || fullDay.charAt(0);
+    return `${format(date, "M월 d일")} (${shortDay})`;
+  };
 
   // 온라인/오프라인 상태 감지 및 자동 동기화
   useEffect(() => {
@@ -110,174 +143,13 @@ export default function Exercise() {
     };
   }, [refetch, toast, syncPending]);
 
-  // 미션 로드 (mission_templates + daily_logs)
-  useEffect(() => {
-    const loadMissions = async () => {
-      if (!user) return;
-      
-      setMissionsLoading(true);
-      try {
-        // 오늘의 미션 템플릿 가져오기
-        const { data: templates, error: templatesError } = await supabase
-          .from('mission_templates')
-          .select('*')
-          .eq('user_id', user.id)
-          .eq('is_active', true)
-          .order('created_at', { ascending: false })
-          .limit(3);
-
-        if (templatesError) throw templatesError;
-
-        // 미션 템플릿이 없으면 기본 미션 생성
-        let missionTemplates = templates || [];
-        if (missionTemplates.length === 0) {
-          const defaultMissions = [
-            "10분 스트레칭 하기",
-            "계단 오르기 3층 이상",
-            "30분 걷기",
-          ];
-          
-          const { data: newTemplates, error: createError } = await supabase
-            .from('mission_templates')
-            .insert(
-              defaultMissions.map(content => ({
-                user_id: user.id,
-                content,
-                points: 10,
-                is_active: true,
-              }))
-            )
-            .select();
-
-          if (createError) throw createError;
-          missionTemplates = newTemplates || [];
-        }
-
-        // 오늘 완료한 미션 로그 가져오기
-        const { data: completedLogs, error: logsError } = await supabase
-          .from('daily_logs')
-          .select('content')
-          .eq('user_id', user.id)
-          .eq('log_date', todayStr)
-          .eq('log_type', 'mission')
-          .eq('is_completed', true);
-
-        if (logsError) throw logsError;
-
-        const completedContents = new Set(completedLogs?.map(l => l.content) || []);
-
-        // 미션 상태 설정
-        const missionsWithStatus: Mission[] = missionTemplates.slice(0, 3).map(t => ({
-          id: t.id,
-          content: t.content,
-          completed: completedContents.has(t.content),
-        }));
-
-        setMissions(missionsWithStatus);
-        
-        // 모두 완료 + 포인트 미지급 상태 확인
-        const allDone = missionsWithStatus.length === 3 && missionsWithStatus.every(m => m.completed);
-        if (allDone) {
-          // 오늘 포인트 지급 여부 확인
-          const { data: pointLog } = await supabase
-            .from('point_history')
-            .select('id')
-            .eq('user_id', user.id)
-            .eq('reason', '오늘의 미션 3개 완료')
-            .gte('created_at', `${todayStr}T00:00:00`)
-            .maybeSingle();
-          
-          setPointsAwarded(!!pointLog);
-        }
-      } catch (error) {
-        console.error('Failed to load missions:', error);
-      } finally {
-        setMissionsLoading(false);
-      }
-    };
-
-    loadMissions();
-  }, [user, todayStr]);
-
-  const completedCount = missions.filter((m) => m.completed).length;
-  const allCompleted = completedCount === 3 && missions.length === 3;
-
-  // 오늘 헬스 기록
+  // 오늘 운동 기록
   const todayGymRecord = gymRecords.find((r) => r.date === dateStr);
 
   // 날짜별 기록 여부
   const hasRecordOnDate = (date: Date) => {
     const d = format(date, "yyyy-MM-dd");
     return gymRecords.some((r) => r.date === d);
-  };
-
-  // 미션 토글
-  const toggleMission = async (mission: Mission) => {
-    if (!user) return;
-
-    const newCompleted = !mission.completed;
-    
-    // 낙관적 업데이트
-    setMissions(prev => prev.map(m => 
-      m.id === mission.id ? { ...m, completed: newCompleted } : m
-    ));
-
-    try {
-      if (newCompleted) {
-        // 완료 로그 추가
-        await supabase.from('daily_logs').insert({
-          user_id: user.id,
-          log_date: todayStr,
-          log_type: 'mission',
-          content: mission.content,
-          is_completed: true,
-          points_earned: 0, // 3개 완료 시에만 포인트 지급
-        });
-
-        // 3개 완료 체크
-        const updatedMissions = missions.map(m => 
-          m.id === mission.id ? { ...m, completed: true } : m
-        );
-        const allDone = updatedMissions.every(m => m.completed);
-
-        if (allDone && !pointsAwarded) {
-          // 100포인트 지급
-          await supabase.from('point_history').insert({
-            user_id: user.id,
-            amount: 100,
-            reason: '오늘의 미션 3개 완료',
-          });
-
-          // 프로필 포인트 업데이트
-          if (profile) {
-            await supabase.from('profiles').update({
-              current_points: (profile.current_points || 0) + 100,
-            }).eq('id', user.id);
-          }
-
-          setPointsAwarded(true);
-          toast({
-            title: "🎉 축하합니다!",
-            description: "미션 3개 완료로 100포인트 획득!",
-          });
-        }
-      } else {
-        // 완료 취소 - 로그 삭제
-        await supabase.from('daily_logs')
-          .delete()
-          .eq('user_id', user.id)
-          .eq('log_date', todayStr)
-          .eq('log_type', 'mission')
-          .eq('content', mission.content);
-      }
-    } catch (error) {
-      console.error('Failed to toggle mission:', error);
-      // 롤백
-      setMissions(prev => prev.map(m => 
-        m.id === mission.id ? { ...m, completed: !newCompleted } : m
-      ));
-      toast({ title: "오류 발생", description: "다시 시도해주세요", variant: "destructive" });
-    }
   };
 
   // 머신 이미지 선택
@@ -294,10 +166,11 @@ export default function Exercise() {
     reader.readAsDataURL(file);
   };
 
-  // 머신명 선택
+  // 머신명 선택 (헬스용)
   const selectMachineName = (name: string) => {
     setCurrentExercise({
       id: crypto.randomUUID(),
+      sportType: "health",
       name,
       sets: [{ reps: 10, weight: 20 }],
       imageUrl: machineImage || undefined,
@@ -307,9 +180,9 @@ export default function Exercise() {
     setShowAddExercise(true);
   };
 
-  // 세트 추가
+  // 세트 추가 (헬스용)
   const addSet = () => {
-    if (!currentExercise) return;
+    if (!currentExercise || !currentExercise.sets) return;
     const lastSet = currentExercise.sets[currentExercise.sets.length - 1] || { reps: 10, weight: 20 };
     setCurrentExercise({
       ...currentExercise,
@@ -319,7 +192,7 @@ export default function Exercise() {
 
   // 세트 삭제
   const removeSet = (index: number) => {
-    if (!currentExercise || currentExercise.sets.length <= 1) return;
+    if (!currentExercise || !currentExercise.sets || currentExercise.sets.length <= 1) return;
     setCurrentExercise({
       ...currentExercise,
       sets: currentExercise.sets.filter((_, i) => i !== index),
@@ -328,7 +201,7 @@ export default function Exercise() {
 
   // 세트 수정 (버튼으로만)
   const updateSet = (index: number, field: keyof GymSet, delta: number) => {
-    if (!currentExercise) return;
+    if (!currentExercise || !currentExercise.sets) return;
     setCurrentExercise({
       ...currentExercise,
       sets: currentExercise.sets.map((s, i) =>
@@ -351,6 +224,14 @@ export default function Exercise() {
 
     try {
       const existingRecord = gymRecords.find((r) => r.date === dateStr);
+      
+      // Convert to GymExercise format for storage
+      const exerciseToSave: GymExercise = {
+        id: currentExercise.id,
+        name: `[${SPORT_TYPES.find(s => s.value === currentExercise.sportType)?.label || currentExercise.sportType}] ${currentExercise.name}`,
+        sets: currentExercise.sets || [],
+        imageUrl: currentExercise.imageUrl,
+      };
 
       if (isOnline) {
         // 온라인: 서버에 직접 저장
@@ -359,17 +240,17 @@ export default function Exercise() {
           
           if (editingExerciseId) {
             newExercises = existingRecord.exercises.map((ex) =>
-              ex.id === editingExerciseId ? currentExercise : ex
+              ex.id === editingExerciseId ? exerciseToSave : ex
             );
           } else {
-            newExercises = [...existingRecord.exercises, currentExercise];
+            newExercises = [...existingRecord.exercises, exerciseToSave];
           }
           
           await update(existingRecord.id, newExercises);
         } else {
           await add({
             date: dateStr,
-            exercises: [currentExercise],
+            exercises: [exerciseToSave],
           });
         }
         toast({ title: "운동 기록 저장 완료!" });
@@ -379,16 +260,16 @@ export default function Exercise() {
           user_id: user.id,
           date: dateStr,
           exercises: existingRecord 
-            ? [...existingRecord.exercises, currentExercise]
-            : [currentExercise],
+            ? [...existingRecord.exercises, exerciseToSave]
+            : [exerciseToSave],
         });
         
         // 로컬 UI 업데이트
         addOffline({
           date: dateStr,
           exercises: existingRecord 
-            ? [...existingRecord.exercises, currentExercise]
-            : [currentExercise],
+            ? [...existingRecord.exercises, exerciseToSave]
+            : [exerciseToSave],
         }, localId);
         
         toast({ 
@@ -429,7 +310,27 @@ export default function Exercise() {
 
   // 운동 수정
   const editExercise = (exercise: GymExercise) => {
-    setCurrentExercise({ ...exercise });
+    // Parse sport type from name if possible
+    const match = exercise.name.match(/^\[(.+?)\] (.+)$/);
+    let sportType = "health";
+    let name = exercise.name;
+    
+    if (match) {
+      const sportLabel = match[1];
+      const sport = SPORT_TYPES.find(s => s.label === sportLabel);
+      if (sport) {
+        sportType = sport.value;
+      }
+      name = match[2];
+    }
+    
+    setCurrentExercise({
+      id: exercise.id,
+      sportType,
+      name,
+      sets: exercise.sets,
+      imageUrl: exercise.imageUrl,
+    });
     setEditingExerciseId(exercise.id);
     setShowAddExercise(true);
   };
@@ -445,6 +346,7 @@ export default function Exercise() {
   const startNewExercise = () => {
     setCurrentExercise({
       id: crypto.randomUUID(),
+      sportType: "health",
       name: "",
       sets: [{ reps: 10, weight: 20 }],
     });
@@ -459,7 +361,28 @@ export default function Exercise() {
     setEditingExerciseId(null);
   };
 
-  if (loading || missionsLoading) {
+  // 종목 변경 시 세트 초기화 여부 결정
+  const handleSportTypeChange = (value: string) => {
+    if (!currentExercise) return;
+    
+    if (value === "health") {
+      setCurrentExercise({
+        ...currentExercise,
+        sportType: value,
+        sets: currentExercise.sets || [{ reps: 10, weight: 20 }],
+        duration: undefined,
+      });
+    } else {
+      setCurrentExercise({
+        ...currentExercise,
+        sportType: value,
+        sets: undefined,
+        duration: currentExercise.duration || 30,
+      });
+    }
+  };
+
+  if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -516,85 +439,31 @@ export default function Exercise() {
       <div>
         <h1 className="text-3xl font-bold text-foreground mb-2">운동양갱</h1>
         <p className="text-lg text-muted-foreground">
-          오늘의 미션을 완료하고 포인트를 받으세요
+          오늘의 운동을 기록하세요
         </p>
       </div>
 
-      {/* 오늘의 미션 (오늘만 표시) */}
-      {isToday && (
-        <>
-          <div className="bg-gradient-to-br from-sky-500 to-blue-600 rounded-3xl p-6 text-white">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <CalendarIcon className="w-5 h-5" />
-                <span className="font-medium">오늘의 미션</span>
-              </div>
-              {allCompleted && (
-                <div className="flex items-center gap-1 bg-white/20 px-3 py-1 rounded-full">
-                  <Trophy className="w-4 h-4" />
-                  <span className="text-sm font-medium">완료!</span>
-                </div>
-              )}
-            </div>
-
-            <div className="flex items-end justify-between">
-              <div>
-                <p className="text-5xl font-bold">{completedCount}/3</p>
-                <p className="text-white/80">완료</p>
-              </div>
-              <div className="text-right">
-                <p className="text-2xl font-bold">
-                  {allCompleted && pointsAwarded ? "+100" : "0"}
-                </p>
-                <p className="text-white/80">포인트</p>
-              </div>
-            </div>
-
-            <div className="mt-4 h-3 bg-white/20 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-white rounded-full transition-all duration-500"
-                style={{ width: `${(completedCount / 3) * 100}%` }}
-              />
-            </div>
+      {/* 걸음수 연동 Placeholder */}
+      <div className="bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950 dark:to-teal-950 rounded-2xl border border-emerald-200 dark:border-emerald-800 p-4">
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 rounded-full bg-emerald-100 dark:bg-emerald-900 flex items-center justify-center">
+            <Footprints className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
           </div>
-
-          {/* 미션 체크리스트 */}
-          <div className="space-y-3">
-            <h2 className="text-xl font-semibold">미션 체크리스트</h2>
-            {missions.map((mission) => (
-              <button
-                key={mission.id}
-                onClick={() => toggleMission(mission)}
-                className={cn(
-                  "w-full flex items-center gap-4 p-5 rounded-2xl border-2 transition-all",
-                  mission.completed
-                    ? "bg-sky-50 border-sky-300 dark:bg-sky-950 dark:border-sky-700"
-                    : "bg-card border-border hover:border-sky-300"
-                )}
-              >
-                {mission.completed ? (
-                  <CheckCircle2 className="w-8 h-8 text-sky-600 flex-shrink-0" />
-                ) : (
-                  <Circle className="w-8 h-8 text-muted-foreground flex-shrink-0" />
-                )}
-                <span
-                  className={cn(
-                    "flex-1 text-left text-lg",
-                    mission.completed && "text-sky-700 line-through dark:text-sky-400"
-                  )}
-                >
-                  {mission.content}
-                </span>
-              </button>
-            ))}
+          <div className="flex-1">
+            <p className="font-semibold text-emerald-900 dark:text-emerald-100">걸음수 연동</p>
+            <p className="text-sm text-emerald-700 dark:text-emerald-300">갤럭시핏/헬스 연동 준비 중</p>
           </div>
-        </>
-      )}
+          <div className="text-right">
+            <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">--</p>
+            <p className="text-xs text-emerald-600 dark:text-emerald-400">걸음</p>
+          </div>
+        </div>
+      </div>
 
-      {/* 헬스 기록 섹션 */}
+      {/* 운동 기록 섹션 */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold">헬스 기록</h2>
+          <h2 className="text-xl font-semibold">운동 기록</h2>
         </div>
 
         {/* 날짜 선택 */}
@@ -604,12 +473,12 @@ export default function Exercise() {
           </Button>
           <button
             onClick={() => setShowCalendar(true)}
-            className="flex items-center gap-2 text-lg font-semibold"
+            className="flex items-center gap-2 text-lg font-semibold whitespace-nowrap"
           >
-            <CalendarIcon className="w-5 h-5" />
-            {format(selectedDate, "M월 d일 (EEEE)", { locale: ko })}
+            <CalendarIcon className="w-5 h-5 flex-shrink-0" />
+            <span>{formatDateDisplay(selectedDate)}</span>
             {isToday && (
-              <span className="text-xs bg-primary text-primary-foreground px-2 py-0.5 rounded-full">
+              <span className="text-xs bg-primary text-primary-foreground px-2 py-0.5 rounded-full flex-shrink-0">
                 오늘
               </span>
             )}
@@ -653,87 +522,174 @@ export default function Exercise() {
               </Button>
             </div>
 
-            {/* 운동명 */}
+            {/* 종목 선택 */}
             <div>
-              <label className="text-sm font-medium text-muted-foreground">운동명</label>
+              <label className="text-sm font-medium text-muted-foreground">종목</label>
+              <Select 
+                value={currentExercise.sportType} 
+                onValueChange={handleSportTypeChange}
+              >
+                <SelectTrigger className="mt-1">
+                  <SelectValue placeholder="종목 선택" />
+                </SelectTrigger>
+                <SelectContent>
+                  {SPORT_TYPES.map((sport) => (
+                    <SelectItem key={sport.value} value={sport.value}>
+                      {sport.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* 운동명/세부종목 */}
+            <div>
+              <label className="text-sm font-medium text-muted-foreground">
+                {currentExercise.sportType === "health" ? "운동명" : "세부 내용"}
+              </label>
               <Input
                 value={currentExercise.name}
                 onChange={(e) => setCurrentExercise({ ...currentExercise, name: e.target.value })}
-                placeholder="예: 벤치프레스"
+                placeholder={currentExercise.sportType === "health" ? "예: 벤치프레스" : "예: 자유형 500m"}
                 className="mt-1"
               />
             </div>
 
-            {/* 세트 목록 */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <label className="text-sm font-medium text-muted-foreground">세트</label>
-                <Button variant="outline" size="sm" onClick={addSet}>
-                  <Plus className="w-4 h-4 mr-1" />
-                  세트 추가
+            {/* 헬스: 세트 목록 */}
+            {currentExercise.sportType === "health" && currentExercise.sets && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium text-muted-foreground">세트</label>
+                  <Button variant="outline" size="sm" onClick={addSet}>
+                    <Plus className="w-4 h-4 mr-1" />
+                    세트 추가
+                  </Button>
+                </div>
+
+                {currentExercise.sets.map((set, index) => (
+                  <div key={index} className="flex items-center gap-3 bg-muted/50 rounded-xl p-3">
+                    <span className="text-sm font-medium w-12">{index + 1}세트</span>
+                    
+                    {/* 무게 */}
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => updateSet(index, "weight", -5)}
+                      >
+                        <Minus className="w-3 h-3" />
+                      </Button>
+                      <span className="w-14 text-center font-semibold">{set.weight}kg</span>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => updateSet(index, "weight", 5)}
+                      >
+                        <Plus className="w-3 h-3" />
+                      </Button>
+                    </div>
+
+                    {/* 횟수 */}
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => updateSet(index, "reps", -1)}
+                      >
+                        <Minus className="w-3 h-3" />
+                      </Button>
+                      <span className="w-10 text-center font-semibold">{set.reps}회</span>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => updateSet(index, "reps", 1)}
+                      >
+                        <Plus className="w-3 h-3" />
+                      </Button>
+                    </div>
+
+                    {/* 삭제 */}
+                    {currentExercise.sets && currentExercise.sets.length > 1 && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-destructive"
+                        onClick={() => removeSet(index)}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* 비헬스: 운동시간 */}
+            {currentExercise.sportType !== "health" && (
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">운동시간 (분)</label>
+                <div className="flex items-center gap-3 mt-1">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setCurrentExercise({ 
+                      ...currentExercise, 
+                      duration: Math.max(0, (currentExercise.duration || 30) - 10) 
+                    })}
+                  >
+                    <Minus className="w-4 h-4" />
+                  </Button>
+                  <span className="w-20 text-center text-xl font-bold">
+                    {currentExercise.duration || 30}분
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setCurrentExercise({ 
+                      ...currentExercise, 
+                      duration: (currentExercise.duration || 30) + 10 
+                    })}
+                  >
+                    <Plus className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* 메모 */}
+            <div>
+              <label className="text-sm font-medium text-muted-foreground">메모 (선택)</label>
+              <Textarea
+                value={currentExercise.memo || ""}
+                onChange={(e) => setCurrentExercise({ ...currentExercise, memo: e.target.value })}
+                placeholder="운동 메모를 남겨보세요"
+                className="mt-1"
+                rows={2}
+              />
+            </div>
+
+            {/* 사진 첨부 */}
+            {currentExercise.imageUrl && (
+              <div className="relative">
+                <img
+                  src={currentExercise.imageUrl}
+                  alt="운동 사진"
+                  className="w-full h-40 object-cover rounded-xl"
+                />
+                <Button
+                  variant="destructive"
+                  size="icon"
+                  className="absolute top-2 right-2 h-8 w-8"
+                  onClick={() => setCurrentExercise({ ...currentExercise, imageUrl: undefined })}
+                >
+                  <X className="w-4 h-4" />
                 </Button>
               </div>
-
-              {currentExercise.sets.map((set, index) => (
-                <div key={index} className="flex items-center gap-3 bg-muted/50 rounded-xl p-3">
-                  <span className="text-sm font-medium w-12">{index + 1}세트</span>
-                  
-                  {/* 무게 */}
-                  <div className="flex items-center gap-1">
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => updateSet(index, "weight", -5)}
-                    >
-                      <Minus className="w-3 h-3" />
-                    </Button>
-                    <span className="w-14 text-center font-semibold">{set.weight}kg</span>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => updateSet(index, "weight", 5)}
-                    >
-                      <Plus className="w-3 h-3" />
-                    </Button>
-                  </div>
-
-                  {/* 횟수 */}
-                  <div className="flex items-center gap-1">
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => updateSet(index, "reps", -1)}
-                    >
-                      <Minus className="w-3 h-3" />
-                    </Button>
-                    <span className="w-10 text-center font-semibold">{set.reps}회</span>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => updateSet(index, "reps", 1)}
-                    >
-                      <Plus className="w-3 h-3" />
-                    </Button>
-                  </div>
-
-                  {/* 삭제 */}
-                  {currentExercise.sets.length > 1 && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-destructive"
-                      onClick={() => removeSet(index)}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  )}
-                </div>
-              ))}
-            </div>
+            )}
 
             <Button size="lg" className="w-full" onClick={saveExercise}>
               저장
@@ -829,16 +785,18 @@ export default function Exercise() {
                     </Button>
                   </div>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  {exercise.sets.map((set, i) => (
-                    <span
-                      key={i}
-                      className="text-sm bg-muted px-3 py-1 rounded-full"
-                    >
-                      {i + 1}세트: {set.weight}kg × {set.reps}회
-                    </span>
-                  ))}
-                </div>
+                {exercise.sets && exercise.sets.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {exercise.sets.map((set, i) => (
+                      <span
+                        key={i}
+                        className="text-sm bg-muted px-3 py-1 rounded-full"
+                      >
+                        {i + 1}세트: {set.weight}kg × {set.reps}회
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
             ))}
           </div>
