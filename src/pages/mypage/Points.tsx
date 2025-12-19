@@ -46,8 +46,36 @@ export default function PointsPage() {
     fetchHistory();
   }, [user, refreshPoints]);
 
-  const earnTotal = history.filter(h => h.amount > 0).reduce((sum, h) => sum + h.amount, 0);
-  const spendTotal = history.filter(h => h.amount < 0).reduce((sum, h) => sum + Math.abs(h.amount), 0);
+  // 중복 제거 로직: "일일 미션 완료"는 같은 날짜 + reason + amount 기준 1개만 카운트
+  const getDeduplicatedHistory = () => {
+    const seen = new Set<string>();
+    const deduplicated: PointHistoryItem[] = [];
+    const duplicateIds = new Set<string>();
+    
+    history.forEach(item => {
+      const dateStr = item.created_at.split('T')[0]; // YYYY-MM-DD
+      // "일일 미션 완료" reason만 중복 제거 대상
+      if (item.reason === '일일 미션 완료') {
+        const key = `${dateStr}_${item.reason}_${item.amount}`;
+        if (seen.has(key)) {
+          duplicateIds.add(item.id);
+        } else {
+          seen.add(key);
+          deduplicated.push(item);
+        }
+      } else {
+        deduplicated.push(item);
+      }
+    });
+    
+    return { deduplicated, duplicateIds };
+  };
+
+  const { deduplicated, duplicateIds } = getDeduplicatedHistory();
+  
+  // 총계는 중복 제거된 기준으로 계산
+  const earnTotal = deduplicated.filter(h => h.amount > 0).reduce((sum, h) => sum + h.amount, 0);
+  const spendTotal = deduplicated.filter(h => h.amount < 0).reduce((sum, h) => sum + Math.abs(h.amount), 0);
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -124,7 +152,14 @@ export default function PointsPage() {
                       )}
                     </div>
                     <div>
-                      <p className="font-medium">{item.reason}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium">{item.reason}</p>
+                        {duplicateIds.has(item.id) && (
+                          <span className="text-xs bg-muted text-muted-foreground px-1.5 py-0.5 rounded">
+                            중복(과거 버그)
+                          </span>
+                        )}
+                      </div>
                       <p className="text-sm text-muted-foreground">{formatDate(item.created_at)}</p>
                     </div>
                   </div>
