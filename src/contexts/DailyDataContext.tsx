@@ -41,7 +41,7 @@ interface DailyDataContextType {
 
   // Missions
   todayMissions: DailyMission | null;
-  toggleMission: (missionId: string) => void;
+  toggleMission: (missionId: string) => Promise<boolean>;
   reshuffleMissions: (newHabits: string[]) => void;
   hasTodayPointsAwarded: boolean;
 }
@@ -235,6 +235,26 @@ export function DailyDataProvider({ children }: { children: React.ReactNode }) {
     if (!user) return;
 
     try {
+      // 일일 미션 완료의 경우, 서버에서 오늘 이미 지급됐는지 확인 (중복 방지)
+      if (reason === "일일 미션 완료") {
+        const { data: existingReward, error: checkError } = await supabase
+          .from('point_history')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('reason', '일일 미션 완료')
+          .gte('created_at', `${today}T00:00:00`)
+          .lte('created_at', `${today}T23:59:59`);
+
+        if (checkError) throw checkError;
+
+        // 이미 오늘 지급됐으면 중단
+        if (existingReward && existingReward.length > 0) {
+          console.log('일일 미션 보상 이미 지급됨 - 중복 방지');
+          setHasTodayPointsAwarded(true);
+          return;
+        }
+      }
+
       // Insert point history
       const { error: historyError } = await supabase
         .from('point_history')
@@ -246,8 +266,16 @@ export function DailyDataProvider({ children }: { children: React.ReactNode }) {
 
       if (historyError) throw historyError;
 
-      // Update profile points
-      const newPoints = currentPoints + amount;
+      // Update profile points - 서버에서 현재값 다시 가져와서 업데이트
+      const { data: profileData, error: fetchError } = await supabase
+        .from('profiles')
+        .select('current_points')
+        .eq('id', user.id)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      const newPoints = (profileData?.current_points || 0) + amount;
       const { error: profileError } = await supabase
         .from('profiles')
         .update({ current_points: newPoints })
@@ -255,7 +283,7 @@ export function DailyDataProvider({ children }: { children: React.ReactNode }) {
 
       if (profileError) throw profileError;
 
-      // Optimistic update
+      // Update local state
       setCurrentPoints(newPoints);
 
       if (reason === "일일 미션 완료") {
@@ -264,7 +292,7 @@ export function DailyDataProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       console.error('Error adding points:', error);
     }
-  }, [user, currentPoints]);
+  }, [user, today]);
 
   // ========================
   // Missions Functions
@@ -281,8 +309,8 @@ export function DailyDataProvider({ children }: { children: React.ReactNode }) {
     setHasTodayPointsAwarded(alreadyAwarded);
   }, [today]);
 
-  const toggleMission = useCallback((missionId: string) => {
-    if (!todayMissions) return;
+  const toggleMission = useCallback(async (missionId: string) => {
+    if (!todayMissions) return false;
 
     const updatedMissions = todayMissions.missions.map((m) =>
       m.id === missionId ? { ...m, completed: !m.completed } : m
@@ -291,14 +319,26 @@ export function DailyDataProvider({ children }: { children: React.ReactNode }) {
     const allCompleted = updatedMissions.every((m) => m.completed);
     let updatedTodayMission = { ...todayMissions, missions: updatedMissions };
 
-    const history = getPointHistory();
-    const alreadyAwardedToday = history.some(
-      (h) => h.date === today && h.reason === "일일 미션 완료"
-    );
+    // 서버에서 오늘 이미 지급됐는지 확인
+    let alreadyAwardedToday = hasTodayPointsAwarded;
+    if (user && allCompleted && !todayMissions.pointsAwarded) {
+      const { data: existingReward } = await supabase
+        .from('point_history')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('reason', '일일 미션 완료')
+        .gte('created_at', `${today}T00:00:00`)
+        .lte('created_at', `${today}T23:59:59`);
+
+      alreadyAwardedToday = (existingReward && existingReward.length > 0) || false;
+      if (alreadyAwardedToday) {
+        setHasTodayPointsAwarded(true);
+      }
+    }
 
     if (allCompleted && !todayMissions.pointsAwarded && !alreadyAwardedToday) {
       updatedTodayMission.pointsAwarded = true;
-      addPoints(100, "일일 미션 완료");
+      await addPoints(100, "일일 미션 완료");
     } else if (allCompleted && !todayMissions.pointsAwarded && alreadyAwardedToday) {
       updatedTodayMission.pointsAwarded = true;
     }
@@ -312,7 +352,7 @@ export function DailyDataProvider({ children }: { children: React.ReactNode }) {
     setMissionsStorage(updated);
 
     return allCompleted && !alreadyAwardedToday && !todayMissions.pointsAwarded;
-  }, [todayMissions, today, addPoints]);
+  }, [todayMissions, today, addPoints, hasTodayPointsAwarded, user]);
 
   const reshuffleMissions = useCallback((newHabits: string[]) => {
     const newMission: DailyMission = {

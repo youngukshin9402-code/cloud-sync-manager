@@ -274,7 +274,7 @@ export default function Auth() {
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary mb-4">
             <Heart className="w-8 h-8 text-primary-foreground" />
           </div>
-          <h1 className="text-3xl font-bold text-foreground">건강양갱</h1>
+          <h1 className="text-3xl font-bold text-foreground">영양갱</h1>
           <p className="text-lg text-muted-foreground mt-2">
             {mode === "login" ? "다시 만나서 반가워요!" : "새로운 시작을 환영해요!"}
           </p>
