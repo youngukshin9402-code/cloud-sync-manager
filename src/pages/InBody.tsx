@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +18,8 @@ import {
   Flame,
   Activity,
   Loader2,
+  Camera,
+  Image as ImageIcon,
 } from "lucide-react";
 
 interface InBodyForm {
@@ -40,12 +42,33 @@ const emptyForm: InBodyForm = {
   visceral_fat: null,
 };
 
+// Mock AI 분석 함수 (추후 실제 API로 교체)
+const mockAnalyzeInBodyImage = async (imageUrl: string): Promise<Partial<InBodyForm>> => {
+  // 실제로는 AI API를 호출해서 이미지에서 데이터 추출
+  await new Promise((r) => setTimeout(r, 2000));
+  
+  // Mock 데이터 반환
+  return {
+    date: new Date().toISOString().split('T')[0],
+    weight: 65 + Math.random() * 10,
+    skeletal_muscle: 25 + Math.random() * 5,
+    body_fat_percent: 18 + Math.random() * 8,
+    bmr: 1400 + Math.floor(Math.random() * 200),
+  };
+};
+
 export default function InBody() {
   const { toast } = useToast();
   const { data: records, loading, add, update, remove } = useInBodyRecords();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState<InBodyForm>(emptyForm);
+  
+  // 사진 분석 관련 상태
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [uploadedImage, setUploadedImage] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   const handleSave = async () => {
     if (!formData.weight || !formData.date) {
@@ -98,11 +121,49 @@ export default function InBody() {
   const resetForm = () => {
     setEditingId(null);
     setFormData({ ...emptyForm, date: new Date().toISOString().split('T')[0] });
+    setUploadedImage(null);
+    setIsAnalyzing(false);
   };
 
   const openNewDialog = () => {
     resetForm();
     setDialogOpen(true);
+  };
+
+  // 사진 선택 처리
+  const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
+
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const base64 = reader.result as string;
+      setUploadedImage(base64);
+      setIsAnalyzing(true);
+      setDialogOpen(true);
+
+      try {
+        const analyzedData = await mockAnalyzeInBodyImage(base64);
+        
+        // 분석 결과를 폼에 자동 입력
+        setFormData(prev => ({
+          ...prev,
+          date: analyzedData.date || prev.date,
+          weight: analyzedData.weight ? parseFloat(analyzedData.weight.toFixed(1)) : prev.weight,
+          skeletal_muscle: analyzedData.skeletal_muscle ? parseFloat(analyzedData.skeletal_muscle.toFixed(1)) : prev.skeletal_muscle,
+          body_fat_percent: analyzedData.body_fat_percent ? parseFloat(analyzedData.body_fat_percent.toFixed(1)) : prev.body_fat_percent,
+          bmr: analyzedData.bmr || prev.bmr,
+        }));
+        
+        toast({ title: "분석 완료!", description: "결과를 확인하고 수정 후 저장하세요." });
+      } catch (error) {
+        toast({ title: "분석 실패", description: "다시 시도해주세요", variant: "destructive" });
+      } finally {
+        setIsAnalyzing(false);
+      }
+    };
+    reader.readAsDataURL(file);
   };
 
   const getChange = (current: number, previous: number) => {
@@ -124,7 +185,24 @@ export default function InBody() {
   }
 
   return (
-    <div className="min-h-screen bg-background pb-24">
+    <div className="min-h-screen bg-background pb-32">
+      {/* Hidden file inputs */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        className="hidden"
+        accept="image/*"
+        onChange={handleImageSelect}
+      />
+      <input
+        type="file"
+        ref={cameraInputRef}
+        className="hidden"
+        accept="image/*"
+        capture="environment"
+        onChange={handleImageSelect}
+      />
+
       <div className="sticky top-0 bg-background/95 backdrop-blur-sm border-b border-border p-4 z-10">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -135,14 +213,34 @@ export default function InBody() {
             </Button>
             <h1 className="text-xl font-bold">인바디 분석</h1>
           </div>
-          <Button onClick={openNewDialog} size="sm">
-            <Plus className="w-4 h-4 mr-1" />
-            기록
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => cameraInputRef.current?.click()}>
+              <Camera className="w-4 h-4 mr-1" />
+              촬영
+            </Button>
+            <Button onClick={openNewDialog} size="sm">
+              <Plus className="w-4 h-4 mr-1" />
+              기록
+            </Button>
+          </div>
         </div>
       </div>
 
       <div className="p-4 space-y-6">
+        {/* 사진으로 자동입력 안내 */}
+        <div 
+          onClick={() => fileInputRef.current?.click()}
+          className="bg-gradient-to-r from-primary/10 to-primary/5 rounded-2xl border border-primary/20 p-4 flex items-center gap-4 cursor-pointer hover:bg-primary/15 transition-colors"
+        >
+          <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center">
+            <ImageIcon className="w-6 h-6 text-primary" />
+          </div>
+          <div className="flex-1">
+            <p className="font-semibold text-foreground">사진으로 자동 입력</p>
+            <p className="text-sm text-muted-foreground">인바디 결과지를 촬영하면 AI가 자동으로 분석합니다</p>
+          </div>
+        </div>
+
         {latestRecord ? (
           <div className="bg-card rounded-3xl border border-border p-5 space-y-4">
             <div className="flex items-center justify-between">
@@ -280,42 +378,69 @@ export default function InBody() {
           <DialogHeader>
             <DialogTitle>{editingId ? "인바디 수정" : "인바디 기록"}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">날짜 *</label>
-              <Input type="date" value={formData.date} onChange={e => setFormData({ ...formData, date: e.target.value })} />
+          
+          {/* 분석 중 상태 */}
+          {isAnalyzing && (
+            <div className="py-8 text-center">
+              <Loader2 className="w-10 h-10 animate-spin text-primary mx-auto mb-4" />
+              <p className="text-muted-foreground">AI가 인바디 결과를 분석 중입니다...</p>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">체중 (kg) *</label>
-                <Input type="number" step="0.1" value={formData.weight || ''} onChange={e => setFormData({ ...formData, weight: parseFloat(e.target.value) || 0 })} />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">골격근량 (kg)</label>
-                <Input type="number" step="0.1" value={formData.skeletal_muscle || ''} onChange={e => setFormData({ ...formData, skeletal_muscle: parseFloat(e.target.value) || null })} />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">체지방량 (kg)</label>
-                <Input type="number" step="0.1" value={formData.body_fat || ''} onChange={e => setFormData({ ...formData, body_fat: parseFloat(e.target.value) || null })} />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">체지방률 (%)</label>
-                <Input type="number" step="0.1" value={formData.body_fat_percent || ''} onChange={e => setFormData({ ...formData, body_fat_percent: parseFloat(e.target.value) || null })} />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">기초대사량 (kcal)</label>
-                <Input type="number" value={formData.bmr || ''} onChange={e => setFormData({ ...formData, bmr: parseInt(e.target.value) || null })} />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">내장지방 레벨</label>
-                <Input type="number" value={formData.visceral_fat || ''} onChange={e => setFormData({ ...formData, visceral_fat: parseInt(e.target.value) || null })} />
-              </div>
+          )}
+
+          {/* 업로드된 이미지 미리보기 */}
+          {uploadedImage && !isAnalyzing && (
+            <div className="mb-4">
+              <img 
+                src={uploadedImage} 
+                alt="인바디 사진" 
+                className="w-full h-32 object-cover rounded-xl"
+              />
+              <p className="text-xs text-muted-foreground text-center mt-2">
+                분석된 결과를 확인하고 수정 후 저장하세요
+              </p>
             </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>취소</Button>
-            <Button onClick={handleSave}>저장</Button>
-          </DialogFooter>
+          )}
+
+          {!isAnalyzing && (
+            <>
+              <div className="space-y-4 py-2">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">날짜 *</label>
+                  <Input type="date" value={formData.date} onChange={e => setFormData({ ...formData, date: e.target.value })} />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">체중 (kg) *</label>
+                    <Input type="number" step="0.1" value={formData.weight || ''} onChange={e => setFormData({ ...formData, weight: parseFloat(e.target.value) || 0 })} />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">골격근량 (kg)</label>
+                    <Input type="number" step="0.1" value={formData.skeletal_muscle || ''} onChange={e => setFormData({ ...formData, skeletal_muscle: parseFloat(e.target.value) || null })} />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">체지방량 (kg)</label>
+                    <Input type="number" step="0.1" value={formData.body_fat || ''} onChange={e => setFormData({ ...formData, body_fat: parseFloat(e.target.value) || null })} />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">체지방률 (%)</label>
+                    <Input type="number" step="0.1" value={formData.body_fat_percent || ''} onChange={e => setFormData({ ...formData, body_fat_percent: parseFloat(e.target.value) || null })} />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">기초대사량 (kcal)</label>
+                    <Input type="number" value={formData.bmr || ''} onChange={e => setFormData({ ...formData, bmr: parseInt(e.target.value) || null })} />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">내장지방 레벨</label>
+                    <Input type="number" value={formData.visceral_fat || ''} onChange={e => setFormData({ ...formData, visceral_fat: parseInt(e.target.value) || null })} />
+                  </div>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setDialogOpen(false)}>취소</Button>
+                <Button onClick={handleSave}>저장</Button>
+              </DialogFooter>
+            </>
+          )}
         </DialogContent>
       </Dialog>
     </div>

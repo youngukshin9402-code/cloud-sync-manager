@@ -1,24 +1,69 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Coins, TrendingUp, TrendingDown, Gift, ShoppingBag } from "lucide-react";
-import { getPoints, getPointHistory, PointHistory } from "@/lib/localStorage";
+import { ArrowLeft, Coins, TrendingUp, TrendingDown, Gift, ShoppingBag, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { useDailyData } from "@/contexts/DailyDataContext";
+
+interface PointHistoryItem {
+  id: string;
+  amount: number;
+  reason: string;
+  created_at: string;
+}
 
 export default function PointsPage() {
-  const [points, setPointsState] = useState(0);
-  const [history, setHistory] = useState<PointHistory[]>([]);
+  const { user, profile } = useAuth();
+  const { currentPoints, refreshPoints } = useDailyData();
+  const [history, setHistory] = useState<PointHistoryItem[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    setPointsState(getPoints());
-    setHistory(getPointHistory().sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
-  }, []);
+    const fetchHistory = async () => {
+      if (!user) {
+        setLoading(false);
+        return;
+      }
 
-  const earnTotal = history.filter(h => h.type === 'earn').reduce((sum, h) => sum + h.amount, 0);
-  const spendTotal = history.filter(h => h.type === 'spend').reduce((sum, h) => sum + h.amount, 0);
+      try {
+        const { data, error } = await supabase
+          .from('point_history')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        setHistory(data || []);
+      } catch (error) {
+        console.error('Error fetching point history:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    refreshPoints();
+    fetchHistory();
+  }, [user, refreshPoints]);
+
+  const earnTotal = history.filter(h => h.amount > 0).reduce((sum, h) => sum + h.amount, 0);
+  const spendTotal = history.filter(h => h.amount < 0).reduce((sum, h) => sum + Math.abs(h.amount), 0);
+
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-background pb-24">
+    <div className="min-h-screen bg-background pb-32">
       <div className="sticky top-0 bg-background/95 backdrop-blur-sm border-b border-border p-4 z-10">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="icon" asChild>
@@ -31,13 +76,13 @@ export default function PointsPage() {
       </div>
 
       <div className="p-4 space-y-6">
-        {/* Current Balance */}
+        {/* Current Balance - 서버 데이터 사용 */}
         <div className="bg-gradient-to-r from-primary to-yanggaeng-amber rounded-3xl p-6 text-primary-foreground">
           <div className="flex items-center gap-3 mb-4">
             <Coins className="w-8 h-8" />
             <span className="text-lg font-medium">보유 포인트</span>
           </div>
-          <p className="text-4xl font-bold">{points.toLocaleString()}P</p>
+          <p className="text-4xl font-bold">{currentPoints.toLocaleString()}P</p>
         </div>
 
         {/* Summary */}
@@ -70,9 +115,9 @@ export default function PointsPage() {
                 >
                   <div className="flex items-center gap-3">
                     <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                      item.type === 'earn' ? 'bg-health-green/10' : 'bg-destructive/10'
+                      item.amount > 0 ? 'bg-health-green/10' : 'bg-destructive/10'
                     }`}>
-                      {item.type === 'earn' ? (
+                      {item.amount > 0 ? (
                         <Gift className="w-5 h-5 text-health-green" />
                       ) : (
                         <ShoppingBag className="w-5 h-5 text-destructive" />
@@ -80,13 +125,13 @@ export default function PointsPage() {
                     </div>
                     <div>
                       <p className="font-medium">{item.reason}</p>
-                      <p className="text-sm text-muted-foreground">{item.date}</p>
+                      <p className="text-sm text-muted-foreground">{formatDate(item.created_at)}</p>
                     </div>
                   </div>
                   <span className={`font-semibold ${
-                    item.type === 'earn' ? 'text-health-green' : 'text-destructive'
+                    item.amount > 0 ? 'text-health-green' : 'text-destructive'
                   }`}>
-                    {item.type === 'earn' ? '+' : '-'}{item.amount.toLocaleString()}P
+                    {item.amount > 0 ? '+' : ''}{item.amount.toLocaleString()}P
                   </span>
                 </div>
               ))}

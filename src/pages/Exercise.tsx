@@ -391,7 +391,7 @@ export default function Exercise() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-8">
       {/* 오프라인 배너 */}
       {!isOnline && (
         <div className="bg-yellow-100 dark:bg-yellow-900 border border-yellow-300 dark:border-yellow-700 rounded-xl p-3 flex items-center gap-2">
@@ -583,11 +583,11 @@ export default function Exercise() {
                       )}
                     </div>
                     
-                    {/* 무게 + 횟수 입력 (2열 그리드) */}
-                    <div className="grid grid-cols-2 gap-3">
+                    {/* 무게 + 횟수 입력 - 모바일 반응형 */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {/* 무게 */}
-                      <div className="flex flex-col items-center gap-1">
-                        <span className="text-xs text-muted-foreground">무게</span>
+                      <div className="flex items-center justify-between sm:flex-col sm:items-center gap-2">
+                        <span className="text-xs text-muted-foreground whitespace-nowrap">무게</span>
                         <div className="flex items-center gap-1">
                           <Button
                             variant="outline"
@@ -597,7 +597,7 @@ export default function Exercise() {
                           >
                             <Minus className="w-4 h-4" />
                           </Button>
-                          <span className="w-16 text-center font-bold text-lg">{set.weight}kg</span>
+                          <span className="min-w-[56px] text-center font-bold text-base sm:text-lg">{set.weight}kg</span>
                           <Button
                             variant="outline"
                             size="icon"
@@ -610,8 +610,8 @@ export default function Exercise() {
                       </div>
 
                       {/* 횟수 */}
-                      <div className="flex flex-col items-center gap-1">
-                        <span className="text-xs text-muted-foreground">횟수</span>
+                      <div className="flex items-center justify-between sm:flex-col sm:items-center gap-2">
+                        <span className="text-xs text-muted-foreground whitespace-nowrap">횟수</span>
                         <div className="flex items-center gap-1">
                           <Button
                             variant="outline"
@@ -621,7 +621,7 @@ export default function Exercise() {
                           >
                             <Minus className="w-4 h-4" />
                           </Button>
-                          <span className="w-12 text-center font-bold text-lg">{set.reps}회</span>
+                          <span className="min-w-[48px] text-center font-bold text-base sm:text-lg">{set.reps}회</span>
                           <Button
                             variant="outline"
                             size="icon"

@@ -65,7 +65,7 @@ export function AppLayout() {
       {/* 메인 콘텐츠 - 하단 탭 높이 + safe area 만큼 padding */}
       <main className={cn(
         "container mx-auto px-4 py-6",
-        hasBottomNav && "pb-safe-bottom"
+        hasBottomNav && "pb-32"
       )}>
         <Outlet />
       </main>

@@ -1,4 +1,6 @@
+import { useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useDailyData } from "@/contexts/DailyDataContext";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,6 +20,12 @@ import {
 
 export default function Profile() {
   const { profile, signOut } = useAuth();
+  const { currentPoints, refreshPoints } = useDailyData();
+
+  // 페이지 진입 시 포인트 동기화
+  useEffect(() => {
+    refreshPoints();
+  }, [refreshPoints]);
 
   if (!profile) return null;
 
@@ -34,7 +42,7 @@ export default function Profile() {
       icon: Coins,
       label: "포인트 내역",
       path: "/profile/points",
-      badge: `${(profile.current_points || 0).toLocaleString()}P`,
+      badge: `${currentPoints.toLocaleString()}P`,
     },
     {
       icon: Link2,
@@ -113,12 +121,12 @@ export default function Profile() {
           <span className="text-sm font-medium text-primary">직접관리 (고정)</span>
         </div>
 
-        {/* 포인트 */}
+        {/* 포인트 - 서버 데이터 사용 */}
         <div className="mt-4 p-4 bg-primary/5 rounded-2xl flex items-center justify-between">
           <div>
             <p className="text-sm text-muted-foreground">보유 포인트</p>
             <p className="text-2xl font-bold text-primary">
-              {(profile.current_points || 0).toLocaleString()}P
+              {currentPoints.toLocaleString()}P
             </p>
           </div>
           <Button variant="outline" size="sm" asChild>

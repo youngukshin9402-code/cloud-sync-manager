@@ -155,7 +155,7 @@ export default function Dashboard() {
   const isGuardian = profile?.user_type === "guardian";
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-8">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

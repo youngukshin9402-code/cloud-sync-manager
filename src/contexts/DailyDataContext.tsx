@@ -26,16 +26,18 @@ interface DailyDataContextType {
   deleteWater: (logId: string, amount: number) => Promise<boolean>;
   refreshWater: () => Promise<void>;
 
-  // Calories
+  // Calories (서버 기반)
   todayCalories: number;
-  addMeal: (meal: MealRecord) => void;
-  removeMeal: (mealId: string) => void;
-  refreshCalories: () => void;
+  caloriesLoading: boolean;
+  addCalories: (amount: number) => void;
+  removeCalories: (amount: number) => void;
+  refreshCalories: () => Promise<void>;
 
-  // Points
+  // Points (서버 기반)
   currentPoints: number;
-  addPoints: (amount: number, reason: string) => void;
-  refreshPoints: () => void;
+  pointsLoading: boolean;
+  addPoints: (amount: number, reason: string) => Promise<void>;
+  refreshPoints: () => Promise<void>;
 
   // Missions
   todayMissions: DailyMission | null;
@@ -55,9 +57,15 @@ export function DailyDataProvider({ children }: { children: React.ReactNode }) {
   const [waterGoal, setWaterGoal] = useState(2000);
   const [waterLoading, setWaterLoading] = useState(true);
 
-  // Other state (localStorage 기반)
+  // Calories state (서버 기반)
   const [todayCalories, setTodayCalories] = useState(0);
+  const [caloriesLoading, setCaloriesLoading] = useState(true);
+
+  // Points state (서버 기반)
   const [currentPoints, setCurrentPoints] = useState(0);
+  const [pointsLoading, setPointsLoading] = useState(true);
+
+  // Missions state
   const [todayMissions, setTodayMissions] = useState<DailyMission | null>(null);
   const [hasTodayPointsAwarded, setHasTodayPointsAwarded] = useState(false);
 
@@ -148,65 +156,115 @@ export function DailyDataProvider({ children }: { children: React.ReactNode }) {
   }, [user]);
 
   // ========================
-  // Calories Functions (localStorage 기반)
+  // Calories Functions (서버 기반)
   // ========================
-  const refreshCalories = useCallback(() => {
-    const meals = getMealRecords();
-    const todayMeals = meals.filter((m) => m.date === today);
-    const totalCal = todayMeals.reduce((sum, m) => sum + (Number(m.totalCalories) || 0), 0);
-    setTodayCalories(totalCal);
-  }, [today]);
-
-  const addMeal = useCallback((meal: MealRecord) => {
-    const meals = getMealRecords();
-    setMealRecords([...meals, meal]);
-    if (meal.date === today) {
-      setTodayCalories((prev) => prev + (Number(meal.totalCalories) || 0));
+  const refreshCalories = useCallback(async () => {
+    if (!user) {
+      setTodayCalories(0);
+      setCaloriesLoading(false);
+      return;
     }
-  }, [today]);
 
-  const removeMeal = useCallback((mealId: string) => {
-    const meals = getMealRecords();
-    const mealToRemove = meals.find((m) => m.id === mealId);
-    if (mealToRemove && mealToRemove.date === today) {
-      setTodayCalories((prev) => prev - (Number(mealToRemove.totalCalories) || 0));
+    try {
+      const { data, error } = await supabase
+        .from('meal_records')
+        .select('total_calories')
+        .eq('user_id', user.id)
+        .eq('date', today);
+
+      if (error) throw error;
+      
+      const total = (data || []).reduce((sum, meal) => sum + (meal.total_calories || 0), 0);
+      setTodayCalories(total);
+    } catch (error) {
+      console.error('Error fetching calories:', error);
+    } finally {
+      setCaloriesLoading(false);
     }
-    setMealRecords(meals.filter((m) => m.id !== mealId));
-  }, [today]);
+  }, [user, today]);
+
+  const addCalories = useCallback((amount: number) => {
+    setTodayCalories((prev) => prev + amount);
+  }, []);
+
+  const removeCalories = useCallback((amount: number) => {
+    setTodayCalories((prev) => Math.max(0, prev - amount));
+  }, []);
 
   // ========================
-  // Points Functions
+  // Points Functions (서버 기반)
   // ========================
-  const refreshPoints = useCallback(() => {
-    setCurrentPoints(getPoints());
-    const history = getPointHistory();
-    const alreadyAwarded = history.some(
-      (h) => h.date === today && h.reason === "일일 미션 완료"
-    );
-    setHasTodayPointsAwarded(alreadyAwarded);
-  }, [today]);
-
-  const addPoints = useCallback((amount: number, reason: string) => {
-    const current = getPoints();
-    setPointsStorage(current + amount);
-    setCurrentPoints(current + amount);
-
-    const history = getPointHistory();
-    setPointHistory([
-      ...history,
-      {
-        id: generateId(),
-        date: today,
-        amount,
-        reason,
-        type: "earn",
-      },
-    ]);
-
-    if (reason === "일일 미션 완료") {
-      setHasTodayPointsAwarded(true);
+  const refreshPoints = useCallback(async () => {
+    if (!user) {
+      setCurrentPoints(0);
+      setPointsLoading(false);
+      return;
     }
-  }, [today]);
+
+    try {
+      // Get points from profile
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('current_points')
+        .eq('id', user.id)
+        .single();
+
+      if (profileError) throw profileError;
+      setCurrentPoints(profileData?.current_points || 0);
+
+      // Check if today's points already awarded
+      const { data: historyData, error: historyError } = await supabase
+        .from('point_history')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('reason', '일일 미션 완료')
+        .gte('created_at', `${today}T00:00:00`)
+        .lte('created_at', `${today}T23:59:59`);
+
+      if (!historyError) {
+        setHasTodayPointsAwarded((historyData || []).length > 0);
+      }
+    } catch (error) {
+      console.error('Error fetching points:', error);
+    } finally {
+      setPointsLoading(false);
+    }
+  }, [user, today]);
+
+  const addPoints = useCallback(async (amount: number, reason: string) => {
+    if (!user) return;
+
+    try {
+      // Insert point history
+      const { error: historyError } = await supabase
+        .from('point_history')
+        .insert({
+          user_id: user.id,
+          amount,
+          reason,
+        });
+
+      if (historyError) throw historyError;
+
+      // Update profile points
+      const newPoints = currentPoints + amount;
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({ current_points: newPoints })
+        .eq('id', user.id);
+
+      if (profileError) throw profileError;
+
+      // Optimistic update
+      setCurrentPoints(newPoints);
+
+      if (reason === "일일 미션 완료") {
+        setHasTodayPointsAwarded(true);
+      }
+    } catch (error) {
+      console.error('Error adding points:', error);
+    }
+  }, [user, currentPoints]);
 
   // ========================
   // Missions Functions
@@ -300,10 +358,12 @@ export function DailyDataProvider({ children }: { children: React.ReactNode }) {
         deleteWater,
         refreshWater,
         todayCalories,
-        addMeal,
-        removeMeal,
+        caloriesLoading,
+        addCalories,
+        removeCalories,
         refreshCalories,
         currentPoints,
+        pointsLoading,
         addPoints,
         refreshPoints,
         todayMissions,
