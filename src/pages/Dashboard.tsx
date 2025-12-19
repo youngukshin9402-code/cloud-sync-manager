@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { useDailyData } from "@/contexts/DailyDataContext";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -22,18 +23,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import {
-  getWaterLogs,
-  getWaterSettings,
-  getMealRecords,
-  getDailyMissions,
-  setDailyMissions,
-  getPoints,
-  setPoints,
-  getPointHistory,
-  setPointHistory,
-  generateId,
   getTodayString,
-  DailyMission,
 } from "@/lib/localStorage";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -75,119 +65,66 @@ function selectRandomHabits(seed: string, count: number = 3): string[] {
 export default function Dashboard() {
   const { profile } = useAuth();
   const { toast } = useToast();
-  const [waterTotal, setWaterTotal] = useState(0);
-  const [waterGoal, setWaterGoalState] = useState(2000);
-  const [caloriesTotal, setCaloriesTotal] = useState(0);
-  const [todayMissions, setTodayMissions] = useState<DailyMission | null>(null);
+  const {
+    todayWater,
+    waterGoal,
+    todayCalories,
+    todayMissions,
+    toggleMission,
+    reshuffleMissions,
+    hasTodayPointsAwarded,
+    refreshWater,
+    refreshCalories,
+    refreshPoints,
+  } = useDailyData();
+
   const [showAIDialog, setShowAIDialog] = useState(false);
   const [aiQuestion, setAIQuestion] = useState("");
 
   const today = getTodayString();
 
-  const createNewMissions = useCallback((habits: string[]): DailyMission => {
-    return {
-      id: generateId(),
-      date: today,
-      missions: habits.map((content, idx) => ({
-        id: `mission_${idx}_${Date.now()}`,
-        content,
-        completed: false,
-      })),
-      pointsAwarded: false,
-    };
-  }, [today]);
-
+  // Refresh data on mount and focus
   useEffect(() => {
-    // Load water data
-    const waterLogs = getWaterLogs();
-    const todayWater = waterLogs
-      .filter(log => log.date === today)
-      .reduce((sum, log) => sum + log.amount, 0);
-    setWaterTotal(todayWater);
-    setWaterGoalState(getWaterSettings().dailyGoal);
+    refreshWater();
+    refreshCalories();
+    refreshPoints();
+  }, [refreshWater, refreshCalories, refreshPoints]);
 
-    // Load meal data (fix NaN bug)
-    const meals = getMealRecords();
-    const todayMeals = meals.filter(m => m.date === today);
-    const totalCal = todayMeals.reduce((sum, m) => sum + (Number(m.totalCalories) || 0), 0);
-    setCaloriesTotal(totalCal);
+  // Refresh on window focus (for when user comes back from other pages)
+  useEffect(() => {
+    const handleFocus = () => {
+      refreshWater();
+      refreshCalories();
+      refreshPoints();
+    };
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [refreshWater, refreshCalories, refreshPoints]);
 
-    // Load or create daily missions
-    let missions = getDailyMissions();
-    let todayMission = missions.find(m => m.date === today);
-    
-    if (!todayMission) {
-      // 오늘 날짜 기반 랜덤 3개 선택
+  // Initialize missions if not exists
+  useEffect(() => {
+    if (!todayMissions) {
       const todayHabits = selectRandomHabits(today);
-      todayMission = createNewMissions(todayHabits);
-      missions = [...missions, todayMission];
-      setDailyMissions(missions);
+      reshuffleMissions(todayHabits);
     }
-    
-    setTodayMissions(todayMission);
-  }, [today, createNewMissions]);
+  }, [today, todayMissions, reshuffleMissions]);
 
   const handleMissionToggle = (missionId: string) => {
-    if (!todayMissions) return;
-
-    const updatedMissions = todayMissions.missions.map(m =>
-      m.id === missionId ? { ...m, completed: !m.completed } : m
-    );
-
-    const allCompleted = updatedMissions.every(m => m.completed);
-    let updatedTodayMission = { ...todayMissions, missions: updatedMissions };
-
-    // Award points if all completed and not already awarded today
-    // 포인트 일일 1회 제한: pointHistory에서 오늘 날짜의 "일일 미션 완료" 기록 확인
-    const history = getPointHistory();
-    const alreadyAwardedToday = history.some(
-      h => h.date === today && h.reason === "일일 미션 완료"
-    );
-    
-    if (allCompleted && !todayMissions.pointsAwarded && !alreadyAwardedToday) {
-      updatedTodayMission.pointsAwarded = true;
-      
-      // Update points
-      const currentPoints = getPoints();
-      setPoints(currentPoints + 100);
-      
-      // Add to history
-      setPointHistory([...history, {
-        id: generateId(),
-        date: today,
-        amount: 100,
-        reason: "일일 미션 완료",
-        type: 'earn',
-      }]);
-      
+    const allCompletedBefore = todayMissions?.missions.every(m => m.completed) || false;
+    toggleMission(missionId);
+    // Check if this completion triggers the points award (all completed and not previously awarded)
+    const willComplete = todayMissions?.missions.filter(m => m.id !== missionId).every(m => m.completed) 
+      && !todayMissions?.missions.find(m => m.id === missionId)?.completed;
+    if (willComplete && !hasTodayPointsAwarded && !allCompletedBefore) {
       toast({ title: "🎉 축하합니다!", description: "모든 할 일 완료로 100포인트 획득!" });
-    } else if (allCompleted && !todayMissions.pointsAwarded && alreadyAwardedToday) {
-      // Mark as awarded but don't give duplicate points
-      updatedTodayMission.pointsAwarded = true;
     }
-
-    setTodayMissions(updatedTodayMission);
-
-    // Save to localStorage
-    const allMissions = getDailyMissions();
-    const updated = allMissions.map(m => m.date === today ? updatedTodayMission : m);
-    setDailyMissions(updated);
   };
 
   // 다른 제안 받기 - 3개를 다시 랜덤 추첨
   const handleReshuffle = () => {
-    // 현재 완료 상태를 유지하지 않고 새로운 3개 추천
     const newSeed = `${today}_${Date.now()}`;
     const newHabits = selectRandomHabits(newSeed);
-    const newMission = createNewMissions(newHabits);
-    
-    setTodayMissions(newMission);
-    
-    // Save to localStorage
-    const allMissions = getDailyMissions();
-    const updated = allMissions.map(m => m.date === today ? newMission : m);
-    setDailyMissions(updated);
-    
+    reshuffleMissions(newHabits);
     toast({ title: "새로운 할 일을 추천했어요!", description: "오늘 지킬 3가지가 변경되었습니다." });
   };
 
@@ -198,7 +135,6 @@ export default function Dashboard() {
       return;
     }
     
-    // 간단한 응답 (실제 AI 연동 전 placeholder)
     toast({ 
       title: "AI 응답", 
       description: "아직 AI 기능이 연동되지 않았습니다. 추후 업데이트 예정입니다!" 
@@ -247,12 +183,12 @@ export default function Dashboard() {
                 </div>
                 <span className="text-sm text-muted-foreground">섭취 칼로리</span>
               </div>
-              <p className="text-xl font-bold">{caloriesTotal.toLocaleString()}</p>
+              <p className="text-xl font-bold">{todayCalories.toLocaleString()}</p>
               <p className="text-xs text-muted-foreground">목표 {calorieGoal.toLocaleString()} kcal</p>
               <div className="mt-2 h-1.5 bg-muted rounded-full overflow-hidden">
                 <div
                   className="h-full bg-health-orange transition-all"
-                  style={{ width: `${Math.min((caloriesTotal / calorieGoal) * 100, 100)}%` }}
+                  style={{ width: `${Math.min((todayCalories / calorieGoal) * 100, 100)}%` }}
                 />
               </div>
             </div>
@@ -267,12 +203,12 @@ export default function Dashboard() {
                 </div>
                 <span className="text-sm text-muted-foreground">물 섭취</span>
               </div>
-              <p className="text-xl font-bold">{waterTotal.toLocaleString()}ml</p>
+              <p className="text-xl font-bold">{todayWater.toLocaleString()}ml</p>
               <p className="text-xs text-muted-foreground">목표 {waterGoal.toLocaleString()}ml</p>
               <div className="mt-2 h-1.5 bg-muted rounded-full overflow-hidden">
                 <div
                   className="h-full bg-health-blue transition-all"
-                  style={{ width: `${Math.min((waterTotal / waterGoal) * 100, 100)}%` }}
+                  style={{ width: `${Math.min((todayWater / waterGoal) * 100, 100)}%` }}
                 />
               </div>
             </div>
@@ -322,11 +258,7 @@ export default function Dashboard() {
             <CheckCircle className="w-5 h-5 text-primary" />
             오늘 할 일
           </h2>
-          {todayMissions?.pointsAwarded && (
-            <span className="px-3 py-1 bg-health-green/10 text-health-green rounded-full text-sm font-medium">
-              +100P 적립완료
-            </span>
-          )}
+          {/* 포인트 적립 완료 배지는 숨김 - 이미 받은 경우 혼란 방지 */}
         </div>
 
         <div className="space-y-3">
