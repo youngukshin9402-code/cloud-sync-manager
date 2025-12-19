@@ -98,6 +98,8 @@ function InBodySection() {
   const { data: records, loading, add, update, remove } = useInBodyRecords();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0],
     weight: 0,
@@ -113,24 +115,34 @@ function InBodySection() {
       toast.error("체중과 날짜는 필수입니다");
       return;
     }
+    if (isSaving) return; // 중복 클릭 방지
 
-    if (editingId) {
-      const result = await update(editingId, formData);
-      if (result.error) {
-        toast.error("수정 실패");
+    setIsSaving(true);
+    try {
+      if (editingId) {
+        const result = await update(editingId, formData);
+        if (result.error) {
+          toast.error("수정 실패: " + (result.error.message || "네트워크 오류"));
+        } else {
+          toast.success("수정되었습니다");
+          setDialogOpen(false);
+          resetForm();
+        }
       } else {
-        toast.success("수정되었습니다");
+        const result = await add(formData);
+        if (result.error) {
+          toast.error("저장 실패: " + (result.error.message || "네트워크 오류"));
+        } else {
+          toast.success("저장되었습니다");
+          setDialogOpen(false);
+          resetForm();
+        }
       }
-    } else {
-      const result = await add(formData);
-      if (result.error) {
-        toast.error("저장 실패");
-      } else {
-        toast.success("저장되었습니다");
-      }
+    } catch (err: any) {
+      toast.error("오류 발생: " + (err?.message || "알 수 없는 오류"));
+    } finally {
+      setIsSaving(false);
     }
-    setDialogOpen(false);
-    resetForm();
   };
 
   const handleEdit = (record: typeof records[0]) => {
@@ -148,11 +160,20 @@ function InBodySection() {
   };
 
   const handleDelete = async (id: string) => {
-    const result = await remove(id);
-    if (result.error) {
-      toast.error("삭제 실패");
-    } else {
-      toast.success("삭제되었습니다");
+    if (deletingId) return; // 중복 삭제 방지
+    
+    setDeletingId(id);
+    try {
+      const result = await remove(id);
+      if (result.error) {
+        toast.error("삭제 실패: " + (result.error.message || "네트워크 오류"));
+      } else {
+        toast.success("삭제되었습니다");
+      }
+    } catch (err: any) {
+      toast.error("오류 발생: " + (err?.message || "알 수 없는 오류"));
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -243,13 +264,17 @@ function InBodySection() {
                 </p>
               </div>
               <div className="flex gap-1">
-                <Button variant="ghost" size="icon" onClick={() => handleEdit(record)}>
+                <Button variant="ghost" size="icon" onClick={() => handleEdit(record)} disabled={isSaving}>
                   <Edit2 className="w-4 h-4" />
                 </Button>
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
-                    <Button variant="ghost" size="icon">
-                      <Trash2 className="w-4 h-4 text-destructive" />
+                    <Button variant="ghost" size="icon" disabled={deletingId === record.id}>
+                      {deletingId === record.id ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="w-4 h-4 text-destructive" />
+                      )}
                     </Button>
                   </AlertDialogTrigger>
                   <AlertDialogContent>
@@ -259,7 +284,7 @@ function InBodySection() {
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                       <AlertDialogCancel>취소</AlertDialogCancel>
-                      <AlertDialogAction onClick={() => handleDelete(record.id)}>삭제</AlertDialogAction>
+                      <AlertDialogAction onClick={() => handleDelete(record.id)} disabled={!!deletingId}>삭제</AlertDialogAction>
                     </AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>
@@ -300,8 +325,11 @@ function InBodySection() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>취소</Button>
-            <Button onClick={handleSave}>저장</Button>
+            <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={isSaving}>취소</Button>
+            <Button onClick={handleSave} disabled={isSaving}>
+              {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+              저장
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -316,6 +344,11 @@ export default function Medical() {
   const [examDate, setExamDate] = useState<Date>(new Date());
   const [editingRecordId, setEditingRecordId] = useState<string | null>(null);
   const [editExamDate, setEditExamDate] = useState<Date | undefined>(undefined);
+  
+  // 로컬 로딩 상태 (Hook 수정 없이 UI에서 처리)
+  const [deletingRecordId, setDeletingRecordId] = useState<string | null>(null);
+  const [isUpdatingDate, setIsUpdatingDate] = useState(false);
+  const [localUploading, setLocalUploading] = useState(false);
   
   const {
     records,
@@ -385,22 +418,36 @@ export default function Medical() {
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (!files || files.length === 0) return;
+    if (localUploading || isUploading) return; // 중복 업로드 방지
 
     const fileArray = Array.from(files);
     
     const validFiles = fileArray.filter((file) => {
-      if (!file.type.startsWith("image/")) return false;
-      if (file.size > 10 * 1024 * 1024) return false;
+      if (!file.type.startsWith("image/")) {
+        toast.error("이미지 파일만 업로드할 수 있습니다");
+        return false;
+      }
+      if (file.size > 10 * 1024 * 1024) {
+        toast.error("파일 크기는 10MB 이하여야 합니다");
+        return false;
+      }
       return true;
     });
 
     if (validFiles.length === 0) return;
 
-    await uploadHealthCheckup(validFiles, format(examDate, "yyyy-MM-dd"));
-    setShowUploadDialog(false);
-    
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
+    setLocalUploading(true);
+    try {
+      await uploadHealthCheckup(validFiles, format(examDate, "yyyy-MM-dd"));
+      toast.success("업로드 완료! AI가 분석 중입니다");
+      setShowUploadDialog(false);
+    } catch (err: any) {
+      toast.error("업로드 실패: " + (err?.message || "네트워크 오류"));
+    } finally {
+      setLocalUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
     }
   };
 
@@ -410,9 +457,19 @@ export default function Medical() {
   };
 
   const handleDeleteRecord = async (id: string) => {
-    await deleteRecord(id);
-    if (records.length > 1) {
-      setCurrentRecord(records.find(r => r.id !== id) || null);
+    if (deletingRecordId) return; // 중복 삭제 방지
+    
+    setDeletingRecordId(id);
+    try {
+      await deleteRecord(id);
+      toast.success("삭제되었습니다");
+      if (records.length > 1) {
+        setCurrentRecord(records.find(r => r.id !== id) || null);
+      }
+    } catch (err: any) {
+      toast.error("삭제 실패: " + (err?.message || "네트워크 오류"));
+    } finally {
+      setDeletingRecordId(null);
     }
   };
 
@@ -422,10 +479,19 @@ export default function Medical() {
   };
 
   const saveEditDate = async () => {
-    if (editingRecordId && editExamDate) {
+    if (!editingRecordId || !editExamDate) return;
+    if (isUpdatingDate) return; // 중복 저장 방지
+    
+    setIsUpdatingDate(true);
+    try {
       await updateExamDate(editingRecordId, format(editExamDate, "yyyy-MM-dd"));
+      toast.success("검진일이 수정되었습니다");
+      setEditingRecordId(null);
+    } catch (err: any) {
+      toast.error("수정 실패: " + (err?.message || "네트워크 오류"));
+    } finally {
+      setIsUpdatingDate(false);
     }
-    setEditingRecordId(null);
   };
 
   const renderHealthCheckupContent = () => {
@@ -652,13 +718,23 @@ export default function Medical() {
                         variant="ghost" 
                         size="icon" 
                         onClick={(e) => { e.stopPropagation(); openEditDate(record); }}
+                        disabled={!!deletingRecordId || isUpdatingDate}
                       >
                         <Edit2 className="w-4 h-4" />
                       </Button>
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
-                          <Button variant="ghost" size="icon" onClick={(e) => e.stopPropagation()}>
-                            <Trash2 className="w-4 h-4 text-destructive" />
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            onClick={(e) => e.stopPropagation()}
+                            disabled={deletingRecordId === record.id}
+                          >
+                            {deletingRecordId === record.id ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <Trash2 className="w-4 h-4 text-destructive" />
+                            )}
                           </Button>
                         </AlertDialogTrigger>
                         <AlertDialogContent>
@@ -668,7 +744,12 @@ export default function Medical() {
                           </AlertDialogHeader>
                           <AlertDialogFooter>
                             <AlertDialogCancel>취소</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => handleDeleteRecord(record.id)}>삭제</AlertDialogAction>
+                            <AlertDialogAction 
+                              onClick={() => handleDeleteRecord(record.id)}
+                              disabled={!!deletingRecordId}
+                            >
+                              삭제
+                            </AlertDialogAction>
                           </AlertDialogFooter>
                         </AlertDialogContent>
                       </AlertDialog>
@@ -729,17 +810,26 @@ export default function Medical() {
                 size="lg" 
                 className="w-full h-12"
                 onClick={() => fileInputRef.current?.click()}
-                disabled={isUploading}
+                disabled={isUploading || localUploading}
               >
-                {isUploading ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <Camera className="w-5 h-5 mr-2" />}
-                카메라로 촬영
+                {(isUploading || localUploading) ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                    업로드 중...
+                  </>
+                ) : (
+                  <>
+                    <Camera className="w-5 h-5 mr-2" />
+                    카메라로 촬영
+                  </>
+                )}
               </Button>
               <Button 
                 size="lg" 
                 variant="outline"
                 className="w-full h-12"
                 onClick={() => fileInputRef.current?.click()}
-                disabled={isUploading}
+                disabled={isUploading || localUploading}
               >
                 <Upload className="w-5 h-5 mr-2" />
                 갤러리에서 선택
@@ -779,8 +869,11 @@ export default function Medical() {
             </Popover>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditingRecordId(null)}>취소</Button>
-            <Button onClick={saveEditDate}>저장</Button>
+            <Button variant="outline" onClick={() => setEditingRecordId(null)} disabled={isUpdatingDate}>취소</Button>
+            <Button onClick={saveEditDate} disabled={isUpdatingDate}>
+              {isUpdatingDate ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+              저장
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
