@@ -109,14 +109,17 @@ export default function Dashboard() {
     }
   }, [today, todayMissions, reshuffleMissions]);
 
-  const handleMissionToggle = (missionId: string) => {
+  const handleMissionToggle = async (missionId: string) => {
     const allCompletedBefore = todayMissions?.missions.every(m => m.completed) || false;
-    toggleMission(missionId);
-    // Check if this completion triggers the points award (all completed and not previously awarded)
     const willComplete = todayMissions?.missions.filter(m => m.id !== missionId).every(m => m.completed) 
       && !todayMissions?.missions.find(m => m.id === missionId)?.completed;
-    if (willComplete && !hasTodayPointsAwarded && !allCompletedBefore) {
+    
+    const wasAwarded = await toggleMission(missionId);
+    
+    // Check if this completion triggers the points award (all completed and not previously awarded)
+    if (willComplete && wasAwarded && !allCompletedBefore) {
       toast({ title: "🎉 축하합니다!", description: "모든 할 일 완료로 100포인트 획득!" });
+      refreshPoints(); // Refresh points to show updated balance
     }
   };
 
