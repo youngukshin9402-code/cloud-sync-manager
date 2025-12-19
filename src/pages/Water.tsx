@@ -19,6 +19,7 @@ import {
   Target,
   TrendingUp,
   Loader2,
+  Trash2,
 } from "lucide-react";
 
 interface WaterSettings {
@@ -42,12 +43,13 @@ const defaultSettings: WaterSettings = {
 export default function Water() {
   const { toast } = useToast();
   const { user } = useAuth();
-  const { data: logs, loading, add, getTodayTotal } = useWaterLogs();
-  const { addWater: addWaterToDailyData } = useDailyData();
+  const { data: logs, loading, add, remove, getTodayTotal } = useWaterLogs();
+  const { addWater: addWaterToContext, deleteWater: deleteWaterFromContext, refreshWater } = useDailyData();
   const [settings, setSettingsState] = useState<WaterSettings>(defaultSettings);
   const [settingsLoading, setSettingsLoading] = useState(true);
   const [customAmount, setCustomAmount] = useState("");
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const today = new Date().toISOString().split('T')[0];
   const todayLogs = logs.filter(log => log.date === today);
@@ -88,12 +90,13 @@ export default function Water() {
     fetchSettings();
   }, [fetchSettings]);
 
-  const addWater = async (amount: number) => {
+  const handleAddWater = async (amount: number) => {
     const result = await add({ date: today, amount });
     if (result.error) {
       toast({ title: "저장 실패", variant: "destructive" });
     } else {
-      addWaterToDailyData(amount); // Dashboard/오늘요약 즉시 반영
+      // Dashboard/Context 즉시 반영
+      await addWaterToContext(amount);
       toast({
         title: "물 섭취 기록 완료!",
         description: `${amount}ml 추가됨 (오늘 총 ${todayTotal + amount}ml)`,
@@ -101,10 +104,26 @@ export default function Water() {
     }
   };
 
+  const handleDeleteWater = async (logId: string, amount: number) => {
+    setDeletingId(logId);
+    const result = await remove(logId);
+    if (result.error) {
+      toast({ title: "삭제 실패", variant: "destructive" });
+    } else {
+      // Dashboard/Context 즉시 반영
+      await deleteWaterFromContext(logId, amount);
+      toast({
+        title: "삭제 완료",
+        description: `${amount}ml 기록이 삭제되었습니다.`,
+      });
+    }
+    setDeletingId(null);
+  };
+
   const handleCustomAdd = () => {
     const amount = parseInt(customAmount);
     if (amount > 0) {
-      addWater(amount);
+      handleAddWater(amount);
       setCustomAmount("");
     }
   };
@@ -129,6 +148,7 @@ export default function Water() {
       if (error) throw error;
       
       setSettingsState(newSettings);
+      await refreshWater(); // Context의 waterGoal도 업데이트
       toast({ title: "설정이 저장되었습니다" });
       setSettingsOpen(false);
     } catch (error) {
@@ -341,7 +361,7 @@ export default function Water() {
                 variant="outline"
                 size="lg"
                 className="h-16 text-lg font-semibold"
-                onClick={() => addWater(amount)}
+                onClick={() => handleAddWater(amount)}
               >
                 <Plus className="w-5 h-5 mr-1" />
                 {amount}ml
@@ -401,7 +421,7 @@ export default function Water() {
           )}
         </div>
 
-        {/* Today's Log */}
+        {/* Today's Log with Delete */}
         <div className="space-y-3">
           <h2 className="text-lg font-semibold flex items-center gap-2">
             <TrendingUp className="w-5 h-5" />
@@ -414,10 +434,25 @@ export default function Water() {
                   key={log.id}
                   className="flex items-center justify-between p-3 bg-card rounded-xl border border-border"
                 >
-                  <span className="text-muted-foreground">
-                    {new Date(log.logged_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
-                  </span>
-                  <span className="font-semibold">+{log.amount}ml</span>
+                  <div className="flex items-center gap-3">
+                    <span className="text-muted-foreground">
+                      {new Date(log.logged_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                    <span className="font-semibold">+{log.amount}ml</span>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                    onClick={() => handleDeleteWater(log.id, log.amount)}
+                    disabled={deletingId === log.id}
+                  >
+                    {deletingId === log.id ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="w-4 h-4" />
+                    )}
+                  </Button>
                 </div>
               ))}
             </div>

@@ -1,8 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import {
-  getWaterLogs,
-  setWaterLogs,
-  getWaterSettings,
   getMealRecords,
   setMealRecords,
   getPoints,
@@ -13,18 +12,19 @@ import {
   setDailyMissions as setMissionsStorage,
   getTodayString,
   generateId,
-  WaterLog,
   MealRecord,
   PointHistory,
   DailyMission,
 } from "@/lib/localStorage";
 
 interface DailyDataContextType {
-  // Water
+  // Water (서버 기반)
   todayWater: number;
   waterGoal: number;
-  addWater: (amount: number) => void;
-  refreshWater: () => void;
+  waterLoading: boolean;
+  addWater: (amount: number) => Promise<boolean>;
+  deleteWater: (logId: string, amount: number) => Promise<boolean>;
+  refreshWater: () => Promise<void>;
 
   // Calories
   todayCalories: number;
@@ -47,46 +47,109 @@ interface DailyDataContextType {
 const DailyDataContext = createContext<DailyDataContextType | undefined>(undefined);
 
 export function DailyDataProvider({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth();
   const today = getTodayString();
 
+  // Water state (서버 기반)
   const [todayWater, setTodayWater] = useState(0);
   const [waterGoal, setWaterGoal] = useState(2000);
+  const [waterLoading, setWaterLoading] = useState(true);
+
+  // Other state (localStorage 기반)
   const [todayCalories, setTodayCalories] = useState(0);
   const [currentPoints, setCurrentPoints] = useState(0);
   const [todayMissions, setTodayMissions] = useState<DailyMission | null>(null);
   const [hasTodayPointsAwarded, setHasTodayPointsAwarded] = useState(false);
 
-  // Initialize data
-  useEffect(() => {
-    refreshWater();
-    refreshCalories();
-    refreshPoints();
-    refreshMissions();
-  }, []);
+  // ========================
+  // Water Functions (서버 기반)
+  // ========================
+  const refreshWater = useCallback(async () => {
+    if (!user) {
+      setTodayWater(0);
+      setWaterGoal(2000);
+      setWaterLoading(false);
+      return;
+    }
 
-  // Water functions
-  const refreshWater = useCallback(() => {
-    const logs = getWaterLogs();
-    const todayTotal = logs
-      .filter((log) => log.date === today)
-      .reduce((sum, log) => sum + log.amount, 0);
-    setTodayWater(todayTotal);
-    setWaterGoal(getWaterSettings().dailyGoal);
-  }, [today]);
+    try {
+      // Fetch today's water logs
+      const { data: logsData, error: logsError } = await supabase
+        .from('water_logs')
+        .select('amount')
+        .eq('user_id', user.id)
+        .eq('date', today);
 
-  const addWater = useCallback((amount: number) => {
-    const logs = getWaterLogs();
-    const newLog: WaterLog = {
-      id: generateId(),
-      date: today,
-      amount,
-      timestamp: new Date().toISOString(),
-    };
-    setWaterLogs([...logs, newLog]);
-    setTodayWater((prev) => prev + amount);
-  }, [today]);
+      if (logsError) throw logsError;
+      
+      const total = (logsData || []).reduce((sum, log) => sum + log.amount, 0);
+      setTodayWater(total);
 
-  // Calories functions
+      // Fetch water settings
+      const { data: settingsData, error: settingsError } = await supabase
+        .from('water_settings')
+        .select('daily_goal')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (!settingsError && settingsData) {
+        setWaterGoal(settingsData.daily_goal);
+      }
+    } catch (error) {
+      console.error('Error fetching water data:', error);
+    } finally {
+      setWaterLoading(false);
+    }
+  }, [user, today]);
+
+  const addWater = useCallback(async (amount: number): Promise<boolean> => {
+    if (!user) return false;
+
+    try {
+      const { error } = await supabase
+        .from('water_logs')
+        .insert({
+          user_id: user.id,
+          date: today,
+          amount,
+          logged_at: new Date().toISOString(),
+        });
+
+      if (error) throw error;
+      
+      // Optimistic update
+      setTodayWater(prev => prev + amount);
+      return true;
+    } catch (error) {
+      console.error('Error adding water:', error);
+      return false;
+    }
+  }, [user, today]);
+
+  const deleteWater = useCallback(async (logId: string, amount: number): Promise<boolean> => {
+    if (!user) return false;
+
+    try {
+      const { error } = await supabase
+        .from('water_logs')
+        .delete()
+        .eq('id', logId)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+      
+      // Optimistic update
+      setTodayWater(prev => Math.max(0, prev - amount));
+      return true;
+    } catch (error) {
+      console.error('Error deleting water:', error);
+      return false;
+    }
+  }, [user]);
+
+  // ========================
+  // Calories Functions (localStorage 기반)
+  // ========================
   const refreshCalories = useCallback(() => {
     const meals = getMealRecords();
     const todayMeals = meals.filter((m) => m.date === today);
@@ -111,10 +174,11 @@ export function DailyDataProvider({ children }: { children: React.ReactNode }) {
     setMealRecords(meals.filter((m) => m.id !== mealId));
   }, [today]);
 
-  // Points functions
+  // ========================
+  // Points Functions
+  // ========================
   const refreshPoints = useCallback(() => {
     setCurrentPoints(getPoints());
-    // Check if today's points already awarded
     const history = getPointHistory();
     const alreadyAwarded = history.some(
       (h) => h.date === today && h.reason === "일일 미션 완료"
@@ -144,13 +208,14 @@ export function DailyDataProvider({ children }: { children: React.ReactNode }) {
     }
   }, [today]);
 
-  // Missions functions
+  // ========================
+  // Missions Functions
+  // ========================
   const refreshMissions = useCallback(() => {
     const missions = getDailyMissions();
     const todayMission = missions.find((m) => m.date === today);
     setTodayMissions(todayMission || null);
 
-    // Check if points already awarded
     const history = getPointHistory();
     const alreadyAwarded = history.some(
       (h) => h.date === today && h.reason === "일일 미션 완료"
@@ -168,13 +233,11 @@ export function DailyDataProvider({ children }: { children: React.ReactNode }) {
     const allCompleted = updatedMissions.every((m) => m.completed);
     let updatedTodayMission = { ...todayMissions, missions: updatedMissions };
 
-    // Check if already awarded today
     const history = getPointHistory();
     const alreadyAwardedToday = history.some(
       (h) => h.date === today && h.reason === "일일 미션 완료"
     );
 
-    // Award points if all completed and not already awarded
     if (allCompleted && !todayMissions.pointsAwarded && !alreadyAwardedToday) {
       updatedTodayMission.pointsAwarded = true;
       addPoints(100, "일일 미션 완료");
@@ -184,7 +247,6 @@ export function DailyDataProvider({ children }: { children: React.ReactNode }) {
 
     setTodayMissions(updatedTodayMission);
 
-    // Save to localStorage
     const allMissions = getDailyMissions();
     const updated = allMissions.map((m) =>
       m.date === today ? updatedTodayMission : m
@@ -218,12 +280,24 @@ export function DailyDataProvider({ children }: { children: React.ReactNode }) {
     setMissionsStorage(allMissions);
   }, [today]);
 
+  // ========================
+  // Initialize
+  // ========================
+  useEffect(() => {
+    refreshWater();
+    refreshCalories();
+    refreshPoints();
+    refreshMissions();
+  }, [user]);
+
   return (
     <DailyDataContext.Provider
       value={{
         todayWater,
         waterGoal,
+        waterLoading,
         addWater,
+        deleteWater,
         refreshWater,
         todayCalories,
         addMeal,
