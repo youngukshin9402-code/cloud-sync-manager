@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useInBodyRecords } from "@/hooks/useServerSync";
+import { supabase } from "@/integrations/supabase/client";
 import {
   ArrowLeft,
   Plus,
@@ -42,19 +43,22 @@ const emptyForm: InBodyForm = {
   visceral_fat: null,
 };
 
-// Mock AI 분석 함수 (추후 실제 API로 교체)
-const mockAnalyzeInBodyImage = async (imageUrl: string): Promise<Partial<InBodyForm>> => {
-  // 실제로는 AI API를 호출해서 이미지에서 데이터 추출
-  await new Promise((r) => setTimeout(r, 2000));
-  
-  // Mock 데이터 반환
-  return {
-    date: new Date().toISOString().split('T')[0],
-    weight: 65 + Math.random() * 10,
-    skeletal_muscle: 25 + Math.random() * 5,
-    body_fat_percent: 18 + Math.random() * 8,
-    bmr: 1400 + Math.floor(Math.random() * 200),
-  };
+// AI 분석 함수 - Lovable AI 연동
+const analyzeInBodyImage = async (imageBase64: string): Promise<Partial<InBodyForm>> => {
+  const { data, error } = await supabase.functions.invoke('analyze-inbody', {
+    body: { imageBase64 }
+  });
+
+  if (error) {
+    console.error('AI analysis error:', error);
+    throw new Error(error.message || 'AI 분석 실패');
+  }
+
+  if (!data.success) {
+    throw new Error(data.error || 'AI 분석 실패');
+  }
+
+  return data.data;
 };
 
 export default function InBody() {
@@ -144,21 +148,29 @@ export default function InBody() {
       setDialogOpen(true);
 
       try {
-        const analyzedData = await mockAnalyzeInBodyImage(base64);
+        const analyzedData = await analyzeInBodyImage(base64);
         
         // 분석 결과를 폼에 자동 입력
         setFormData(prev => ({
           ...prev,
           date: analyzedData.date || prev.date,
-          weight: analyzedData.weight ? parseFloat(analyzedData.weight.toFixed(1)) : prev.weight,
-          skeletal_muscle: analyzedData.skeletal_muscle ? parseFloat(analyzedData.skeletal_muscle.toFixed(1)) : prev.skeletal_muscle,
-          body_fat_percent: analyzedData.body_fat_percent ? parseFloat(analyzedData.body_fat_percent.toFixed(1)) : prev.body_fat_percent,
+          weight: analyzedData.weight ? parseFloat(Number(analyzedData.weight).toFixed(1)) : prev.weight,
+          skeletal_muscle: analyzedData.skeletal_muscle ? parseFloat(Number(analyzedData.skeletal_muscle).toFixed(1)) : prev.skeletal_muscle,
+          body_fat_percent: analyzedData.body_fat_percent ? parseFloat(Number(analyzedData.body_fat_percent).toFixed(1)) : prev.body_fat_percent,
+          body_fat: analyzedData.body_fat ? parseFloat(Number(analyzedData.body_fat).toFixed(1)) : prev.body_fat,
           bmr: analyzedData.bmr || prev.bmr,
+          visceral_fat: analyzedData.visceral_fat || prev.visceral_fat,
         }));
         
-        toast({ title: "분석 완료!", description: "결과를 확인하고 수정 후 저장하세요." });
+        toast({ title: "분석 완료!", description: "AI가 인바디 결과를 인식했습니다. 확인 후 저장하세요." });
       } catch (error) {
-        toast({ title: "분석 실패", description: "다시 시도해주세요", variant: "destructive" });
+        console.error('Analysis error:', error);
+        toast({ 
+          title: "분석 실패", 
+          description: error instanceof Error ? error.message : "다시 시도해주세요", 
+          variant: "destructive" 
+        });
+        setUploadedImage(null);
       } finally {
         setIsAnalyzing(false);
       }
