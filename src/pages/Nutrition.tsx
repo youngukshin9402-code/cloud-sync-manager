@@ -38,6 +38,7 @@ import { useMealRecords, MealRecordServer, MealFood } from "@/hooks/useServerSyn
 import { usePendingQueue } from "@/hooks/usePendingQueue";
 import { useAuth } from "@/contexts/AuthContext";
 import { compressImage } from "@/lib/imageUpload";
+import { useDailyData } from "@/contexts/DailyDataContext";
 
 type MealType = "breakfast" | "lunch" | "dinner" | "snack";
 
@@ -101,6 +102,7 @@ export default function Nutrition() {
   const { user } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+  const { refreshCalories } = useDailyData();
   
   // 서버 동기화 훅 사용
   const { data: records, loading, syncing, add, addOffline, remove, refetch, getTodayCalories } = useMealRecords();
@@ -261,6 +263,7 @@ export default function Nutrition() {
           },
           { imageFile: uploadedFile || undefined }
         );
+        refreshCalories(); // Dashboard 동기화
         toast({ title: "저장 완료!", description: `${MEAL_TYPE_LABELS[selectedMealType]} 기록이 저장되었습니다.` });
       } else {
         // 오프라인: pending queue에 저장 및 로컬 캐시에 추가
@@ -281,7 +284,7 @@ export default function Nutrition() {
           total_calories: totalCalories,
           image_url: uploadedImage,
         }, localId);
-        
+        refreshCalories(); // Dashboard 동기화
         toast({ 
           title: "로컬에 저장됨", 
           description: "온라인 복귀 시 자동으로 서버에 업로드됩니다." 
@@ -348,6 +351,7 @@ export default function Nutrition() {
           total_calories: totalCalories,
           image_url: null,
         });
+        refreshCalories(); // Dashboard 동기화
         toast({ title: "저장 완료!", description: `${MEAL_TYPE_LABELS[selectedMealType]} 기록이 저장되었습니다.` });
       } else {
         const localId = addToPending('meal_record', {
@@ -366,7 +370,7 @@ export default function Nutrition() {
           total_calories: totalCalories,
           image_url: null,
         }, localId);
-        
+        refreshCalories(); // Dashboard 동기화
         toast({ 
           title: "로컬에 저장됨", 
           description: "온라인 복귀 시 자동으로 서버에 업로드됩니다." 
