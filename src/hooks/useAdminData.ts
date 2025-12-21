@@ -112,12 +112,26 @@ export function useAdminData() {
     if (!error) setUsers(data || []);
   };
 
-  // 코치 목록
+  // 코치 목록 (user_roles 테이블에서 coach 역할을 가진 사용자)
   const fetchCoaches = async () => {
+    // 먼저 coach 역할을 가진 user_id 목록을 가져옴
+    const { data: roleData, error: roleError } = await supabase
+      .from("user_roles")
+      .select("user_id")
+      .eq("role", "coach");
+
+    if (roleError || !roleData || roleData.length === 0) {
+      setCoaches([]);
+      return;
+    }
+
+    const coachIds = roleData.map(r => r.user_id);
+
+    // 해당 프로필 정보 가져오기
     const { data, error } = await supabase
       .from("profiles")
       .select("*")
-      .eq("user_type", "coach")
+      .in("id", coachIds)
       .order("created_at", { ascending: false });
 
     if (!error) setCoaches(data || []);
