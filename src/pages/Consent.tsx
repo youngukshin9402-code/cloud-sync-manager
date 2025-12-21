@@ -34,7 +34,7 @@ const consentItems: ConsentItem[] = [
   },
   {
     key: 'privacy',
-    title: '개인정보 처리방침 동의',
+    title: '개인정보처리방침 동의',
     required: true,
     icon: <Shield className="w-5 h-5" />,
     description: '개인정보 수집 및 이용에 관한 사항입니다.',
@@ -42,7 +42,7 @@ const consentItems: ConsentItem[] = [
   },
   {
     key: 'health',
-    title: '건강정보 처리 고지 동의',
+    title: '건강정보처리 고지 동의',
     required: true,
     icon: <Heart className="w-5 h-5" />,
     description: '건강검진 결과, 식단, 운동 등 민감정보 처리에 관한 사항입니다.',

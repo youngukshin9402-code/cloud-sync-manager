@@ -6,6 +6,7 @@ export function CTASection() {
   const benefits = [
     "일일 미션으로 포인트 적립",
     "전문 코치 상담 체험",
+    "운동 기록, 식단 기록, 건강검진 및 인바디 분석",
   ];
 
   return (
