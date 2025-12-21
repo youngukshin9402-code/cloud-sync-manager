@@ -167,7 +167,13 @@ function InBodySection() {
     });
 
     if (error) throw new Error(error.message || 'AI 분석 실패');
-    if (!data.success) throw new Error(data.error || 'AI 분석 실패');
+    if (!data.success) {
+      // 인바디 결과지가 아닌 경우 특별 처리
+      if (data.error?.includes('인바디') || data.error?.includes('결과지')) {
+        throw new Error('인바디 결과지 사진이 아닙니다. 올바른 인바디 결과지를 촬영해주세요.');
+      }
+      throw new Error(data.error || 'AI 분석 실패');
+    }
     return data.data;
   };
 
@@ -247,9 +253,10 @@ function InBodySection() {
         
         setAiPrefilled(true);
         toast.success("분석 완료! 결과를 확인 후 저장하세요");
-      } catch (error) {
+      } catch (error: any) {
         console.error('Analysis error:', error);
-        toast.error("분석 실패 - 수기로 입력해주세요");
+        const errorMessage = error?.message || "분석 실패";
+        toast.error(errorMessage);
         setUploadedImage(null);
         setInputMode('manual');
       } finally {
