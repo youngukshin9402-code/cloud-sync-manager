@@ -53,6 +53,10 @@ import AdminProducts from "./pages/admin/AdminProducts";
 import AdminOrders from "./pages/admin/AdminOrders";
 import AdminCoaching from "./pages/admin/AdminCoaching";
 import AdminTickets from "./pages/admin/AdminTickets";
+import AdminHealthRecords from "./pages/admin/AdminHealthRecords";
+import AdminCoaches from "./pages/admin/AdminCoaches";
+import AdminPoints from "./pages/admin/AdminPoints";
+import AdminStats from "./pages/admin/AdminStats";
 import CoachingFeedback from "./pages/mypage/CoachingFeedback";
 
 // Components
@@ -234,6 +238,38 @@ function AppRoutes() {
         element={
           <ProtectedRoute allowedTypes={["admin"]}>
             <AdminTickets />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/health-records"
+        element={
+          <ProtectedRoute allowedTypes={["admin"]}>
+            <AdminHealthRecords />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/coaches"
+        element={
+          <ProtectedRoute allowedTypes={["admin"]}>
+            <AdminCoaches />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/points"
+        element={
+          <ProtectedRoute allowedTypes={["admin"]}>
+            <AdminPoints />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/stats"
+        element={
+          <ProtectedRoute allowedTypes={["admin"]}>
+            <AdminStats />
           </ProtectedRoute>
         }
       />
