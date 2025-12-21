@@ -7,6 +7,7 @@ import { ChatWindow } from '@/components/chat/ChatWindow';
 import { useChat } from '@/hooks/useChat';
 import { useAuth } from '@/contexts/AuthContext';
 import { Skeleton } from '@/components/ui/skeleton';
+import { supabase } from '@/integrations/supabase/client';
 
 export default function Chat() {
   const navigate = useNavigate();
@@ -15,22 +16,37 @@ export default function Chat() {
   const [coachName, setCoachName] = useState<string>('');
   const [loadingCoach, setLoadingCoach] = useState(true);
   
-  const { getAssignedCoach } = useChat();
-  const { messages, loading, sending, sendMessage } = useChat(coachId || undefined);
-
+  // 코치 정보 직접 로드
   useEffect(() => {
     const loadCoach = async () => {
-      setLoadingCoach(true);
-      const coach = await getAssignedCoach();
-      if (coach) {
-        setCoachId(coach.id);
-        setCoachName(coach.nickname || '코치');
+      if (!profile?.assigned_coach_id) {
+        setLoadingCoach(false);
+        return;
       }
-      setLoadingCoach(false);
+
+      try {
+        const { data } = await supabase
+          .from('profiles')
+          .select('id, nickname')
+          .eq('id', profile.assigned_coach_id)
+          .single();
+
+        if (data) {
+          setCoachId(data.id);
+          setCoachName(data.nickname || '코치');
+        }
+      } catch (error) {
+        console.error('Error loading coach:', error);
+      } finally {
+        setLoadingCoach(false);
+      }
     };
 
     loadCoach();
-  }, [getAssignedCoach]);
+  }, [profile?.assigned_coach_id]);
+
+  // 코치 ID가 설정된 후에만 채팅 훅 사용
+  const { messages, loading, sending, sendMessage } = useChat(coachId || undefined);
 
   // No assigned coach
   if (!loadingCoach && !profile?.assigned_coach_id) {
@@ -49,11 +65,11 @@ export default function Chat() {
           </div>
           <h2 className="text-xl font-semibold mb-2">배정된 코치가 없습니다</h2>
           <p className="text-muted-foreground mb-6">
-            코칭 서비스를 구독하면 전문 코치가 배정되어<br />
+            관리자가 코치를 배정하면<br />
             1:1 채팅 상담을 받으실 수 있습니다.
           </p>
-          <Button onClick={() => navigate('/premium')}>
-            프리미엄 구독하기
+          <Button onClick={() => navigate('/profile')}>
+            마이페이지로 돌아가기
           </Button>
         </div>
       </div>
@@ -82,10 +98,13 @@ export default function Chat() {
         <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
           <ArrowLeft className="h-5 w-5" />
         </Button>
-        <h1 className="text-lg font-semibold">코치 채팅</h1>
+        <div>
+          <h1 className="text-lg font-semibold">{coachName} 코치</h1>
+          <p className="text-xs text-muted-foreground">1:1 채팅</p>
+        </div>
       </header>
 
-      <Card className="flex-1 m-0 rounded-none border-0">
+      <div className="flex-1 flex flex-col">
         <ChatWindow
           messages={messages}
           loading={loading}
@@ -93,7 +112,7 @@ export default function Chat() {
           onSendMessage={sendMessage}
           partnerName={coachName}
         />
-      </Card>
+      </div>
     </div>
   );
 }

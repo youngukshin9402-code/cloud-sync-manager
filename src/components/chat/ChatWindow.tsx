@@ -2,7 +2,6 @@ import { useState, useRef, useEffect } from 'react';
 import { Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ChatMessage } from './ChatMessage';
 import { useAuth } from '@/contexts/AuthContext';
@@ -27,13 +26,13 @@ export function ChatWindow({
 }: ChatWindowProps) {
   const { user } = useAuth();
   const [inputValue, setInputValue] = useState('');
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
     }
   }, [messages]);
 
@@ -55,13 +54,13 @@ export function ChatWindow({
   if (loading) {
     return (
       <div className="flex flex-col h-full">
-        <div className="border-b p-4">
-          <Skeleton className="h-6 w-32" />
+        <div className="border-b p-4 bg-card">
+          <div className="font-semibold">{partnerName}</div>
         </div>
         <div className="flex-1 p-4 space-y-4">
           {[1, 2, 3].map((i) => (
             <div key={i} className={`flex ${i % 2 === 0 ? 'justify-end' : 'justify-start'}`}>
-              <Skeleton className="h-12 w-48 rounded-2xl" />
+              <div className="h-12 w-48 rounded-2xl bg-muted animate-pulse" />
             </div>
           ))}
         </div>
@@ -80,7 +79,10 @@ export function ChatWindow({
       </div>
 
       {/* Messages */}
-      <ScrollArea className="flex-1 p-4" ref={scrollRef}>
+      <div 
+        ref={scrollContainerRef}
+        className="flex-1 overflow-y-auto p-4"
+      >
         {messages.length === 0 ? (
           <div className="flex items-center justify-center h-full text-muted-foreground">
             <p className="text-center">
@@ -102,7 +104,7 @@ export function ChatWindow({
             ))}
           </div>
         )}
-      </ScrollArea>
+      </div>
 
       {/* Input */}
       {!readOnly && (
