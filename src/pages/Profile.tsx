@@ -139,6 +139,16 @@ export default function Profile() {
             <Link to="/shop">사용하기</Link>
           </Button>
         </div>
+
+        {/* 코치 채팅 버튼 */}
+        <Button 
+          className="w-full mt-4 gap-2" 
+          size="lg"
+          onClick={() => window.location.href = '/chat'}
+        >
+          <MessageCircle className="w-5 h-5" />
+          코치 채팅
+        </Button>
       </div>
 
       {/* 메뉴 리스트 */}
