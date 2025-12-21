@@ -165,7 +165,12 @@ serve(async (req) => {
           {
             role: "system",
             content: `당신은 인바디(InBody) 체성분 분석 결과지를 읽고 데이터를 추출하는 전문가입니다.
-사용자가 제공한 인바디 결과지 이미지에서 다음 정보를 정확하게 추출하세요:
+
+중요: 어떤 이미지가 주어지더라도 반드시 JSON 형식으로만 응답해야 합니다. 설명이나 다른 텍스트는 절대 포함하지 마세요.
+
+인바디 결과지가 아닌 경우: {"error": "not_inbody", "message": "인바디 결과지가 아닙니다"}
+
+인바디 결과지인 경우 다음 정보를 추출하세요:
 - 측정일자 (date): YYYY-MM-DD 형식
 - 체중 (weight): kg 단위 숫자
 - 골격근량 (skeletal_muscle): kg 단위 숫자
@@ -174,15 +179,17 @@ serve(async (req) => {
 - 체지방량 (body_fat): kg 단위 숫자 (있는 경우)
 - 내장지방 레벨 (visceral_fat): 숫자 (있는 경우)
 
-반드시 JSON 형식으로만 응답하세요. 값을 찾을 수 없는 경우 null을 반환하세요.
-예시: {"date":"2024-01-15","weight":65.5,"skeletal_muscle":28.3,"body_fat_percent":18.5,"bmr":1450,"body_fat":12.1,"visceral_fat":8}`
+값을 찾을 수 없는 경우 null을 반환하세요.
+예시: {"date":"2024-01-15","weight":65.5,"skeletal_muscle":28.3,"body_fat_percent":18.5,"bmr":1450,"body_fat":12.1,"visceral_fat":8}
+
+반드시 유효한 JSON만 출력하세요. 마크다운 코드 블록 없이 순수 JSON만 응답하세요.`
           },
           {
             role: "user",
             content: [
               {
                 type: "text",
-                text: "이 인바디 결과지 이미지에서 체성분 데이터를 추출해주세요. JSON 형식으로만 응답하세요."
+                text: "이 이미지를 분석해주세요. 반드시 JSON 형식으로만 응답하세요. 설명 없이 JSON만 출력하세요."
               },
               {
                 type: "image_url",
@@ -231,15 +238,35 @@ serve(async (req) => {
 
     console.log("AI response:", content);
 
-    // Parse JSON from response (handle markdown code blocks)
-    let jsonContent = content;
+    // Try to extract JSON from the response
+    let jsonContent = content.trim();
+    
+    // Remove markdown code blocks if present
     const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
     if (jsonMatch) {
-      jsonContent = jsonMatch[1];
+      jsonContent = jsonMatch[1].trim();
+    }
+    
+    // Try to find JSON object in the response
+    const jsonObjectMatch = jsonContent.match(/\{[\s\S]*\}/);
+    if (jsonObjectMatch) {
+      jsonContent = jsonObjectMatch[0];
     }
 
     try {
-      const parsedData = JSON.parse(jsonContent.trim());
+      const parsedData = JSON.parse(jsonContent);
+      
+      // Check if it's a not_inbody error response
+      if (parsedData.error === "not_inbody") {
+        console.log("Image is not an InBody result:", parsedData.message);
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: parsedData.message || "인바디 결과지가 아닙니다. 올바른 인바디 결과지 이미지를 업로드해주세요." 
+          }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
       
       // Validate and sanitize the data
       const result = {
@@ -251,6 +278,19 @@ serve(async (req) => {
         body_fat: typeof parsedData.body_fat === 'number' ? parsedData.body_fat : null,
         visceral_fat: typeof parsedData.visceral_fat === 'number' ? parsedData.visceral_fat : null,
       };
+      
+      // Check if we got any meaningful data
+      const hasData = result.weight !== null || result.skeletal_muscle !== null || result.body_fat_percent !== null;
+      if (!hasData) {
+        console.log("No meaningful InBody data extracted");
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: "인바디 데이터를 추출할 수 없습니다. 인바디 결과지 이미지인지 확인해주세요." 
+          }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
 
       console.log("Parsed InBody data:", result);
 
@@ -260,15 +300,31 @@ serve(async (req) => {
       );
     } catch (parseError) {
       console.error("Failed to parse AI response:", parseError, "Content:", jsonContent);
+      
+      // Check if the response indicates it's not an InBody result
+      const lowerContent = content.toLowerCase();
+      if (lowerContent.includes("인바디") && (lowerContent.includes("아닙니다") || lowerContent.includes("없습니다"))) {
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: "인바디 결과지가 아닙니다. 올바른 인바디 결과지 이미지를 업로드해주세요." 
+          }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      
       return new Response(
-        JSON.stringify({ error: "AI 응답을 파싱할 수 없습니다. 다시 시도해주세요." }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ 
+          success: false, 
+          error: "이미지를 분석할 수 없습니다. 인바디 결과지 이미지를 업로드해주세요." 
+        }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
   } catch (error) {
     console.error("Error in analyze-inbody:", error);
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : "알 수 없는 오류" }),
+      JSON.stringify({ success: false, error: error instanceof Error ? error.message : "알 수 없는 오류" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
