@@ -16,33 +16,43 @@ export default function Chat() {
   const [coachName, setCoachName] = useState<string>('');
   const [loadingCoach, setLoadingCoach] = useState(true);
   
-  // 코치 정보 직접 로드
+  // 코치 정보 로드 (채팅 연결은 assigned_coach_id로 바로 처리)
   useEffect(() => {
-    const loadCoach = async () => {
-      if (!profile?.assigned_coach_id) {
-        setLoadingCoach(false);
-        return;
-      }
+    const assignedCoachId = profile?.assigned_coach_id ?? null;
 
+    if (!assignedCoachId) {
+      setCoachId(null);
+      setCoachName('');
+      setLoadingCoach(false);
+      return;
+    }
+
+    // 채팅 파트너 ID는 프로필에 이미 있으므로 바로 세팅 (RLS로 코치 프로필 조회가 막혀도 채팅은 가능)
+    setCoachId(assignedCoachId);
+    setLoadingCoach(true);
+
+    const loadCoachName = async () => {
       try {
-        const { data } = await supabase
+        const { data, error } = await supabase
           .from('profiles')
-          .select('id, nickname')
-          .eq('id', profile.assigned_coach_id)
-          .single();
+          .select('nickname')
+          .eq('id', assignedCoachId)
+          .maybeSingle();
 
-        if (data) {
-          setCoachId(data.id);
-          setCoachName(data.nickname || '코치');
+        if (!error && data?.nickname) {
+          setCoachName(data.nickname);
+        } else {
+          setCoachName('코치');
         }
       } catch (error) {
-        console.error('Error loading coach:', error);
+        console.error('Error loading coach name:', error);
+        setCoachName('코치');
       } finally {
         setLoadingCoach(false);
       }
     };
 
-    loadCoach();
+    loadCoachName();
   }, [profile?.assigned_coach_id]);
 
   // 코치 ID가 설정된 후에만 채팅 훅 사용
