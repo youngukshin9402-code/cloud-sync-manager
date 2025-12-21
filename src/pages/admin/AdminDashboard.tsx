@@ -90,6 +90,13 @@ export default function AdminDashboard() {
       description: "서비스 지표 및 분석",
       path: "/admin/stats",
     },
+    {
+      id: "chats",
+      icon: MessageSquare,
+      label: "채팅 모니터링",
+      description: "사용자-코치 대화 열람",
+      path: "/admin/chats",
+    },
   ];
 
   if (loading) {

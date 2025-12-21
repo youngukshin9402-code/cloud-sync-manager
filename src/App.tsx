@@ -45,6 +45,7 @@ import OrdersPage from "./pages/mypage/Orders";
 // Coach Pages
 import CoachDashboard from "./pages/coach/CoachDashboard";
 import CoachUserDetail from "./pages/coach/CoachUserDetail";
+import CoachChat from "./pages/coach/CoachChat";
 
 // Admin Pages
 import AdminDashboard from "./pages/admin/AdminDashboard";
@@ -57,7 +58,9 @@ import AdminHealthRecords from "./pages/admin/AdminHealthRecords";
 import AdminCoaches from "./pages/admin/AdminCoaches";
 import AdminPoints from "./pages/admin/AdminPoints";
 import AdminStats from "./pages/admin/AdminStats";
+import AdminChats from "./pages/admin/AdminChats";
 import CoachingFeedback from "./pages/mypage/CoachingFeedback";
+import Chat from "./pages/Chat";
 
 // Components
 import { ProtectedRoute } from "@/components/ProtectedRoute";
@@ -146,6 +149,7 @@ function AppRoutes() {
         <Route path="/mypage/support" element={<SupportPage />} />
         <Route path="/mypage/orders" element={<OrdersPage />} />
         <Route path="/data-export" element={<DataExport />} />
+        <Route path="/chat" element={<Chat />} />
       </Route>
 
       {/* 영상통화 (모든 역할 접근) */}
@@ -172,6 +176,22 @@ function AppRoutes() {
         element={
           <ProtectedRoute allowedTypes={["coach", "admin"]}>
             <CoachUserDetail />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/coach/chat"
+        element={
+          <ProtectedRoute allowedTypes={["coach", "admin"]}>
+            <CoachChat />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/coach/chat/:userId"
+        element={
+          <ProtectedRoute allowedTypes={["coach", "admin"]}>
+            <CoachChat />
           </ProtectedRoute>
         }
       />
@@ -270,6 +290,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute allowedTypes={["admin"]}>
             <AdminStats />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/chats"
+        element={
+          <ProtectedRoute allowedTypes={["admin"]}>
+            <AdminChats />
           </ProtectedRoute>
         }
       />

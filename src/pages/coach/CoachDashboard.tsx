@@ -87,9 +87,15 @@ export default function CoachDashboard() {
               {profile?.nickname}님, 환영합니다
             </p>
           </div>
-          <Button variant="ghost" onClick={signOut}>
-            로그아웃
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => navigate('/coach/chat')}>
+              <MessageSquare className="w-4 h-4 mr-2" />
+              채팅
+            </Button>
+            <Button variant="ghost" onClick={signOut}>
+              로그아웃
+            </Button>
+          </div>
         </div>
       </header>
 
