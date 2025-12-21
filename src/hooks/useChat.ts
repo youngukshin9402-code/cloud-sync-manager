@@ -30,6 +30,24 @@ export function useChat(partnerId?: string) {
   const [sending, setSending] = useState(false);
   const [chatPartners, setChatPartners] = useState<ChatPartner[]>([]);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const nicknameCache = useRef<Map<string, string>>(new Map());
+
+  // Helper to get nickname
+  const getNickname = useCallback(async (userId: string): Promise<string> => {
+    if (nicknameCache.current.has(userId)) {
+      return nicknameCache.current.get(userId)!;
+    }
+    
+    const { data } = await supabase
+      .from('profiles')
+      .select('nickname')
+      .eq('id', userId)
+      .single();
+    
+    const nickname = data?.nickname || '사용자';
+    nicknameCache.current.set(userId, nickname);
+    return nickname;
+  }, []);
 
   // Fetch chat partners for coach (assigned users) or for admin (all users with chats)
   const fetchChatPartners = useCallback(async () => {
@@ -37,15 +55,14 @@ export function useChat(partnerId?: string) {
 
     try {
       if (isAdmin) {
-        // Admin: get all unique chat participants
-        const { data: messages } = await supabase
+        const { data: allMessages } = await supabase
           .from('chat_messages')
           .select('sender_id, receiver_id')
           .order('created_at', { ascending: false });
 
-        if (messages) {
+        if (allMessages) {
           const uniqueUserIds = new Set<string>();
-          messages.forEach(msg => {
+          allMessages.forEach(msg => {
             uniqueUserIds.add(msg.sender_id);
             uniqueUserIds.add(msg.receiver_id);
           });
@@ -64,14 +81,12 @@ export function useChat(partnerId?: string) {
           }
         }
       } else if (isCoach) {
-        // Coach: get assigned users
         const { data: assignedUsers } = await supabase
           .from('profiles')
           .select('id, nickname, user_type')
           .eq('assigned_coach_id', user.id);
 
         if (assignedUsers) {
-          // Get unread counts for each user
           const partnersWithUnread = await Promise.all(
             assignedUsers.map(async (u) => {
               const { count } = await supabase
@@ -87,7 +102,7 @@ export function useChat(partnerId?: string) {
                 .or(`and(sender_id.eq.${u.id},receiver_id.eq.${user.id}),and(sender_id.eq.${user.id},receiver_id.eq.${u.id})`)
                 .order('created_at', { ascending: false })
                 .limit(1)
-                .single();
+                .maybeSingle();
 
               return {
                 id: u.id,
@@ -110,21 +125,22 @@ export function useChat(partnerId?: string) {
 
   // Fetch messages between user and partner
   const fetchMessages = useCallback(async () => {
-    if (!user || !partnerId) return;
+    if (!user || !partnerId) {
+      setLoading(false);
+      return;
+    }
 
     setLoading(true);
     try {
       let query;
       
       if (isAdmin) {
-        // Admin can view all messages with this partner
         query = supabase
           .from('chat_messages')
           .select('*')
           .or(`sender_id.eq.${partnerId},receiver_id.eq.${partnerId}`)
           .order('created_at', { ascending: true });
       } else {
-        // Regular user/coach: only their conversation
         query = supabase
           .from('chat_messages')
           .select('*')
@@ -138,20 +154,25 @@ export function useChat(partnerId?: string) {
 
       // Get sender nicknames
       const senderIds = [...new Set((data || []).map(m => m.sender_id))] as string[];
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('id, nickname')
-        .in('id', senderIds);
+      
+      if (senderIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, nickname')
+          .in('id', senderIds);
 
-      const nicknameMap = new Map(profiles?.map(p => [p.id, p.nickname]) || []);
+        profiles?.forEach(p => {
+          nicknameCache.current.set(p.id, p.nickname || '사용자');
+        });
+      }
 
       setMessages((data || []).map(m => ({
         ...m,
-        sender_nickname: nicknameMap.get(m.sender_id) || '사용자'
+        sender_nickname: nicknameCache.current.get(m.sender_id) || '사용자'
       })));
 
       // Mark messages as read
-      if (!isAdmin) {
+      if (!isAdmin && data && data.length > 0) {
         await supabase
           .from('chat_messages')
           .update({ is_read: true })
@@ -177,13 +198,27 @@ export function useChat(partnerId?: string) {
 
     setSending(true);
     try {
-      const { error } = await supabase.from('chat_messages').insert({
+      const { data, error } = await supabase.from('chat_messages').insert({
         sender_id: user.id,
         receiver_id: partnerId,
         message: message.trim(),
-      });
+      }).select().single();
 
       if (error) throw error;
+      
+      // Optimistically add the message
+      if (data) {
+        const nickname = await getNickname(user.id);
+        setMessages(prev => {
+          // Check if message already exists (from realtime)
+          if (prev.some(m => m.id === data.id)) return prev;
+          return [...prev, {
+            ...data,
+            sender_nickname: nickname
+          }];
+        });
+      }
+      
       return true;
     } catch (error) {
       console.error('Error sending message:', error);
@@ -215,7 +250,9 @@ export function useChat(partnerId?: string) {
   useEffect(() => {
     if (!user || !partnerId) return;
 
-    const channelName = `chat-${[user.id, partnerId].sort().join('-')}`;
+    console.log('Setting up realtime subscription for chat:', user.id, partnerId);
+
+    const channelName = `chat-realtime-${Date.now()}`;
     
     channelRef.current = supabase
       .channel(channelName)
@@ -227,6 +264,7 @@ export function useChat(partnerId?: string) {
           table: 'chat_messages',
         },
         async (payload) => {
+          console.log('Received realtime message:', payload);
           const newMessage = payload.new as ChatMessage;
           
           // Only add if relevant to this conversation
@@ -236,17 +274,16 @@ export function useChat(partnerId?: string) {
             (isAdmin && (newMessage.sender_id === partnerId || newMessage.receiver_id === partnerId));
 
           if (isRelevant) {
-            // Get sender nickname
-            const { data: senderProfile } = await supabase
-              .from('profiles')
-              .select('nickname')
-              .eq('id', newMessage.sender_id)
-              .single();
+            const nickname = await getNickname(newMessage.sender_id);
 
-            setMessages(prev => [...prev, {
-              ...newMessage,
-              sender_nickname: senderProfile?.nickname || '사용자'
-            }]);
+            setMessages(prev => {
+              // Prevent duplicates
+              if (prev.some(m => m.id === newMessage.id)) return prev;
+              return [...prev, {
+                ...newMessage,
+                sender_nickname: nickname
+              }];
+            });
 
             // Mark as read if we're the receiver
             if (newMessage.receiver_id === user.id && !isAdmin) {
@@ -258,19 +295,44 @@ export function useChat(partnerId?: string) {
           }
         }
       )
-      .subscribe();
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'chat_messages',
+        },
+        (payload) => {
+          const updatedMessage = payload.new as ChatMessage;
+          setMessages(prev => 
+            prev.map(m => m.id === updatedMessage.id 
+              ? { ...m, is_read: updatedMessage.is_read }
+              : m
+            )
+          );
+        }
+      )
+      .subscribe((status) => {
+        console.log('Realtime subscription status:', status);
+      });
 
     return () => {
+      console.log('Cleaning up realtime subscription');
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
       }
     };
-  }, [user, partnerId, isAdmin]);
+  }, [user, partnerId, isAdmin, getNickname]);
 
   // Initial fetch
   useEffect(() => {
-    fetchMessages();
-  }, [fetchMessages]);
+    if (partnerId) {
+      fetchMessages();
+    } else {
+      setLoading(false);
+    }
+  }, [fetchMessages, partnerId]);
 
   useEffect(() => {
     fetchChatPartners();
