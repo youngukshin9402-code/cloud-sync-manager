@@ -57,11 +57,6 @@ export default function Profile() {
             label: "1:1 코칭 예약",
             path: "/coaching",
           },
-          {
-            icon: MessageCircle,
-            label: "코치 채팅",
-            path: "/chat",
-          },
         ]
       : []),
     {
