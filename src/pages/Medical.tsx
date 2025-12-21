@@ -20,10 +20,12 @@ import {
   Keyboard,
   ImageIcon,
   TrendingUp,
+  Calculator,
 } from "lucide-react";
 import { useHealthRecords, HealthRecord, HealthRecordItem } from "@/hooks/useHealthRecords";
 import { useInBodyRecords } from "@/hooks/useServerSync";
 import { supabase } from "@/integrations/supabase/client";
+import { HealthAgeCalculator } from "@/components/HealthAgeCalculator";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
 import { toast } from "sonner";
@@ -604,6 +606,7 @@ export default function Medical() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [showUploadDialog, setShowUploadDialog] = useState(false);
+  const [showHealthAgeCalculator, setShowHealthAgeCalculator] = useState(false);
   const [examDate, setExamDate] = useState<Date>(new Date());
   const [editingRecordId, setEditingRecordId] = useState<string | null>(null);
   const [editExamDate, setEditExamDate] = useState<Date | undefined>(undefined);
@@ -773,7 +776,7 @@ export default function Medical() {
           <div className="w-24 h-24 mx-auto mb-6 rounded-3xl bg-emerald-100 flex items-center justify-center">
             <FileText className="w-12 h-12 text-emerald-600" />
           </div>
-          <h2 className="text-2xl font-semibold text-foreground mb-2">
+          <h2 className="text-2xl font-semibold text-foreground mb-2 whitespace-nowrap">
             건강검진 결과를 올려주세요
           </h2>
           <p className="text-lg text-muted-foreground mb-8 max-w-md mx-auto">
@@ -782,10 +785,21 @@ export default function Medical() {
             AI가 쉽게 분석해드려요.
           </p>
 
-          <Button size="lg" className="h-14 px-8 text-lg" onClick={openUploadDialog}>
-            <Upload className="w-5 h-5 mr-2" />
-            검진 결과 업로드
-          </Button>
+          <div className="flex flex-col gap-3">
+            <Button size="lg" className="h-14 px-8 text-lg" onClick={openUploadDialog}>
+              <Upload className="w-5 h-5 mr-2" />
+              검진 결과 업로드
+            </Button>
+            <Button 
+              size="lg" 
+              variant="outline" 
+              className="h-14 px-8 text-lg"
+              onClick={() => setShowHealthAgeCalculator(true)}
+            >
+              <Calculator className="w-5 h-5 mr-2" />
+              건강 나이 계산하기
+            </Button>
+          </div>
         </div>
       );
     }
@@ -1169,6 +1183,12 @@ export default function Medical() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* 건강 나이 계산기 */}
+      <HealthAgeCalculator 
+        open={showHealthAgeCalculator} 
+        onOpenChange={setShowHealthAgeCalculator}
+      />
     </div>
   );
 }

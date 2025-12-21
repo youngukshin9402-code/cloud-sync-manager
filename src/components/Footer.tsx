@@ -16,33 +16,6 @@ export function Footer() {
             </div>
           </div>
 
-          {/* 링크 */}
-          <nav className="flex flex-wrap justify-center gap-8">
-            <a
-              href="#"
-              className="text-base text-muted-foreground hover:text-foreground transition-colors"
-            >
-              이용약관
-            </a>
-            <a
-              href="#"
-              className="text-base text-muted-foreground hover:text-foreground transition-colors"
-            >
-              개인정보처리방침
-            </a>
-            <a
-              href="#"
-              className="text-base text-muted-foreground hover:text-foreground transition-colors"
-            >
-              고객센터
-            </a>
-            <a
-              href="#"
-              className="text-base text-muted-foreground hover:text-foreground transition-colors"
-            >
-              자주 묻는 질문
-            </a>
-          </nav>
 
           {/* 저작권 */}
           <p className="text-sm text-muted-foreground">

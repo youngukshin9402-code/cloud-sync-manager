@@ -17,9 +17,13 @@ export function YanggaengSection() {
             건강을 관리하세요
           </h2>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            의료, 영양, 운동 - 세 가지 영역의 건강을
+            의료, 영양, 운동
             <br />
-            한 곳에서 쉽고 재미있게 관리할 수 있어요.
+            세 가지 영역의 건강을
+            <br />
+            한 곳에서 쉽고 재미있게
+            <br />
+            관리할 수 있어요.
           </p>
 
           {showTodaySummary && (
@@ -60,7 +64,7 @@ export function YanggaengSection() {
             to="/nutrition"
             features={[
               "음식 사진 분석",
-              "맞춤 식단 추천",
+              "식단 기록",
             ]}
             delay={100}
           />
@@ -71,7 +75,7 @@ export function YanggaengSection() {
             icon={Dumbbell}
             color="exercise"
             to="/exercise"
-            features={["포인트 적립", "주간 리포트"]}
+            features={["운동 기록", "주간 리포트"]}
             delay={200}
           />
         </div>

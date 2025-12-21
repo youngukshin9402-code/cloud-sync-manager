@@ -383,39 +383,6 @@ export default function Water() {
           </div>
         </div>
 
-        {/* Reminder Section */}
-        <div className="bg-card rounded-2xl border border-border p-5 space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold flex items-center gap-2">
-              <Bell className="w-5 h-5 text-primary" />
-              알림 설정
-            </h2>
-            <Button variant="outline" size="sm" onClick={testReminder}>
-              테스트
-            </Button>
-          </div>
-
-          {settings.reminder_enabled ? (
-            <div className="space-y-3">
-              <p className="text-sm text-muted-foreground">
-                {settings.reminder_start} ~ {settings.reminder_end}, {settings.reminder_interval}분 간격
-              </p>
-              <div className="space-y-2">
-                <p className="text-sm font-medium flex items-center gap-2">
-                  <Clock className="w-4 h-4" />
-                  오늘 예정된 알림
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {getScheduledReminders().map((time, idx) => (
-                    <span key={idx} className="px-3 py-1 bg-muted rounded-full text-sm">
-                      {time}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </div>
-          ) : null}
-        </div>
 
         {/* Today's Log with Delete */}
         <div className="space-y-3">

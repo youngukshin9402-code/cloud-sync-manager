@@ -44,6 +44,31 @@ export default function PointsPage() {
 
     refreshPoints();
     fetchHistory();
+
+    // 실시간 구독 설정
+    if (!user) return;
+    
+    const channel = supabase
+      .channel('point_history_realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'point_history',
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => {
+          // 포인트 내역 변경 시 다시 fetch
+          fetchHistory();
+          refreshPoints();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [user, refreshPoints]);
 
   // 미션 관련 reason들 (하루 1회만 카운트)
