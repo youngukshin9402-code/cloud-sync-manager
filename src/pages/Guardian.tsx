@@ -37,9 +37,25 @@ interface ConnectedUserSummary {
   missionsCompleted: number;
   missionTotal: number;
   hasExercise: boolean;
+  exerciseCount: number;
   latestWeight: number | null;
   goalWeight: number | null;
   lastUpdated: Date;
+  // 영양 상세
+  todayProtein: number;
+  proteinGoal: number;
+  todayCarbs: number;
+  carbGoal: number;
+  todayFat: number;
+  fatGoal: number;
+  // 건강검진
+  latestHealthCheckup: {
+    id: string;
+    date: string;
+    status: string;
+    hasAIAnalysis: boolean;
+    hasComment: boolean;
+  } | null;
 }
 
 export default function Guardian() {
@@ -94,10 +110,10 @@ export default function Guardian() {
           .eq('id', targetUserId)
           .single();
 
-        // 오늘 칼로리 조회
+        // 오늘 칼로리 조회 (foods 포함)
         const { data: mealData } = await supabase
           .from('meal_records')
-          .select('total_calories')
+          .select('total_calories, foods')
           .eq('user_id', targetUserId)
           .eq('date', today);
 
@@ -106,7 +122,7 @@ export default function Guardian() {
         // 영양 설정 조회
         const { data: nutritionSettings } = await supabase
           .from('nutrition_settings')
-          .select('calorie_goal')
+          .select('calorie_goal, protein_goal_g, carb_goal_g, fat_goal_g')
           .eq('user_id', targetUserId)
           .maybeSingle();
 
@@ -144,12 +160,15 @@ export default function Guardian() {
         // 오늘 운동 기록 조회
         const { data: exerciseData } = await supabase
           .from('gym_records')
-          .select('id')
+          .select('id, exercises')
           .eq('user_id', targetUserId)
-          .eq('date', today)
-          .limit(1);
+          .eq('date', today);
 
         const hasExercise = (exerciseData || []).length > 0;
+        const exerciseCount = (exerciseData || []).reduce((sum, r) => {
+          const exercises = r.exercises as any[];
+          return sum + (Array.isArray(exercises) ? exercises.length : 0);
+        }, 0);
 
         // 최근 체중 조회
         const { data: weightData } = await supabase
@@ -169,6 +188,52 @@ export default function Guardian() {
           .limit(1)
           .maybeSingle();
 
+        // 영양 세부 정보 계산 (meal_records.foods에서 추출)
+        let todayProtein = 0;
+        let todayCarbs = 0;
+        let todayFat = 0;
+        (mealData || []).forEach((meal: any) => {
+          const foods = meal.foods as any[];
+          if (Array.isArray(foods)) {
+            foods.forEach((food: any) => {
+              todayProtein += food.protein || 0;
+              todayCarbs += food.carbs || 0;
+              todayFat += food.fat || 0;
+            });
+          }
+        });
+
+        const proteinGoal = nutritionSettings?.protein_goal_g || 60;
+        const carbGoal = nutritionSettings?.carb_goal_g || 300;
+        const fatGoal = nutritionSettings?.fat_goal_g || 65;
+
+        // 최근 건강검진 조회
+        const { data: healthRecord } = await supabase
+          .from('health_records')
+          .select('id, created_at, status, coach_comment')
+          .eq('user_id', targetUserId)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        let latestHealthCheckup = null;
+        if (healthRecord) {
+          // AI 분석 여부 확인
+          const { data: aiReport } = await supabase
+            .from('ai_health_reports')
+            .select('id')
+            .eq('source_record_id', healthRecord.id)
+            .maybeSingle();
+
+          latestHealthCheckup = {
+            id: healthRecord.id,
+            date: healthRecord.created_at,
+            status: healthRecord.status || 'pending',
+            hasAIAnalysis: !!aiReport,
+            hasComment: !!healthRecord.coach_comment,
+          };
+        }
+
         summaries.push({
           userId: targetUserId,
           nickname: profileData?.nickname || '사용자',
@@ -179,9 +244,17 @@ export default function Guardian() {
           missionsCompleted,
           missionTotal,
           hasExercise,
+          exerciseCount,
           latestWeight: weightData?.weight || null,
           goalWeight: goalData?.target_weight || null,
           lastUpdated: new Date(),
+          todayProtein,
+          proteinGoal,
+          todayCarbs,
+          carbGoal,
+          todayFat,
+          fatGoal,
+          latestHealthCheckup,
         });
       }
 
@@ -458,10 +531,15 @@ export default function Guardian() {
                           <span className="text-sm font-medium">오늘 운동</span>
                         </div>
                         {summary.hasExercise ? (
-                          <div className="flex items-center gap-2">
-                            <CheckCircle className="w-5 h-5 text-green-500" />
-                            <span className="text-lg font-semibold text-green-600 dark:text-green-400">기록 있음</span>
-                          </div>
+                          <>
+                            <div className="flex items-center gap-2">
+                              <CheckCircle className="w-5 h-5 text-green-500" />
+                              <span className="text-lg font-semibold text-green-600 dark:text-green-400">완료</span>
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              {summary.exerciseCount}개 운동 기록
+                            </p>
+                          </>
                         ) : (
                           <p className="text-lg font-semibold text-muted-foreground">기록 없음</p>
                         )}
@@ -490,6 +568,62 @@ export default function Guardian() {
                         )}
                       </div>
                     </div>
+
+                    {/* 영양 요약 (탄단지) */}
+                    <div className="p-4 bg-gradient-to-br from-amber-50 to-amber-100/50 dark:from-amber-950/30 dark:to-amber-900/20 rounded-xl">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Flame className="w-4 h-4 text-amber-500" />
+                        <span className="text-sm font-medium">영양 요약</span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2 text-center">
+                        <div>
+                          <p className="text-xs text-muted-foreground">탄수화물</p>
+                          <p className="text-sm font-semibold">{Math.round(summary.todayCarbs)}g</p>
+                          <p className="text-xs text-muted-foreground">/ {summary.carbGoal}g</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">단백질</p>
+                          <p className="text-sm font-semibold">{Math.round(summary.todayProtein)}g</p>
+                          <p className="text-xs text-muted-foreground">/ {summary.proteinGoal}g</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">지방</p>
+                          <p className="text-sm font-semibold">{Math.round(summary.todayFat)}g</p>
+                          <p className="text-xs text-muted-foreground">/ {summary.fatGoal}g</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 건강검진 최신 상태 */}
+                    {summary.latestHealthCheckup && (
+                      <div className="p-4 bg-gradient-to-br from-rose-50 to-rose-100/50 dark:from-rose-950/30 dark:to-rose-900/20 rounded-xl">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Heart className="w-4 h-4 text-rose-500" />
+                            <span className="text-sm font-medium">건강검진</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            {summary.latestHealthCheckup.hasAIAnalysis && (
+                              <Badge variant="secondary" className="text-xs bg-primary/10 text-primary">
+                                AI분석
+                              </Badge>
+                            )}
+                            {summary.latestHealthCheckup.hasComment && (
+                              <Badge variant="secondary" className="text-xs bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                                코멘트
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                        <p className="text-sm mt-2">
+                          {format(new Date(summary.latestHealthCheckup.date), 'M월 d일', { locale: ko })} 업로드
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          상태: {summary.latestHealthCheckup.status === 'completed' ? '분석 완료' : 
+                                summary.latestHealthCheckup.status === 'analyzing' ? '분석 중' : '대기 중'}
+                        </p>
+                      </div>
+                    )}
 
                     {/* 미션 진행 */}
                     <div className="p-4 bg-gradient-to-br from-green-50 to-green-100/50 dark:from-green-950/30 dark:to-green-900/20 rounded-xl">
