@@ -214,8 +214,8 @@ export default function Auth() {
         >
           <User className="w-10 h-10 mx-auto mb-3 text-primary" />
           <p className="text-base font-semibold whitespace-nowrap">직접관리</p>
-          <p className="text-sm text-muted-foreground mt-1 whitespace-pre-line text-center">
-            {"내 건강을\n직접\n관리할게요"}
+          <p className="text-sm text-muted-foreground mt-2 leading-relaxed text-center">
+            내 건강을<br />직접<br />관리할게요
           </p>
         </button>
         <button
@@ -229,8 +229,8 @@ export default function Auth() {
         >
           <Users className="w-10 h-10 mx-auto mb-3 text-primary" />
           <p className="text-lg font-semibold">보호자</p>
-          <p className="text-sm text-muted-foreground mt-1 whitespace-pre-line text-center">
-            {"부모님 건강을\n관리할게요"}
+          <p className="text-sm text-muted-foreground mt-2 leading-relaxed text-center">
+            부모님 건강을<br />관리할게요
           </p>
         </button>
       </div>

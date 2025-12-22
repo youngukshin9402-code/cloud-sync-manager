@@ -1,10 +1,13 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { useCoachData } from "@/hooks/useCoachData";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { CoachFeedbackForm } from "@/components/CoachFeedbackForm";
 import { WeeklyMetricsCard } from "@/components/coach/WeeklyMetricsCard";
 import {
@@ -16,16 +19,84 @@ import {
   Clock,
   MessageSquare,
   BarChart3,
+  ClipboardCheck,
+  Flame,
+  Droplets,
+  Dumbbell,
+  Scale,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { format } from "date-fns";
+import { ko } from "date-fns/locale";
+
+interface CheckinReport {
+  id: string;
+  user_id: string;
+  report_date: string;
+  created_at: string;
+  summary: {
+    kcal?: { intake: number; goal: number; percent: number };
+    macros?: { carbs: number; protein: number; fat: number };
+    water?: { intake_ml: number; goal_ml: number };
+    workout?: Array<{ name: string; sets?: number; reps?: number; weight?: number }>;
+    weight?: { current: number; goal: number };
+    conditions?: string[];
+    memo?: string;
+  };
+  user_nickname?: string;
+}
 
 export default function CoachDashboard() {
-  const { profile, signOut } = useAuth();
+  const { profile, user, signOut } = useAuth();
   const navigate = useNavigate();
   const { assignedUsers, pendingReviews, todaySessions, loading } = useCoachData();
   const [searchQuery, setSearchQuery] = useState("");
   const [feedbackUserId, setFeedbackUserId] = useState<string | null>(null);
   const [feedbackUserNickname, setFeedbackUserNickname] = useState<string>("");
+  const [checkinReports, setCheckinReports] = useState<CheckinReport[]>([]);
+  const [loadingCheckins, setLoadingCheckins] = useState(false);
+
+  // 체크인 리포트 가져오기
+  useEffect(() => {
+    if (!user) return;
+
+    const fetchCheckinReports = async () => {
+      setLoadingCheckins(true);
+      
+      // 최근 7일간 체크인 리포트 조회
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      
+      const { data, error } = await (supabase
+        .from('checkin_reports')
+        .select('*')
+        .gte('report_date', sevenDaysAgo.toISOString().split('T')[0])
+        .order('created_at', { ascending: false })
+        .limit(20) as any);
+
+      if (!error && data) {
+        // 사용자 닉네임 매핑
+        const userIds = [...new Set(data.map((r: any) => r.user_id))] as string[];
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, nickname')
+          .in('id', userIds);
+
+        const nicknameMap = new Map(profiles?.map(p => [p.id, p.nickname]) || []);
+        
+        const reportsWithNicknames = data.map((r: any) => ({
+          ...r,
+          user_nickname: nicknameMap.get(r.user_id) || '사용자',
+        }));
+
+        setCheckinReports(reportsWithNicknames);
+      }
+      
+      setLoadingCheckins(false);
+    };
+
+    fetchCheckinReports();
+  }, [user]);
 
   const filteredUsers = assignedUsers.filter((user) =>
     user.nickname?.toLowerCase().includes(searchQuery.toLowerCase())
@@ -176,6 +247,129 @@ export default function CoachDashboard() {
             </div>
           </div>
         )}
+
+        {/* 체크인 리포트 카드 */}
+        <div>
+          <div className="flex items-center gap-2 mb-4">
+            <ClipboardCheck className="w-5 h-5 text-primary" />
+            <h2 className="text-xl font-semibold">최근 체크인 리포트</h2>
+          </div>
+
+          {loadingCheckins ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <Skeleton className="h-48" />
+              <Skeleton className="h-48" />
+              <Skeleton className="h-48" />
+            </div>
+          ) : checkinReports.length === 0 ? (
+            <Card>
+              <CardContent className="py-8 text-center text-muted-foreground">
+                <ClipboardCheck className="w-10 h-10 mx-auto mb-3 opacity-50" />
+                <p>아직 체크인 리포트가 없습니다.</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {checkinReports.map((report) => (
+                <Card key={report.id} className="overflow-hidden hover:shadow-md transition-shadow">
+                  <CardHeader className="pb-2">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                          <span className="text-primary font-medium text-sm">
+                            {report.user_nickname?.[0] || "?"}
+                          </span>
+                        </div>
+                        {report.user_nickname}
+                      </CardTitle>
+                      <Badge variant="secondary" className="text-xs">
+                        {format(new Date(report.report_date), "M/d (E)", { locale: ko })}
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {/* 칼로리 */}
+                    {report.summary?.kcal && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <Flame className="w-4 h-4 text-orange-500" />
+                        <span className="text-muted-foreground">칼로리:</span>
+                        <span className="font-medium">
+                          {report.summary.kcal.intake?.toLocaleString() || 0} / {report.summary.kcal.goal?.toLocaleString() || 0} kcal
+                        </span>
+                        <Badge 
+                          variant="outline" 
+                          className={cn(
+                            "ml-auto text-xs",
+                            (report.summary.kcal.percent || 0) >= 80 
+                              ? "border-emerald-500 text-emerald-600" 
+                              : "border-amber-500 text-amber-600"
+                          )}
+                        >
+                          {report.summary.kcal.percent || 0}%
+                        </Badge>
+                      </div>
+                    )}
+
+                    {/* 탄단지 */}
+                    {report.summary?.macros && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <span className="text-muted-foreground">탄/단/지:</span>
+                        <span className="font-medium">
+                          {report.summary.macros.carbs || 0}g / {report.summary.macros.protein || 0}g / {report.summary.macros.fat || 0}g
+                        </span>
+                      </div>
+                    )}
+
+                    {/* 물 */}
+                    {report.summary?.water && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <Droplets className="w-4 h-4 text-blue-500" />
+                        <span className="text-muted-foreground">물:</span>
+                        <span className="font-medium">
+                          {report.summary.water.intake_ml?.toLocaleString() || 0} / {report.summary.water.goal_ml?.toLocaleString() || 0} ml
+                        </span>
+                      </div>
+                    )}
+
+                    {/* 운동 */}
+                    {report.summary?.workout && report.summary.workout.length > 0 ? (
+                      <div className="flex items-center gap-2 text-sm">
+                        <Dumbbell className="w-4 h-4 text-purple-500" />
+                        <span className="text-muted-foreground">운동:</span>
+                        <span className="font-medium">
+                          {report.summary.workout.map(w => w.name).join(", ")}
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Dumbbell className="w-4 h-4" />
+                        <span>운동 기록 없음</span>
+                      </div>
+                    )}
+
+                    {/* 체중 */}
+                    {report.summary?.weight && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <Scale className="w-4 h-4 text-teal-500" />
+                        <span className="text-muted-foreground">체중:</span>
+                        <span className="font-medium">
+                          {report.summary.weight.current || "-"}kg (목표 {report.summary.weight.goal || "-"}kg)
+                        </span>
+                      </div>
+                    )}
+
+                    {/* 메모 */}
+                    {report.summary?.memo && (
+                      <div className="text-sm text-muted-foreground bg-muted/50 rounded-lg p-2 mt-2">
+                        📝 {report.summary.memo}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
 
         {/* 피드백 작성 폼 */}
         {feedbackUserId && (

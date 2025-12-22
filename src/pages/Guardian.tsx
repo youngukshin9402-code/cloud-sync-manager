@@ -58,7 +58,7 @@ export default function Guardian() {
 
   const isGuardian = profile?.user_type === "guardian";
 
-  // 보호자일 경우 연결된 사용자 데이터 가져오기 (+ 실시간 갱신)
+  // 보호자일 경우 연결된 사용자 데이터 가져오기 (+ Supabase Realtime 실시간 동기화)
   useEffect(() => {
     if (!isGuardian || !user) return;
 
@@ -153,6 +153,57 @@ export default function Guardian() {
 
     fetchConnectedUserData();
 
+    // 연결된 사용자 ID 목록
+    const connectedUserIds = connections
+      .filter((c) => c.guardian_id === user.id && c.user_id !== c.guardian_id)
+      .map((c) => c.user_id);
+
+    if (connectedUserIds.length === 0) return;
+
+    // Supabase Realtime 구독: 물, 식사, 미션 테이블 변경 감지
+    const channel = supabase
+      .channel('guardian-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'water_logs',
+        },
+        (payload: any) => {
+          if (connectedUserIds.includes(payload.new?.user_id || payload.old?.user_id)) {
+            fetchConnectedUserData();
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'meal_records',
+        },
+        (payload: any) => {
+          if (connectedUserIds.includes(payload.new?.user_id || payload.old?.user_id)) {
+            fetchConnectedUserData();
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'daily_logs',
+        },
+        (payload: any) => {
+          if (connectedUserIds.includes(payload.new?.user_id || payload.old?.user_id)) {
+            fetchConnectedUserData();
+          }
+        }
+      )
+      .subscribe();
+
     // 포커스 시 데이터 리프레시
     const handleFocus = () => {
       fetchConnectedUserData();
@@ -161,6 +212,7 @@ export default function Guardian() {
 
     return () => {
       window.removeEventListener('focus', handleFocus);
+      supabase.removeChannel(channel);
     };
   }, [isGuardian, user, connections]);
 
