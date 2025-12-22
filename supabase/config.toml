@@ -8,3 +8,9 @@ verify_jwt = true
 
 [functions.generate-daily-missions]
 verify_jwt = true
+
+[functions.analyze-inbody]
+verify_jwt = true
+
+[functions.diet-feedback]
+verify_jwt = false
