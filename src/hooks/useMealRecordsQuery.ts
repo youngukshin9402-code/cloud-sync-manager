@@ -43,8 +43,18 @@ type MealRecordsCacheEntry = {
   cachedAt: number;
 };
 
-// 간단한 인메모리 캐시: 탭 이동/페이지 재진입 시 0으로 깜빡이는 현상 방지
+// 전역 인메모리 캐시: 탭 간 즉시 동기화
 const mealRecordsCache = new Map<string, MealRecordsCacheEntry>();
+
+// 캐시 업데이트 함수 (어디서든 호출 가능)
+function updateCache(queryKey: string, records: MealRecordServer[]) {
+  mealRecordsCache.set(queryKey, { records, cachedAt: Date.now() });
+}
+
+// 캐시 조회 함수
+function getCache(queryKey: string): MealRecordServer[] | null {
+  return mealRecordsCache.get(queryKey)?.records ?? null;
+}
 
 export interface UseMealRecordsQueryOptions {
   dateStr: string;
@@ -60,11 +70,25 @@ export function useMealRecordsQuery({ dateStr, enabled = true, skipImageResolve 
     [user, dateStr]
   );
 
-  const [records, setRecords] = useState<MealRecordServer[]>(() => {
+  // 초기값: 캐시가 있으면 캐시에서, 없으면 빈 배열
+  const [records, setRecordsInternal] = useState<MealRecordServer[]>(() => {
     if (!queryKey) return [];
-    return mealRecordsCache.get(queryKey)?.records ?? [];
+    return getCache(queryKey) ?? [];
   });
 
+  // 캐시와 동기화된 setRecords
+  const setRecords = useCallback((updater: MealRecordServer[] | ((prev: MealRecordServer[]) => MealRecordServer[])) => {
+    setRecordsInternal(prev => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      // 캐시에 즉시 반영
+      if (queryKey) {
+        updateCache(queryKey, next);
+      }
+      return next;
+    });
+  }, [queryKey]);
+
+  // 캐시가 있으면 loading false로 시작 (stale-while-revalidate)
   const [loading, setLoading] = useState(() => {
     if (!queryKey) return true;
     return !mealRecordsCache.has(queryKey);
@@ -90,7 +114,7 @@ export function useMealRecordsQuery({ dateStr, enabled = true, skipImageResolve 
     }
   }, []);
 
-  // Fetch records for the date
+  // Fetch records for the date (stale-while-revalidate: 캐시 있으면 loading 안 띄움)
   const fetch = useCallback(async () => {
     if (!user || !enabled) {
       setRecords([]);
@@ -98,7 +122,11 @@ export function useMealRecordsQuery({ dateStr, enabled = true, skipImageResolve 
       return;
     }
 
-    setLoading(true);
+    // 캐시가 없을 때만 loading 표시 (stale-while-revalidate)
+    const hasCachedData = queryKey ? mealRecordsCache.has(queryKey) : false;
+    if (!hasCachedData) {
+      setLoading(true);
+    }
     setError(null);
 
     try {
@@ -132,7 +160,7 @@ export function useMealRecordsQuery({ dateStr, enabled = true, skipImageResolve 
     } finally {
       setLoading(false);
     }
-  }, [user, dateStr, enabled, resolveImageUrl, skipImageResolve]);
+  }, [user, dateStr, enabled, resolveImageUrl, skipImageResolve, queryKey, setRecords]);
 
   // Add a meal record
   const add = useCallback(async (
@@ -302,15 +330,11 @@ export function useMealRecordsQuery({ dateStr, enabled = true, skipImageResolve 
   // queryKey가 바뀌면 (날짜/유저 변경, 탭 이동 후 재진입 등) 캐시를 즉시 반영
   useEffect(() => {
     if (!queryKey) return;
-    const cached = mealRecordsCache.get(queryKey);
-    if (cached) setRecords(cached.records);
+    const cached = getCache(queryKey);
+    if (cached && cached.length > 0) {
+      setRecordsInternal(cached);
+    }
   }, [queryKey]);
-
-  // records 변경 시 캐시에 동기화
-  useEffect(() => {
-    if (!queryKey) return;
-    mealRecordsCache.set(queryKey, { records, cachedAt: Date.now() });
-  }, [queryKey, records]);
 
   useEffect(() => {
     fetch();
