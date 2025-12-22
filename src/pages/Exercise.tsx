@@ -676,17 +676,33 @@ export default function Exercise() {
               </Select>
             </div>
 
-            {/* 운동명/세부종목 (선택사항) */}
+            {/* 운동명/세부종목 + 즉시 추가 버튼 */}
             <div>
               <label className="text-sm font-medium text-muted-foreground">
                 {currentExercise.sportType === "health" ? "운동명 (선택)" : "세부 내용 (선택)"}
               </label>
-              <Input
-                value={currentExercise.name}
-                onChange={(e) => setCurrentExercise({ ...currentExercise, name: e.target.value })}
-                placeholder={currentExercise.sportType === "health" ? "예: 벤치프레스 (비워도 저장 가능)" : "예: 자유형 500m (비워도 저장 가능)"}
-                className="mt-1"
-              />
+              <div className="flex gap-2 mt-1">
+                <Input
+                  value={currentExercise.name}
+                  onChange={(e) => setCurrentExercise({ ...currentExercise, name: e.target.value })}
+                  placeholder={currentExercise.sportType === "health" ? "예: 벤치프레스" : "예: 자유형 500m"}
+                  className="flex-1"
+                />
+                {!editingExerciseId && editingPendingIndex === null && (
+                  <Button 
+                    variant="secondary" 
+                    size="icon"
+                    className="shrink-0 h-10 w-10"
+                    onClick={() => addToPendingExercises(true)}
+                    title="장바구니에 추가"
+                  >
+                    <Plus className="w-5 h-5" />
+                  </Button>
+                )}
+              </div>
+              {!editingExerciseId && editingPendingIndex === null && (
+                <p className="text-xs text-muted-foreground mt-1">+ 버튼으로 장바구니에 추가 후 계속 입력</p>
+              )}
             </div>
 
             {/* 헬스: 세트 목록 */}
@@ -845,15 +861,9 @@ export default function Exercise() {
                 수정 완료
               </Button>
             ) : (
-              <div className="flex flex-col gap-2">
-                <Button size="lg" className="w-full" variant="outline" onClick={() => addToPendingExercises(true)}>
-                  <Plus className="w-4 h-4 mr-2" />
-                  + 운동명 추가 (계속)
-                </Button>
-                <Button size="lg" className="w-full" onClick={() => addToPendingExercises(false)}>
-                  장바구니에 추가 후 닫기
-                </Button>
-              </div>
+              <Button size="lg" className="w-full" variant="outline" onClick={() => addToPendingExercises(false)}>
+                장바구니에 추가 후 닫기
+              </Button>
             )}
           </div>
         ) : (

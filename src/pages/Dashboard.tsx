@@ -192,23 +192,23 @@ export default function Dashboard() {
         <div className="grid grid-cols-2 gap-3">
           {/* Calories */}
           <Link to="/nutrition" className="block">
-            <div className="bg-card rounded-2xl border border-border p-4 hover:shadow-md transition-shadow">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2 min-w-0">
-                  <div className="w-8 h-8 rounded-full bg-health-orange/10 flex items-center justify-center shrink-0">
-                    <Flame className="w-4 h-4 text-health-orange" />
+            <div className="bg-card rounded-2xl border border-border p-3 hover:shadow-md transition-shadow">
+              <div className="flex items-center justify-between mb-1.5 gap-1">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <div className="w-6 h-6 rounded-full bg-health-orange/10 flex items-center justify-center shrink-0">
+                    <Flame className="w-3 h-3 text-health-orange" />
                   </div>
-                  <span className="text-sm text-muted-foreground whitespace-nowrap">섭취 칼로리</span>
+                  <span className="text-xs text-muted-foreground whitespace-nowrap truncate">섭취 칼로리</span>
                 </div>
                 {todayCalories >= calorieGoal && calorieGoal > 0 && (
-                  <Badge className="bg-health-green text-white text-[10px] px-1.5 py-0.5 shrink-0 ml-1">
+                  <Badge className="bg-health-green text-white text-[9px] px-1 py-0 shrink-0">
                     달성
                   </Badge>
                 )}
               </div>
-              <p className="text-xl font-bold">{todayCalories.toLocaleString()}</p>
-              <p className="text-xs text-muted-foreground">목표 {calorieGoal.toLocaleString()} kcal</p>
-              <div className="mt-2 h-1.5 bg-muted rounded-full overflow-hidden">
+              <p className="text-lg font-bold">{todayCalories.toLocaleString()}</p>
+              <p className="text-[10px] text-muted-foreground">목표 {calorieGoal.toLocaleString()} kcal</p>
+              <div className="mt-1.5 h-1 bg-muted rounded-full overflow-hidden">
                 <div
                   className="h-full bg-health-orange transition-all"
                   style={{ width: `${Math.min((todayCalories / calorieGoal) * 100, 100)}%` }}
@@ -219,23 +219,23 @@ export default function Dashboard() {
 
           {/* Water */}
           <Link to="/water" className="block">
-            <div className="bg-card rounded-2xl border border-border p-4 hover:shadow-md transition-shadow">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-full bg-health-blue/10 flex items-center justify-center">
-                    <Droplets className="w-4 h-4 text-health-blue" />
+            <div className="bg-card rounded-2xl border border-border p-3 hover:shadow-md transition-shadow">
+              <div className="flex items-center justify-between mb-1.5 gap-1">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <div className="w-6 h-6 rounded-full bg-health-blue/10 flex items-center justify-center shrink-0">
+                    <Droplets className="w-3 h-3 text-health-blue" />
                   </div>
-                  <span className="text-sm text-muted-foreground">물 섭취</span>
+                  <span className="text-xs text-muted-foreground whitespace-nowrap truncate">물 섭취</span>
                 </div>
                 {todayWater >= waterGoal && (
-                  <Badge className="bg-health-green text-white text-[10px] px-1.5 py-0.5 shrink-0">
+                  <Badge className="bg-health-green text-white text-[9px] px-1 py-0 shrink-0">
                     달성
                   </Badge>
                 )}
               </div>
-              <p className="text-xl font-bold">{todayWater.toLocaleString()}ml</p>
-              <p className="text-xs text-muted-foreground">목표 {waterGoal.toLocaleString()}ml</p>
-              <div className="mt-2 h-1.5 bg-muted rounded-full overflow-hidden">
+              <p className="text-lg font-bold">{todayWater.toLocaleString()}ml</p>
+              <p className="text-[10px] text-muted-foreground">목표 {waterGoal.toLocaleString()}ml</p>
+              <div className="mt-1.5 h-1 bg-muted rounded-full overflow-hidden">
                 <div
                   className="h-full bg-health-blue transition-all"
                   style={{ width: `${Math.min((todayWater / waterGoal) * 100, 100)}%` }}
@@ -244,24 +244,24 @@ export default function Dashboard() {
             </div>
           </Link>
 
-          {/* 오늘 할 일 카드 - 클릭해도 이동 안함, 홈 체크리스트만 반영 */}
-          <div className="bg-card rounded-2xl border border-border p-4">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2 min-w-0">
-                <div className="w-8 h-8 rounded-full bg-health-green/10 flex items-center justify-center shrink-0">
-                  <CheckCircle className="w-4 h-4 text-health-green" />
+          {/* 오늘 할 일 카드 */}
+          <div className="bg-card rounded-2xl border border-border p-3">
+            <div className="flex items-center justify-between mb-1.5 gap-1">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <div className="w-6 h-6 rounded-full bg-health-green/10 flex items-center justify-center shrink-0">
+                  <CheckCircle className="w-3 h-3 text-health-green" />
                 </div>
-                <span className="text-sm text-muted-foreground whitespace-nowrap">오늘 할 일</span>
+                <span className="text-xs text-muted-foreground whitespace-nowrap truncate">오늘 할 일</span>
               </div>
               {completedMissions === totalMissions && totalMissions > 0 && (
-                <Badge className="bg-health-green text-white text-[10px] px-1.5 py-0.5 shrink-0 ml-1">
+                <Badge className="bg-health-green text-white text-[9px] px-1 py-0 shrink-0">
                   달성
                 </Badge>
               )}
             </div>
-            <p className="text-xl font-bold">{completedMissions}/{totalMissions}</p>
-            <p className="text-xs text-muted-foreground">완료</p>
-            <div className="mt-2 h-1.5 bg-muted rounded-full overflow-hidden">
+            <p className="text-lg font-bold">{completedMissions}/{totalMissions}</p>
+            <p className="text-[10px] text-muted-foreground">완료</p>
+            <div className="mt-1.5 h-1 bg-muted rounded-full overflow-hidden">
               <div
                 className="h-full bg-health-green transition-all"
                 style={{ width: `${totalMissions > 0 ? (completedMissions / totalMissions) * 100 : 0}%` }}
@@ -269,18 +269,18 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* 걸음수 카드 - 클릭 시 운동화면 이동 */}
+          {/* 걸음수 카드 */}
           <Link to="/exercise" className="block">
-            <div className="bg-card rounded-2xl border border-border p-4 hover:shadow-md transition-shadow">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-8 h-8 rounded-full bg-health-green/10 flex items-center justify-center">
-                  <Dumbbell className="w-4 h-4 text-health-green" />
+            <div className="bg-card rounded-2xl border border-border p-3 hover:shadow-md transition-shadow">
+              <div className="flex items-center gap-1.5 mb-1.5">
+                <div className="w-6 h-6 rounded-full bg-health-green/10 flex items-center justify-center shrink-0">
+                  <Dumbbell className="w-3 h-3 text-health-green" />
                 </div>
-                <span className="text-sm text-muted-foreground">걸음수</span>
+                <span className="text-xs text-muted-foreground whitespace-nowrap truncate">걸음수</span>
               </div>
-              <p className="text-xl font-bold">0</p>
-              <p className="text-xs text-muted-foreground">연동 준비중</p>
-              <div className="mt-2 h-1.5 bg-muted rounded-full overflow-hidden">
+              <p className="text-lg font-bold">0</p>
+              <p className="text-[10px] text-muted-foreground">연동 준비중</p>
+              <div className="mt-1.5 h-1 bg-muted rounded-full overflow-hidden">
                 <div className="h-full bg-health-green transition-all" style={{ width: '0%' }} />
               </div>
             </div>
