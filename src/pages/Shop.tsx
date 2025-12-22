@@ -318,7 +318,7 @@ export default function Shop() {
                   disabled={paymentLoading}
                 >
                   <CreditCard className="w-5 h-5 mr-2" />
-                  {paymentLoading ? "처리 중..." : `결제하기 (${coachingProduct.name} - ${coachingProduct.price.toLocaleString()}원)`}
+                  {paymentLoading ? "처리 중..." : "결제하기"}
                 </Button>
               )}
             </div>

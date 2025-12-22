@@ -116,14 +116,15 @@ export default function Dashboard() {
     }
   }, [today, todayMissions, reshuffleMissions]);
 
-  // 목표 달성 체크 및 알림 (false→true 전환 시에만)
+  // 목표 달성 체크 및 알림 (false→true 전환 시에만) - 칼로리/물은 목표 이상일 때만 달성
   useEffect(() => {
     const completedMissionsCount = todayMissions?.missions.filter(m => m.completed).length || 0;
     const totalMissionsCount = todayMissions?.missions.length || 3;
     
-    const caloriesMet = todayCalories >= calorieGoal * 0.9 && todayCalories <= calorieGoal * 1.1;
+    // 수정: 칼로리는 목표 이상, 물은 목표 이상일 때 달성
+    const caloriesMet = todayCalories >= calorieGoal;
     const waterMet = todayWater >= waterGoal;
-    const missionsMet = completedMissionsCount === totalMissionsCount;
+    const missionsMet = completedMissionsCount === totalMissionsCount && totalMissionsCount > 0;
     
     checkAndNotify(caloriesMet, waterMet, missionsMet);
   }, [todayCalories, calorieGoal, todayWater, waterGoal, todayMissions, checkAndNotify]);
@@ -193,14 +194,14 @@ export default function Dashboard() {
           <Link to="/nutrition" className="block">
             <div className="bg-card rounded-2xl border border-border p-4 hover:shadow-md transition-shadow">
               <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-full bg-health-orange/10 flex items-center justify-center">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="w-8 h-8 rounded-full bg-health-orange/10 flex items-center justify-center shrink-0">
                     <Flame className="w-4 h-4 text-health-orange" />
                   </div>
-                  <span className="text-sm text-muted-foreground">섭취 칼로리</span>
+                  <span className="text-sm text-muted-foreground whitespace-nowrap">섭취 칼로리</span>
                 </div>
-                {todayCalories >= calorieGoal * 0.9 && todayCalories <= calorieGoal * 1.1 && (
-                  <Badge className="bg-health-green text-white text-[10px] px-1.5 py-0.5 shrink-0">
+                {todayCalories >= calorieGoal && calorieGoal > 0 && (
+                  <Badge className="bg-health-green text-white text-[10px] px-1.5 py-0.5 shrink-0 ml-1">
                     달성
                   </Badge>
                 )}
@@ -246,14 +247,14 @@ export default function Dashboard() {
           {/* 오늘 할 일 카드 - 클릭해도 이동 안함, 홈 체크리스트만 반영 */}
           <div className="bg-card rounded-2xl border border-border p-4">
             <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-health-green/10 flex items-center justify-center">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="w-8 h-8 rounded-full bg-health-green/10 flex items-center justify-center shrink-0">
                   <CheckCircle className="w-4 h-4 text-health-green" />
                 </div>
-                <span className="text-sm text-muted-foreground">오늘 할 일</span>
+                <span className="text-sm text-muted-foreground whitespace-nowrap">오늘 할 일</span>
               </div>
               {completedMissions === totalMissions && totalMissions > 0 && (
-                <Badge className="bg-health-green text-white text-[10px] px-1.5 py-0.5 shrink-0">
+                <Badge className="bg-health-green text-white text-[10px] px-1.5 py-0.5 shrink-0 ml-1">
                   달성
                 </Badge>
               )}
@@ -263,7 +264,7 @@ export default function Dashboard() {
             <div className="mt-2 h-1.5 bg-muted rounded-full overflow-hidden">
               <div
                 className="h-full bg-health-green transition-all"
-                style={{ width: `${(completedMissions / totalMissions) * 100}%` }}
+                style={{ width: `${totalMissions > 0 ? (completedMissions / totalMissions) * 100 : 0}%` }}
               />
             </div>
           </div>

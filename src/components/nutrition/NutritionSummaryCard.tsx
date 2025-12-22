@@ -62,8 +62,8 @@ export function NutritionSummaryCard({ totals, goals, hasSettings, onGoalsUpdate
         {/* 탄수화물 */}
         <div className="bg-white/10 rounded-xl p-3">
           <div className="flex items-center gap-1 mb-1">
-            <Wheat className="w-4 h-4" />
-            <span className="text-xs">탄수화물</span>
+            <Wheat className="w-4 h-4 shrink-0" />
+            <span className="text-xs whitespace-nowrap">탄수화물</span>
           </div>
           <Progress value={carbPercent} className="h-1.5 bg-white/20 mb-1" indicatorClassName="bg-white/70" />
           <p className="text-sm font-semibold">
