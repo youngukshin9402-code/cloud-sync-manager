@@ -1,11 +1,14 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePayment } from "@/hooks/usePayment";
 import { supabase } from "@/integrations/supabase/client";
+import { MockPaymentModal } from "@/components/payment/MockPaymentModal";
 import {
   ArrowLeft,
   Check,
@@ -18,14 +21,24 @@ import {
   Shield,
   Heart,
   Target,
+  CreditCard,
+  CheckCircle,
 } from "lucide-react";
 
 type Step = "info" | "request" | "success";
+
+interface Product {
+  id: string;
+  name: string;
+  price: number;
+  description: string | null;
+}
 
 export default function Shop() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useAuth();
+  const { createPaymentIntent, confirmPayment, cancelPayment, loading: paymentLoading, currentPayment, checkProductPayment } = usePayment();
 
   const [step, setStep] = useState<Step>("info");
   const [requestForm, setRequestForm] = useState({
@@ -35,6 +48,49 @@ export default function Shop() {
     message: "",
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // 결제 관련 상태
+  const [coachingProduct, setCoachingProduct] = useState<Product | null>(null);
+  const [isPaid, setIsPaid] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [checkingPayment, setCheckingPayment] = useState(true);
+
+  // 4주 코칭 패키지 상품 조회 및 결제 상태 확인
+  useEffect(() => {
+    const loadProductAndPaymentStatus = async () => {
+      if (!user) {
+        setCheckingPayment(false);
+        return;
+      }
+
+      try {
+        // 4주 코칭 상품 조회
+        const { data: productData, error: productError } = await supabase
+          .from("products")
+          .select("id, name, price, description")
+          .ilike("name", "%4주 코칭%")
+          .eq("is_active", true)
+          .limit(1)
+          .maybeSingle();
+
+        if (productError) throw productError;
+
+        if (productData) {
+          setCoachingProduct(productData);
+          
+          // 해당 상품 결제 여부 확인
+          const hasPaid = await checkProductPayment(productData.id);
+          setIsPaid(hasPaid);
+        }
+      } catch (error) {
+        console.error("Error loading product:", error);
+      } finally {
+        setCheckingPayment(false);
+      }
+    };
+
+    loadProductAndPaymentStatus();
+  }, [user, checkProductPayment]);
 
   const handleSubmitRequest = async () => {
     if (!requestForm.name.trim() || !requestForm.phone.trim()) {
@@ -50,7 +106,6 @@ export default function Shop() {
     setIsSubmitting(true);
     
     try {
-      // consultation_requests 테이블에 저장
       const { error } = await supabase
         .from("consultation_requests")
         .insert({
@@ -72,6 +127,50 @@ export default function Shop() {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  // 결제 시작
+  const handleStartPayment = async () => {
+    if (!coachingProduct) return;
+
+    const intent = await createPaymentIntent({
+      productId: coachingProduct.id,
+      productName: coachingProduct.name,
+      amount: coachingProduct.price,
+    });
+
+    if (intent) {
+      setShowPaymentModal(true);
+    }
+  };
+
+  // 결제 성공 처리
+  const handlePaymentSuccess = async () => {
+    if (!currentPayment) return;
+
+    const success = await confirmPayment(currentPayment.id, true);
+    if (success) {
+      setIsPaid(true);
+      setShowPaymentModal(false);
+      toast({ title: "🎉 결제가 완료되었습니다!", description: "코칭 서비스가 활성화되었습니다." });
+    }
+  };
+
+  // 결제 실패/취소 처리
+  const handlePaymentFail = async () => {
+    if (!currentPayment) return;
+
+    await confirmPayment(currentPayment.id, false);
+    setShowPaymentModal(false);
+    toast({ title: "결제가 취소되었습니다", variant: "destructive" });
+  };
+
+  // 모달 닫기 (취소)
+  const handleClosePaymentModal = async () => {
+    if (currentPayment) {
+      await cancelPayment(currentPayment.id);
+    }
+    setShowPaymentModal(false);
   };
 
   return (
@@ -163,6 +262,19 @@ export default function Shop() {
               </div>
             </div>
 
+            {/* 결제 상태 표시 */}
+            {isPaid && (
+              <div className="bg-health-green/10 border border-health-green/30 rounded-2xl p-4 flex items-center gap-3">
+                <div className="w-12 h-12 rounded-full bg-health-green flex items-center justify-center">
+                  <CheckCircle className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <p className="font-semibold text-health-green">결제 완료 · 이용중</p>
+                  <p className="text-sm text-muted-foreground">4주 코칭 패키지가 활성화되었습니다</p>
+                </div>
+              </div>
+            )}
+
             {/* 상담 절차 안내 */}
             <div className="bg-muted/50 rounded-xl p-4 space-y-2">
               <p className="text-sm font-medium flex items-center gap-2">
@@ -185,15 +297,31 @@ export default function Shop() {
               </ul>
             </div>
 
-            {/* CTA 버튼 */}
-            <Button 
-              size="lg" 
-              className="w-full h-14 text-lg"
-              onClick={() => setStep("request")}
-            >
-              <MessageSquare className="w-5 h-5 mr-2" />
-              무료 상담 신청하기
-            </Button>
+            {/* CTA 버튼들 */}
+            <div className="space-y-3">
+              <Button 
+                size="lg" 
+                className="w-full h-14 text-lg"
+                onClick={() => setStep("request")}
+              >
+                <MessageSquare className="w-5 h-5 mr-2" />
+                무료 상담 신청하기
+              </Button>
+
+              {/* 결제하기 버튼 */}
+              {coachingProduct && !isPaid && !checkingPayment && (
+                <Button 
+                  size="lg" 
+                  variant="outline"
+                  className="w-full h-14 text-lg border-primary text-primary hover:bg-primary hover:text-primary-foreground"
+                  onClick={handleStartPayment}
+                  disabled={paymentLoading}
+                >
+                  <CreditCard className="w-5 h-5 mr-2" />
+                  {paymentLoading ? "처리 중..." : `결제하기 (${coachingProduct.name} - ${coachingProduct.price.toLocaleString()}원)`}
+                </Button>
+              )}
+            </div>
 
             {/* 환불 정책 링크 */}
             <div className="text-center pt-2">
@@ -329,6 +457,29 @@ export default function Shop() {
           </div>
         )}
       </div>
+
+      {/* Mock 결제 모달 */}
+      <MockPaymentModal
+        open={showPaymentModal}
+        onOpenChange={(open) => {
+          if (!open && currentPayment) {
+            cancelPayment(currentPayment.id);
+          }
+          setShowPaymentModal(open);
+        }}
+        paymentIntent={currentPayment}
+        onConfirm={async (paymentId, success) => {
+          const result = await confirmPayment(paymentId, success);
+          if (result && success) {
+            setIsPaid(true);
+          }
+          return result;
+        }}
+        onCancel={async (paymentId) => {
+          return await cancelPayment(paymentId);
+        }}
+        loading={paymentLoading}
+      />
     </div>
   );
 }

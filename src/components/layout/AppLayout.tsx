@@ -29,6 +29,15 @@ export function AppLayout() {
 
   // 하단 탭이 있는 사용자인지 확인
   const hasBottomNav = profile && (profile.user_type === "user" || profile.user_type === "guardian");
+  
+  // 채팅 페이지에서는 하단 탭바 숨김 (카톡 레이아웃)
+  const isChatRoute = location.pathname === "/chat" || location.pathname.startsWith("/chat/");
+  const showBottomNav = hasBottomNav && !isChatRoute;
+
+  // 채팅 페이지는 전체 레이아웃 숨김 (Chat.tsx가 직접 처리)
+  if (isChatRoute) {
+    return <Outlet />;
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -67,13 +76,13 @@ export function AppLayout() {
       {/* 메인 콘텐츠 - 하단 탭 높이 + safe area 만큼 padding */}
       <main className={cn(
         "container mx-auto px-4 py-6",
-        hasBottomNav && "pb-32"
+        showBottomNav && "pb-32"
       )}>
         <Outlet />
       </main>
 
-      {/* 하단 네비게이션 (일반 사용자/보호자용) */}
-      {hasBottomNav && (
+      {/* 하단 네비게이션 (일반 사용자/보호자용, 채팅에서는 숨김) */}
+      {showBottomNav && (
         <nav className="fixed bottom-0 left-0 right-0 bg-card/95 backdrop-blur-md border-t border-border z-50 safe-area-bottom">
           <div className="container mx-auto px-2">
             <div className="flex justify-around items-center h-16">
