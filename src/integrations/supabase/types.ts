@@ -207,6 +207,39 @@ export type Database = {
           },
         ]
       }
+      custom_foods: {
+        Row: {
+          calories: number
+          carbs: number
+          created_at: string | null
+          fat: number
+          id: string
+          name: string
+          protein: number
+          user_id: string
+        }
+        Insert: {
+          calories: number
+          carbs?: number
+          created_at?: string | null
+          fat?: number
+          id?: string
+          name: string
+          protein?: number
+          user_id: string
+        }
+        Update: {
+          calories?: number
+          carbs?: number
+          created_at?: string | null
+          fat?: number
+          id?: string
+          name?: string
+          protein?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       daily_logs: {
         Row: {
           ai_feedback: string | null
@@ -578,6 +611,45 @@ export type Database = {
           updated_at?: string | null
           user_id?: string
           water_reminder?: boolean | null
+        }
+        Relationships: []
+      }
+      nutrition_settings: {
+        Row: {
+          age: number | null
+          calorie_goal: number | null
+          carb_goal_g: number | null
+          current_weight: number | null
+          fat_goal_g: number | null
+          goal_weight: number | null
+          height_cm: number | null
+          protein_goal_g: number | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          age?: number | null
+          calorie_goal?: number | null
+          carb_goal_g?: number | null
+          current_weight?: number | null
+          fat_goal_g?: number | null
+          goal_weight?: number | null
+          height_cm?: number | null
+          protein_goal_g?: number | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          age?: number | null
+          calorie_goal?: number | null
+          carb_goal_g?: number | null
+          current_weight?: number | null
+          fat_goal_g?: number | null
+          goal_weight?: number | null
+          height_cm?: number | null
+          protein_goal_g?: number | null
+          updated_at?: string | null
+          user_id?: string
         }
         Relationships: []
       }

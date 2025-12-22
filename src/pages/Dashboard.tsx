@@ -1,7 +1,9 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDailyData } from "@/contexts/DailyDataContext";
+import { useNutritionSettings } from "@/hooks/useNutritionSettings";
+import { useTodayMealRecords } from "@/hooks/useMealRecordsQuery";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -22,9 +24,7 @@ import {
   RefreshCw,
   Sparkles,
 } from "lucide-react";
-import {
-  getTodayString,
-} from "@/lib/localStorage";
+import { getTodayString } from "@/lib/localStorage";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 
@@ -44,7 +44,6 @@ const HABIT_POOL = [
 
 // 오늘 날짜 기반으로 3개 랜덤 선택
 function selectRandomHabits(seed: string, count: number = 3): string[] {
-  // Simple seeded random based on date string
   let hash = 0;
   for (let i = 0; i < seed.length; i++) {
     const char = seed.charCodeAt(i);
@@ -68,15 +67,21 @@ export default function Dashboard() {
   const {
     todayWater,
     waterGoal,
-    todayCalories,
     todayMissions,
     toggleMission,
     reshuffleMissions,
-    hasTodayPointsAwarded,
     refreshWater,
     refreshCalories,
     refreshPoints,
   } = useDailyData();
+
+  // 단일 소스: nutrition_settings에서 목표, meal_records에서 섭취량
+  const { getGoals, hasSettings } = useNutritionSettings();
+  const { totals, refetch: refetchMeals } = useTodayMealRecords();
+
+  const goals = getGoals();
+  const todayCalories = totals.totalCalories;
+  const calorieGoal = goals.calorieGoal;
 
   const [showAIDialog, setShowAIDialog] = useState(false);
   const [aiQuestion, setAIQuestion] = useState("");
@@ -88,18 +93,19 @@ export default function Dashboard() {
     refreshWater();
     refreshCalories();
     refreshPoints();
-  }, [refreshWater, refreshCalories, refreshPoints]);
+    refetchMeals();
+  }, [refreshWater, refreshCalories, refreshPoints, refetchMeals]);
 
-  // Refresh on window focus (for when user comes back from other pages)
   useEffect(() => {
     const handleFocus = () => {
       refreshWater();
       refreshCalories();
       refreshPoints();
+      refetchMeals();
     };
     window.addEventListener('focus', handleFocus);
     return () => window.removeEventListener('focus', handleFocus);
-  }, [refreshWater, refreshCalories, refreshPoints]);
+  }, [refreshWater, refreshCalories, refreshPoints, refetchMeals]);
 
   // Initialize missions if not exists
   useEffect(() => {
@@ -116,14 +122,12 @@ export default function Dashboard() {
     
     const wasAwarded = await toggleMission(missionId);
     
-    // Check if this completion triggers the points award (all completed and not previously awarded)
     if (willComplete && wasAwarded && !allCompletedBefore) {
       toast({ title: "🎉 축하합니다!", description: "모든 할 일 완료로 100포인트 획득!" });
-      refreshPoints(); // Refresh points to show updated balance
+      refreshPoints();
     }
   };
 
-  // 다른 제안 받기 - 3개를 다시 랜덤 추첨
   const handleReshuffle = () => {
     const newSeed = `${today}_${Date.now()}`;
     const newHabits = selectRandomHabits(newSeed);
@@ -131,7 +135,6 @@ export default function Dashboard() {
     toast({ title: "새로운 할 일을 추천했어요!", description: "오늘 지킬 3가지가 변경되었습니다." });
   };
 
-  // AI에게 물어보기
   const handleAISubmit = () => {
     if (!aiQuestion.trim()) {
       toast({ title: "질문을 입력해주세요", variant: "destructive" });
@@ -151,9 +154,7 @@ export default function Dashboard() {
   const completedMissions = todayMissions?.missions.filter(m => m.completed).length || 0;
   const totalMissions = todayMissions?.missions.length || 3;
 
-  const calorieGoal = 2000;
-
-  // 미완료 항목 체크는 삭제 (걸음수 카드로 대체됨)
+  const isGuardian = profile?.user_type === "guardian";
 
   const isGuardian = profile?.user_type === "guardian";
 
