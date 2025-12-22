@@ -79,7 +79,7 @@ export default function Nutrition() {
   }, [dateStr, searchParams, setSearchParams]);
 
   // 데이터 훅
-  const { getGoals, hasSettings, loading: settingsLoading, refetch: refetchSettings } = useNutritionSettings();
+  const { getGoals, hasSettings, loading: settingsLoading, refetch: refetchSettings, settings } = useNutritionSettings();
   const {
     records,
     loading: recordsLoading,
@@ -336,7 +336,7 @@ export default function Nutrition() {
 
       {/* 맞춤 추천 */}
       {isTodaySelected && hasSettings && (
-        <NutritionRecommendations totals={totals} goals={goals} />
+        <NutritionRecommendations totals={totals} goals={goals} conditions={settings?.conditions} />
       )}
 
       {/* 주간 리포트 */}

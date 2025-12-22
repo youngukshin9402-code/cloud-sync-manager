@@ -870,6 +870,7 @@ export type Database = {
           age: number | null
           calorie_goal: number | null
           carb_goal_g: number | null
+          conditions: string[] | null
           current_weight: number | null
           fat_goal_g: number | null
           goal_weight: number | null
@@ -882,6 +883,7 @@ export type Database = {
           age?: number | null
           calorie_goal?: number | null
           carb_goal_g?: number | null
+          conditions?: string[] | null
           current_weight?: number | null
           fat_goal_g?: number | null
           goal_weight?: number | null
@@ -894,6 +896,7 @@ export type Database = {
           age?: number | null
           calorie_goal?: number | null
           carb_goal_g?: number | null
+          conditions?: string[] | null
           current_weight?: number | null
           fat_goal_g?: number | null
           goal_weight?: number | null

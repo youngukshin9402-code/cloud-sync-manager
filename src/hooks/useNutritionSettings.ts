@@ -16,6 +16,7 @@ export interface NutritionSettingsData {
   heightCm: number | null;
   currentWeight: number | null;
   goalWeight: number | null;
+  conditions: string[] | null;
   calorieGoal: number;
   carbGoalG: number;
   proteinGoalG: number;
@@ -28,6 +29,7 @@ export interface NutritionSettingsInput {
   heightCm?: number;
   currentWeight?: number;
   goalWeight?: number;
+  conditions?: string[];
 }
 
 const DEFAULT_GOALS: NutritionGoals = {
@@ -88,6 +90,7 @@ export function useNutritionSettings() {
           heightCm: data.height_cm,
           currentWeight: data.current_weight ? Number(data.current_weight) : null,
           goalWeight: data.goal_weight ? Number(data.goal_weight) : null,
+          conditions: (data as any).conditions || null,
           calorieGoal: data.calorie_goal || DEFAULT_GOALS.calorieGoal,
           carbGoalG: data.carb_goal_g || DEFAULT_GOALS.carbGoalG,
           proteinGoalG: data.protein_goal_g || DEFAULT_GOALS.proteinGoalG,
@@ -129,20 +132,26 @@ export function useNutritionSettings() {
         goalWeight: input.goalWeight,
       });
 
+      const upsertData: any = {
+        user_id: user.id,
+        age: input.age || null,
+        height_cm: input.heightCm || null,
+        current_weight: input.currentWeight || null,
+        goal_weight: input.goalWeight || null,
+        calorie_goal: goals.calorieGoal,
+        carb_goal_g: goals.carbGoalG,
+        protein_goal_g: goals.proteinGoalG,
+        fat_goal_g: goals.fatGoalG,
+        updated_at: new Date().toISOString(),
+      };
+      
+      if (input.conditions !== undefined) {
+        upsertData.conditions = input.conditions;
+      }
+
       const { error: upsertError } = await supabase
         .from('nutrition_settings')
-        .upsert({
-          user_id: user.id,
-          age: input.age || null,
-          height_cm: input.heightCm || null,
-          current_weight: input.currentWeight || null,
-          goal_weight: input.goalWeight || null,
-          calorie_goal: goals.calorieGoal,
-          carb_goal_g: goals.carbGoalG,
-          protein_goal_g: goals.proteinGoalG,
-          fat_goal_g: goals.fatGoalG,
-          updated_at: new Date().toISOString(),
-        }, {
+        .upsert(upsertData, {
           onConflict: 'user_id',
         });
 
@@ -154,6 +163,7 @@ export function useNutritionSettings() {
         heightCm: input.heightCm || null,
         currentWeight: input.currentWeight || null,
         goalWeight: input.goalWeight || null,
+        conditions: input.conditions ?? settings?.conditions ?? null,
         ...goals,
         updatedAt: new Date().toISOString(),
       };

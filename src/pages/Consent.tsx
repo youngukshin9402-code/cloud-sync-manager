@@ -156,6 +156,7 @@ export default function Consent() {
           <Checkbox 
             checked={allChecked} 
             onCheckedChange={handleToggleAll}
+            onClick={(e) => e.stopPropagation()}
             className="w-6 h-6"
           />
           <span className="font-semibold text-lg">전체 동의</span>
@@ -176,6 +177,7 @@ export default function Consent() {
               <Checkbox 
                 checked={consents[item.key]} 
                 onCheckedChange={() => handleToggle(item.key)}
+                onClick={(e) => e.stopPropagation()}
                 className="w-5 h-5"
               />
               <div className="flex-1 flex items-center gap-2">
