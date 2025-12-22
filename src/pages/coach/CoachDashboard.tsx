@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CoachFeedbackForm } from "@/components/CoachFeedbackForm";
+import { WeeklyMetricsCard } from "@/components/coach/WeeklyMetricsCard";
 import {
   Users,
   Search,
@@ -14,6 +15,7 @@ import {
   AlertCircle,
   Clock,
   MessageSquare,
+  BarChart3,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -153,6 +155,25 @@ export default function CoachDashboard() {
             >
               검토하기
             </Button>
+          </div>
+        )}
+
+        {/* 배정 사용자 7일 지표 */}
+        {assignedUsers.length > 0 && (
+          <div>
+            <div className="flex items-center gap-2 mb-4">
+              <BarChart3 className="w-5 h-5 text-primary" />
+              <h2 className="text-xl font-semibold">최근 7일 지표</h2>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {assignedUsers.slice(0, 6).map((user) => (
+                <WeeklyMetricsCard
+                  key={user.id}
+                  userId={user.id}
+                  nickname={user.nickname || "사용자"}
+                />
+              ))}
+            </div>
           </div>
         )}
 

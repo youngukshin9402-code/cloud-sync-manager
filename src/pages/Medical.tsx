@@ -1,4 +1,4 @@
-import { useRef, useState, useMemo } from "react";
+import { useRef, useState, useMemo, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { useHealthRecords, HealthRecord, HealthRecordItem } from "@/hooks/useHealthRecords";
 import { useInBodyRecords } from "@/hooks/useServerSync";
+import { useHealthAgeStorage } from "@/hooks/useHealthAgeStorage";
 import { supabase } from "@/integrations/supabase/client";
 
 import { format } from "date-fns";
@@ -112,6 +113,7 @@ function HealthItemCard({ item }: { item: HealthRecordItem }) {
 // InBody 섹션 컴포넌트
 function InBodySection() {
   const { data: records, loading, add, update, remove } = useInBodyRecords();
+  const { result: savedHealthAge, saveResult: saveHealthAge, clearResult: clearHealthAge } = useHealthAgeStorage();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -134,7 +136,7 @@ function InBodySection() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
-  // AI 건강 나이/신체 점수 분석 상태
+  // AI 건강 나이/신체 점수 분석 상태 - localStorage에서 복원
   const [healthAgeResult, setHealthAgeResult] = useState<{
     actualAge: number;
     healthAge: number;
@@ -144,6 +146,18 @@ function InBodySection() {
   const [isAnalyzingHealth, setIsAnalyzingHealth] = useState(false);
   const [actualAgeInput, setActualAgeInput] = useState<number | null>(null);
   const [showAgeInputDialog, setShowAgeInputDialog] = useState(false);
+
+  // localStorage에서 저장된 건강나이 결과 복원
+  useEffect(() => {
+    if (savedHealthAge) {
+      setHealthAgeResult({
+        actualAge: savedHealthAge.actualAge,
+        healthAge: savedHealthAge.healthAge,
+        bodyScore: savedHealthAge.bodyScore,
+        analysis: savedHealthAge.analysis,
+      });
+    }
+  }, [savedHealthAge]);
 
   // 트렌드 차트 데이터
   const chartData = useMemo(() => {
@@ -208,11 +222,17 @@ function InBodySection() {
       if (error) throw new Error(error.message || 'AI 분석 실패');
       if (!data.success) throw new Error(data.error || 'AI 분석 실패');
 
-      setHealthAgeResult({
+      const result = {
         actualAge,
         healthAge: data.healthAge,
         bodyScore: data.bodyScore,
         analysis: data.analysis,
+      };
+      setHealthAgeResult(result);
+      // localStorage에 결과 저장
+      saveHealthAge({
+        ...result,
+        recordDate: record.date,
       });
       toast.success("건강 나이 분석 완료!");
     } catch (error) {
