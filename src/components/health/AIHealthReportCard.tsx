@@ -1,6 +1,7 @@
 /**
  * AI 건강 분석 + 관리자 검토 카드
  * 건강검진 영역에서만 사용
+ * 검토 카드가 AI 분석보다 먼저 표시됨
  */
 
 import { useState, useEffect } from 'react';
@@ -146,6 +147,45 @@ export function AIHealthReportCard({ sourceRecordId }: Props) {
 
   return (
     <div className="space-y-4">
+      {/* 관리자 검토 카드 (AI 분석보다 먼저 표시) */}
+      <Card className="border-primary/20 bg-primary/5">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <User className="w-5 h-5 text-primary" />
+              전문가 검토
+            </CardTitle>
+            {review ? (
+              <Badge className="bg-health-green text-white">
+                <CheckCircle className="w-3 h-3 mr-1" />
+                검토 완료
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="border-yellow-500 text-yellow-600">
+                <Clock className="w-3 h-3 mr-1" />
+                검토 대기
+              </Badge>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent>
+          {review ? (
+            <div className="space-y-2">
+              {review.review_note && (
+                <p className="text-sm text-foreground">{review.review_note}</p>
+              )}
+              <p className="text-xs text-muted-foreground">
+                검토일: {new Date(review.created_at).toLocaleDateString('ko-KR')}
+              </p>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              전문가 검토가 진행 중입니다. 검토가 완료되면 여기에 코멘트가 표시됩니다.
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
       {/* AI 분석 카드 */}
       <Card>
         <CardHeader className="pb-3">
@@ -197,45 +237,6 @@ export function AIHealthReportCard({ sourceRecordId }: Props) {
                 ))}
               </ul>
             </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* 관리자 검토 카드 */}
-      <Card className="border-primary/20 bg-primary/5">
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <User className="w-5 h-5 text-primary" />
-              전문가 검토
-            </CardTitle>
-            {review ? (
-              <Badge className="bg-health-green text-white">
-                <CheckCircle className="w-3 h-3 mr-1" />
-                검토 완료
-              </Badge>
-            ) : (
-              <Badge variant="outline" className="border-yellow-500 text-yellow-600">
-                <Clock className="w-3 h-3 mr-1" />
-                검토 대기
-              </Badge>
-            )}
-          </div>
-        </CardHeader>
-        <CardContent>
-          {review ? (
-            <div className="space-y-2">
-              {review.review_note && (
-                <p className="text-sm text-foreground">{review.review_note}</p>
-              )}
-              <p className="text-xs text-muted-foreground">
-                검토일: {new Date(review.created_at).toLocaleDateString('ko-KR')}
-              </p>
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              전문가 검토가 진행 중입니다. 검토가 완료되면 여기에 코멘트가 표시됩니다.
-            </p>
           )}
         </CardContent>
       </Card>

@@ -210,6 +210,25 @@ export function useTicketsAdmin() {
 
   useEffect(() => {
     fetchTickets();
+
+    // Realtime 구독: 문의/답변 변경 시 자동 갱신
+    const channel = supabase
+      .channel('admin-tickets-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'support_tickets' },
+        () => fetchTickets()
+      )
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'support_ticket_replies' },
+        () => fetchTickets()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [fetchTickets]);
 
   const updateStatus = async (ticketId: string, status: string) => {

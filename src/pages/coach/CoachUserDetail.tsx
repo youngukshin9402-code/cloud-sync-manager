@@ -23,14 +23,15 @@ import {
   User,
   Heart,
   Activity,
-  FileText,
   Target,
   Plus,
   Check,
   X,
   Video,
   Loader2,
+  Eye,
 } from "lucide-react";
+import { HealthRecordDetailSheet } from "@/components/health/HealthRecordDetailSheet";
 
 interface UserProfile {
   id: string;
@@ -43,12 +44,14 @@ interface UserProfile {
 
 interface HealthRecord {
   id: string;
+  user_id: string;
   status: string;
   health_age: number | null;
   health_tags: string[] | null;
   parsed_data: any;
   created_at: string;
   coach_comment: string | null;
+  raw_image_urls: string[];
 }
 
 interface Mission {
@@ -77,6 +80,10 @@ export default function CoachUserDetail() {
   const [showMissionDialog, setShowMissionDialog] = useState(false);
   const [newMission, setNewMission] = useState({ content: "", points: 10 });
   const [savingMission, setSavingMission] = useState(false);
+
+  // 건강검진 상세보기 Sheet
+  const [showDetailSheet, setShowDetailSheet] = useState(false);
+  const [detailRecord, setDetailRecord] = useState<HealthRecord | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -345,16 +352,29 @@ export default function CoachUserDetail() {
                         </p>
                       )}
                     </div>
-                    {record.status === "pending_review" && (
+                    <div className="flex items-center gap-2">
                       <Button
+                        variant="outline"
+                        size="sm"
                         onClick={() => {
-                          setSelectedRecord(record);
-                          setShowReviewDialog(true);
+                          setDetailRecord(record);
+                          setShowDetailSheet(true);
                         }}
                       >
-                        검토하기
+                        <Eye className="w-4 h-4 mr-1" />
+                        상세보기
                       </Button>
-                    )}
+                      {record.status === "pending_review" && (
+                        <Button
+                          onClick={() => {
+                            setSelectedRecord(record);
+                            setShowReviewDialog(true);
+                          }}
+                        >
+                          검토하기
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -495,6 +515,14 @@ export default function CoachUserDetail() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* 건강검진 상세보기 Sheet */}
+      <HealthRecordDetailSheet
+        record={detailRecord}
+        open={showDetailSheet}
+        onOpenChange={setShowDetailSheet}
+        userNickname={userProfile.nickname || undefined}
+      />
     </div>
   );
 }

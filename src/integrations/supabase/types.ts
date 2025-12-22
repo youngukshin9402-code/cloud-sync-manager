@@ -537,7 +537,7 @@ export type Database = {
           code_expires_at: string | null
           connected_at: string | null
           connection_code: string | null
-          guardian_id: string
+          guardian_id: string | null
           id: string
           user_id: string
         }
@@ -545,7 +545,7 @@ export type Database = {
           code_expires_at?: string | null
           connected_at?: string | null
           connection_code?: string | null
-          guardian_id: string
+          guardian_id?: string | null
           id?: string
           user_id: string
         }
@@ -553,7 +553,7 @@ export type Database = {
           code_expires_at?: string | null
           connected_at?: string | null
           connection_code?: string | null
-          guardian_id?: string
+          guardian_id?: string | null
           id?: string
           user_id?: string
         }
@@ -1528,6 +1528,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      connect_guardian_with_code: { Args: { p_code: string }; Returns: Json }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

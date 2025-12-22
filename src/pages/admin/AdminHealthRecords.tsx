@@ -10,17 +10,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft, Search, FileText, RefreshCw, Check, X, Eye } from "lucide-react";
 import { useAdminData } from "@/hooks/useAdminData";
+import { HealthRecordDetailSheet } from "@/components/health/HealthRecordDetailSheet";
 
 const STATUS_OPTIONS = [
   { value: 'uploading', label: '업로드중', color: 'bg-gray-100 text-gray-700' },
@@ -35,8 +28,10 @@ export default function AdminHealthRecords() {
   const { pendingRecords, loading, approveHealthRecord, refreshData } = useAdminData();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("pending_review");
+  
+  // 상세보기 Sheet
+  const [showDetailSheet, setShowDetailSheet] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState<any>(null);
-  const [showDialog, setShowDialog] = useState(false);
 
   const getStatusBadge = (status: string) => {
     const found = STATUS_OPTIONS.find(s => s.value === status);
@@ -57,14 +52,10 @@ export default function AdminHealthRecords() {
 
   const handleApprove = async (recordId: string) => {
     await approveHealthRecord(recordId, "completed");
-    setShowDialog(false);
-    setSelectedRecord(null);
   };
 
   const handleReject = async (recordId: string) => {
     await approveHealthRecord(recordId, "rejected");
-    setShowDialog(false);
-    setSelectedRecord(null);
   };
 
   if (loading) {
@@ -154,8 +145,11 @@ export default function AdminHealthRecords() {
                     variant="outline"
                     size="sm"
                     onClick={() => {
-                      setSelectedRecord(record);
-                      setShowDialog(true);
+                      setSelectedRecord({
+                        ...record,
+                        raw_image_urls: record.raw_image_urls || [],
+                      });
+                      setShowDetailSheet(true);
                     }}
                   >
                     <Eye className="w-4 h-4 mr-1" />
@@ -194,70 +188,13 @@ export default function AdminHealthRecords() {
         </div>
       </main>
 
-      <Dialog open={showDialog} onOpenChange={setShowDialog}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>건강검진 상세정보</DialogTitle>
-          </DialogHeader>
-          {selectedRecord && (
-            <div className="space-y-4">
-              <div>
-                <p className="text-sm text-muted-foreground">사용자</p>
-                <p className="font-medium">{selectedRecord.user?.nickname || '알 수 없음'}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">상태</p>
-                {getStatusBadge(selectedRecord.status)}
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">건강나이</p>
-                <p className="font-medium">{selectedRecord.health_age || '-'}세</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">건강 태그</p>
-                <div className="flex flex-wrap gap-1 mt-1">
-                  {selectedRecord.health_tags?.map((tag: string, idx: number) => (
-                    <Badge key={idx} variant="secondary">{tag}</Badge>
-                  )) || <span className="text-muted-foreground">없음</span>}
-                </div>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">코치 코멘트</p>
-                <p className="font-medium">{selectedRecord.coach_comment || '없음'}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">생성일</p>
-                <p className="font-medium">
-                  {new Date(selectedRecord.created_at).toLocaleString('ko-KR')}
-                </p>
-              </div>
-            </div>
-          )}
-          <DialogFooter>
-            {selectedRecord?.status === 'pending_review' && (
-              <>
-                <Button
-                  onClick={() => handleApprove(selectedRecord.id)}
-                  className="bg-green-600 hover:bg-green-700"
-                >
-                  <Check className="w-4 h-4 mr-1" />
-                  승인
-                </Button>
-                <Button
-                  variant="destructive"
-                  onClick={() => handleReject(selectedRecord.id)}
-                >
-                  <X className="w-4 h-4 mr-1" />
-                  반려
-                </Button>
-              </>
-            )}
-            <Button variant="outline" onClick={() => setShowDialog(false)}>
-              닫기
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* 건강검진 상세보기 Sheet */}
+      <HealthRecordDetailSheet
+        record={selectedRecord}
+        open={showDetailSheet}
+        onOpenChange={setShowDetailSheet}
+        userNickname={selectedRecord?.user?.nickname}
+      />
     </div>
   );
 }

@@ -76,16 +76,16 @@ export function useGuardianConnection() {
       const code = Math.random().toString().slice(2, 8);
       const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
-      // Check if user already has a pending connection
+      // Check if user already has a pending connection (guardian_id is null)
       const { data: existing } = await supabase
         .from("guardian_connections")
         .select("id")
         .eq("user_id", user.id)
         .is("guardian_id", null)
-        .single();
+        .maybeSingle();
 
       if (existing) {
-        // Update existing
+        // Update existing pending connection
         const { error } = await supabase
           .from("guardian_connections")
           .update({
@@ -96,10 +96,10 @@ export function useGuardianConnection() {
 
         if (error) throw error;
       } else {
-        // Create new - use a placeholder guardian_id that will be updated when connected
+        // Create new pending connection with guardian_id = null
         const { error } = await supabase.from("guardian_connections").insert([{
           user_id: user.id,
-          guardian_id: user.id, // Temporary, will be updated when guardian connects
+          guardian_id: null, // null = pending state
           connection_code: code,
           code_expires_at: expiresAt.toISOString(),
         }]);
@@ -118,41 +118,34 @@ export function useGuardianConnection() {
     }
   };
 
-  // Connect as guardian using code
+  // Connect as guardian using code (via RPC for RLS bypass)
   const connectWithCode = async (code: string) => {
     if (!user) return false;
 
     try {
-      // Find the connection with this code
-      const { data: connection, error: findError } = await supabase
-        .from("guardian_connections")
-        .select("*")
-        .eq("connection_code", code)
-        .gt("code_expires_at", new Date().toISOString())
-        .single();
+      // Use RPC function for secure connection
+      const { data, error } = await supabase.rpc('connect_guardian_with_code', {
+        p_code: code
+      });
 
-      if (findError || !connection) {
-        toast.error("유효하지 않은 코드예요. 다시 확인해주세요.");
+      if (error) {
+        console.error("RPC error:", error);
+        toast.error("연결에 실패했습니다");
         return false;
       }
 
-      if (connection.user_id === user.id) {
-        toast.error("자기 자신과는 연결할 수 없어요.");
+      const result = data as { success: boolean; error?: string; connection_id?: string };
+
+      if (!result.success) {
+        if (result.error === 'invalid_code') {
+          toast.error("유효하지 않은 코드예요. 다시 확인해주세요.");
+        } else if (result.error === 'self_connection') {
+          toast.error("자기 자신과는 연결할 수 없어요.");
+        } else {
+          toast.error("연결에 실패했습니다");
+        }
         return false;
       }
-
-      // Update the connection
-      const { error: updateError } = await supabase
-        .from("guardian_connections")
-        .update({
-          guardian_id: user.id,
-          connection_code: null,
-          code_expires_at: null,
-          connected_at: new Date().toISOString(),
-        })
-        .eq("id", connection.id);
-
-      if (updateError) throw updateError;
 
       toast.success("연결이 완료되었어요!");
       await fetchConnections();
