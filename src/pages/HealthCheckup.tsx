@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useRef } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,7 +8,6 @@ import { useToast } from "@/hooks/use-toast";
 import {
   ArrowLeft,
   Plus,
-  Edit2,
   Trash2,
   AlertTriangle,
   CheckCircle,
@@ -17,52 +16,13 @@ import {
   Activity,
   Droplets,
   FileText,
+  Camera,
+  Loader2,
+  Upload,
 } from "lucide-react";
-import {
-  getHealthCheckupRecords,
-  setHealthCheckupRecords,
-  HealthCheckupRecord,
-  generateId,
-  getTodayString,
-} from "@/lib/localStorage";
+import { useHealthRecords, HealthRecord, ParsedHealthData } from "@/hooks/useHealthRecords";
 import { AIHealthReportCard } from "@/components/health/AIHealthReportCard";
-
-const emptyRecord: Omit<HealthCheckupRecord, 'id' | 'createdAt'> = {
-  date: getTodayString(),
-  bloodSugar: undefined,
-  hba1c: undefined,
-  cholesterol: undefined,
-  triglyceride: undefined,
-  ast: undefined,
-  alt: undefined,
-  creatinine: undefined,
-  systolicBP: undefined,
-  diastolicBP: undefined,
-};
-
-// Mock analysis rules
-const analyzeValue = (key: string, value: number | undefined): 'normal' | 'warning' | 'danger' | null => {
-  if (value === undefined) return null;
-  
-  const rules: Record<string, { normal: [number, number]; warning: [number, number] }> = {
-    bloodSugar: { normal: [70, 100], warning: [100, 126] },
-    hba1c: { normal: [0, 5.7], warning: [5.7, 6.5] },
-    cholesterol: { normal: [0, 200], warning: [200, 240] },
-    triglyceride: { normal: [0, 150], warning: [150, 200] },
-    ast: { normal: [0, 40], warning: [40, 80] },
-    alt: { normal: [0, 40], warning: [40, 80] },
-    creatinine: { normal: [0.7, 1.3], warning: [1.3, 2.0] },
-    systolicBP: { normal: [0, 120], warning: [120, 140] },
-    diastolicBP: { normal: [0, 80], warning: [80, 90] },
-  };
-
-  const rule = rules[key];
-  if (!rule) return null;
-
-  if (value >= rule.normal[0] && value <= rule.normal[1]) return 'normal';
-  if (value > rule.normal[1] && value <= rule.warning[1]) return 'warning';
-  return 'danger';
-};
+import { format } from "date-fns";
 
 const StatusBadge = ({ status }: { status: 'normal' | 'warning' | 'danger' | null }) => {
   if (!status) return null;
@@ -85,107 +45,70 @@ const StatusBadge = ({ status }: { status: 'normal' | 'warning' | 'danger' | nul
 
 export default function HealthCheckup() {
   const { toast } = useToast();
-  const [records, setRecords] = useState<HealthCheckupRecord[]>([]);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [formData, setFormData] = useState(emptyRecord);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const {
+    records,
+    currentRecord,
+    isLoading,
+    isUploading,
+    uploadHealthCheckup,
+    deleteRecord,
+  } = useHealthRecords();
+  
+  const [showUploadDialog, setShowUploadDialog] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [examDate, setExamDate] = useState(format(new Date(), 'yyyy-MM-dd'));
 
-  useEffect(() => {
-    const loaded = getHealthCheckupRecords();
-    setRecords(loaded.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
-  }, []);
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length > 0) {
+      setSelectedFiles(files);
+      setShowUploadDialog(true);
+    }
+    e.target.value = '';
+  };
 
-  const handleSave = () => {
-    if (!formData.date) {
-      toast({ title: "날짜를 입력해주세요", variant: "destructive" });
+  const handleUpload = async () => {
+    if (selectedFiles.length === 0) {
+      toast({ title: "이미지를 선택해주세요", variant: "destructive" });
       return;
     }
 
-    let updated: HealthCheckupRecord[];
-    if (editingId) {
-      updated = records.map(r =>
-        r.id === editingId ? { ...formData, id: editingId, createdAt: r.createdAt } : r
-      );
-      toast({ title: "수정되었습니다" });
-    } else {
-      const newRecord: HealthCheckupRecord = {
-        ...formData,
-        id: generateId(),
-        createdAt: new Date().toISOString(),
-      };
-      updated = [...records, newRecord];
-      toast({ title: "저장되었습니다" });
+    const result = await uploadHealthCheckup(selectedFiles, examDate);
+    if (result) {
+      setShowUploadDialog(false);
+      setSelectedFiles([]);
     }
-
-    updated = updated.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    setRecords(updated);
-    setHealthCheckupRecords(updated);
-    setDialogOpen(false);
-    resetForm();
   };
 
-  const handleEdit = (record: HealthCheckupRecord) => {
-    setEditingId(record.id);
-    setFormData({
-      date: record.date,
-      bloodSugar: record.bloodSugar,
-      hba1c: record.hba1c,
-      cholesterol: record.cholesterol,
-      triglyceride: record.triglyceride,
-      ast: record.ast,
-      alt: record.alt,
-      creatinine: record.creatinine,
-      systolicBP: record.systolicBP,
-      diastolicBP: record.diastolicBP,
-    });
-    setDialogOpen(true);
+  const handleDelete = async (recordId: string) => {
+    await deleteRecord(recordId);
   };
 
-  const handleDelete = (id: string) => {
-    const updated = records.filter(r => r.id !== id);
-    setRecords(updated);
-    setHealthCheckupRecords(updated);
-    toast({ title: "삭제되었습니다" });
-  };
-
-  const resetForm = () => {
-    setEditingId(null);
-    setFormData({ ...emptyRecord, date: getTodayString() });
-  };
-
-  const openNewDialog = () => {
-    resetForm();
-    setDialogOpen(true);
-  };
-
-  const latestRecord = records[0];
-
-  // Count statuses
-  const getStatusSummary = (record: HealthCheckupRecord) => {
-    const keys = ['bloodSugar', 'hba1c', 'cholesterol', 'triglyceride', 'ast', 'alt', 'creatinine', 'systolicBP', 'diastolicBP'];
-    let normal = 0, warning = 0, danger = 0;
+  // Count statuses from parsed_data
+  const getStatusSummary = (parsedData: ParsedHealthData | null) => {
+    if (!parsedData?.items) return { normal: 0, warning: 0, danger: 0 };
     
-    keys.forEach(key => {
-      const status = analyzeValue(key, record[key as keyof HealthCheckupRecord] as number | undefined);
-      if (status === 'normal') normal++;
-      if (status === 'warning') warning++;
-      if (status === 'danger') danger++;
+    let normal = 0, warning = 0, danger = 0;
+    parsedData.items.forEach(item => {
+      if (item.status === 'normal') normal++;
+      if (item.status === 'warning') warning++;
+      if (item.status === 'danger') danger++;
     });
     
     return { normal, warning, danger };
   };
 
-  const fields = [
-    { key: 'bloodSugar', label: '공복혈당', unit: 'mg/dL', icon: Droplets },
-    { key: 'hba1c', label: '당화혈색소 (HbA1c)', unit: '%', icon: Activity },
-    { key: 'cholesterol', label: '총 콜레스테롤', unit: 'mg/dL', icon: Heart },
-    { key: 'triglyceride', label: '중성지방 (TG)', unit: 'mg/dL', icon: Activity },
-    { key: 'ast', label: 'AST (간수치)', unit: 'U/L', icon: Activity },
-    { key: 'alt', label: 'ALT (간수치)', unit: 'U/L', icon: Activity },
-    { key: 'creatinine', label: '크레아티닌', unit: 'mg/dL', icon: Activity },
-    { key: 'systolicBP', label: '수축기 혈압', unit: 'mmHg', icon: Heart },
-    { key: 'diastolicBP', label: '이완기 혈압', unit: 'mmHg', icon: Heart },
-  ];
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  const latestRecord = records[0];
+  const latestParsedData = latestRecord?.parsed_data;
 
   return (
     <div className="min-h-screen bg-background pb-24">
@@ -198,14 +121,27 @@ export default function HealthCheckup() {
                 <ArrowLeft className="w-5 h-5" />
               </Link>
             </Button>
-            <h1 className="text-xl font-bold">건강검진 입력</h1>
+            <h1 className="text-xl font-bold">건강검진 사진 분석</h1>
           </div>
-          <Button onClick={openNewDialog} size="sm">
-            <Plus className="w-4 h-4 mr-1" />
-            기록
+          <Button onClick={() => fileInputRef.current?.click()} size="sm" disabled={isUploading}>
+            {isUploading ? (
+              <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+            ) : (
+              <Upload className="w-4 h-4 mr-1" />
+            )}
+            업로드
           </Button>
         </div>
       </div>
+
+      <input
+        type="file"
+        ref={fileInputRef}
+        className="hidden"
+        accept="image/*"
+        multiple
+        onChange={handleFileSelect}
+      />
 
       <div className="p-4 space-y-6">
         {/* Disclaimer */}
@@ -220,16 +156,18 @@ export default function HealthCheckup() {
         </div>
 
         {/* Latest Record Summary */}
-        {latestRecord ? (
+        {latestRecord && latestRecord.status === 'completed' && latestParsedData ? (
           <div className="bg-card rounded-3xl border border-border p-5 space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="font-semibold">최근 검진 결과</h2>
-              <span className="text-sm text-muted-foreground">{latestRecord.date}</span>
+              <h2 className="font-semibold">최근 AI 분석 결과</h2>
+              <span className="text-sm text-muted-foreground">
+                {latestRecord.exam_date || format(new Date(latestRecord.created_at), 'yyyy-MM-dd')}
+              </span>
             </div>
 
             {/* Status Summary */}
             {(() => {
-              const { normal, warning, danger } = getStatusSummary(latestRecord);
+              const { normal, warning, danger } = getStatusSummary(latestParsedData);
               return (
                 <div className="flex gap-3">
                   {normal > 0 && (
@@ -254,48 +192,83 @@ export default function HealthCheckup() {
               );
             })()}
 
+            {/* Summary Text */}
+            {latestParsedData.summary && (
+              <p className="text-sm text-muted-foreground">{latestParsedData.summary}</p>
+            )}
+
+            {/* Health Age */}
+            {latestParsedData.health_age && (
+              <div className="flex items-center gap-2 text-lg">
+                <Heart className="w-5 h-5 text-primary" />
+                <span>건강나이: </span>
+                <span className="font-bold text-primary">{latestParsedData.health_age}세</span>
+              </div>
+            )}
+
             {/* Values Grid */}
-            <div className="grid grid-cols-2 gap-3">
-              {fields.map(field => {
-                const value = latestRecord[field.key as keyof HealthCheckupRecord] as number | undefined;
-                if (value === undefined) return null;
-                const status = analyzeValue(field.key, value);
-                
-                return (
-                  <div key={field.key} className="bg-muted/50 rounded-xl p-3">
+            {latestParsedData.items && latestParsedData.items.length > 0 && (
+              <div className="grid grid-cols-2 gap-3">
+                {latestParsedData.items.map((item, idx) => (
+                  <div key={idx} className="bg-muted/50 rounded-xl p-3">
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs text-muted-foreground">{field.label}</span>
-                      <StatusBadge status={status} />
+                      <span className="text-xs text-muted-foreground">{item.name}</span>
+                      <StatusBadge status={item.status} />
                     </div>
                     <p className="text-lg font-semibold">
-                      {value} <span className="text-sm font-normal text-muted-foreground">{field.unit}</span>
+                      {item.value} <span className="text-sm font-normal text-muted-foreground">{item.unit}</span>
                     </p>
                   </div>
-                );
-              })}
-            </div>
+                ))}
+              </div>
+            )}
+
+            {/* Recommendations */}
+            {latestParsedData.recommendations && latestParsedData.recommendations.length > 0 && (
+              <div className="space-y-2">
+                <p className="font-medium text-sm">권장사항</p>
+                <ul className="space-y-1">
+                  {latestParsedData.recommendations.map((rec, idx) => (
+                    <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
+                      <CheckCircle className="w-4 h-4 text-health-green shrink-0 mt-0.5" />
+                      {rec}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        ) : latestRecord && latestRecord.status !== 'completed' ? (
+          <div className="bg-card rounded-3xl border border-border p-8 text-center">
+            <Loader2 className="w-12 h-12 mx-auto mb-3 text-primary animate-spin" />
+            <p className="font-medium">AI가 분석 중입니다...</p>
+            <p className="text-sm text-muted-foreground">잠시 후 결과가 표시됩니다</p>
           </div>
         ) : (
           <div className="bg-card rounded-3xl border border-border p-8 text-center">
             <FileText className="w-12 h-12 mx-auto mb-3 text-muted-foreground/30" />
             <p className="text-muted-foreground">건강검진 기록이 없습니다</p>
-            <Button className="mt-4" onClick={openNewDialog}>
-              <Plus className="w-4 h-4 mr-1" />
-              검진 결과 입력
+            <Button className="mt-4" onClick={() => fileInputRef.current?.click()}>
+              <Camera className="w-4 h-4 mr-1" />
+              검진 결과 사진 업로드
             </Button>
           </div>
         )}
 
         {/* AI 분석 + 관리자 검토 카드 (건강검진 영역에서만) */}
-        <AIHealthReportCard />
+        {latestRecord && <AIHealthReportCard sourceRecordId={latestRecord.id} />}
 
         {/* Records List */}
         {records.length > 0 && (
           <div className="space-y-3">
-            <h2 className="text-lg font-semibold">기록 목록</h2>
+            <h2 className="text-lg font-semibold">업로드 기록</h2>
             <div className="space-y-2">
               {records.map(record => {
-                const { normal, warning, danger } = getStatusSummary(record);
+                const { normal, warning, danger } = getStatusSummary(record.parsed_data);
+                const statusLabel = 
+                  record.status === 'completed' ? '분석 완료' :
+                  record.status === 'analyzing' ? '분석 중' :
+                  record.status === 'pending_review' ? '검토 대기' : '업로드 중';
                 
                 return (
                   <div
@@ -303,17 +276,26 @@ export default function HealthCheckup() {
                     className="bg-card rounded-xl border border-border p-4 flex items-center justify-between"
                   >
                     <div>
-                      <p className="font-medium">{record.date}</p>
+                      <p className="font-medium">
+                        {record.exam_date || format(new Date(record.created_at), 'yyyy-MM-dd')}
+                      </p>
                       <div className="flex gap-2 mt-1 text-xs">
-                        {normal > 0 && <span className="text-health-green">정상 {normal}</span>}
-                        {warning > 0 && <span className="text-yellow-600">주의 {warning}</span>}
-                        {danger > 0 && <span className="text-destructive">관리 {danger}</span>}
+                        <span className={
+                          record.status === 'completed' ? 'text-health-green' :
+                          record.status === 'analyzing' ? 'text-primary' : 'text-muted-foreground'
+                        }>
+                          {statusLabel}
+                        </span>
+                        {record.status === 'completed' && (
+                          <>
+                            {normal > 0 && <span className="text-health-green">정상 {normal}</span>}
+                            {warning > 0 && <span className="text-yellow-600">주의 {warning}</span>}
+                            {danger > 0 && <span className="text-destructive">관리 {danger}</span>}
+                          </>
+                        )}
                       </div>
                     </div>
                     <div className="flex gap-1">
-                      <Button variant="ghost" size="icon" onClick={() => handleEdit(record)}>
-                        <Edit2 className="w-4 h-4" />
-                      </Button>
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
                           <Button variant="ghost" size="icon">
@@ -344,41 +326,40 @@ export default function HealthCheckup() {
         )}
       </div>
 
-      {/* Add/Edit Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-sm max-h-[90vh] overflow-y-auto">
+      {/* Upload Dialog */}
+      <Dialog open={showUploadDialog} onOpenChange={setShowUploadDialog}>
+        <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>{editingId ? "건강검진 수정" : "건강검진 입력"}</DialogTitle>
+            <DialogTitle>건강검진 사진 업로드</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-2">
-              <label className="text-sm font-medium">검진일 *</label>
+              <label className="text-sm font-medium">검진일</label>
               <Input
                 type="date"
-                value={formData.date}
-                onChange={e => setFormData({ ...formData, date: e.target.value })}
+                value={examDate}
+                onChange={e => setExamDate(e.target.value)}
               />
             </div>
-            
-            {fields.map(field => (
-              <div key={field.key} className="space-y-2">
-                <label className="text-sm font-medium">{field.label} ({field.unit})</label>
-                <Input
-                  type="number"
-                  step="0.1"
-                  placeholder={`예: ${field.key === 'hba1c' ? '5.5' : '100'}`}
-                  value={formData[field.key as keyof typeof formData] || ''}
-                  onChange={e => setFormData({ 
-                    ...formData, 
-                    [field.key]: e.target.value ? parseFloat(e.target.value) : undefined 
-                  })}
-                />
+            <div className="space-y-2">
+              <label className="text-sm font-medium">선택된 파일</label>
+              <div className="bg-muted p-3 rounded-xl">
+                {selectedFiles.map((file, idx) => (
+                  <p key={idx} className="text-sm truncate">{file.name}</p>
+                ))}
               </div>
-            ))}
+            </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>취소</Button>
-            <Button onClick={handleSave}>저장</Button>
+            <Button variant="outline" onClick={() => setShowUploadDialog(false)}>취소</Button>
+            <Button onClick={handleUpload} disabled={isUploading}>
+              {isUploading ? (
+                <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+              ) : (
+                <Upload className="w-4 h-4 mr-1" />
+              )}
+              업로드
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

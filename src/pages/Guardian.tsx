@@ -1,7 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Users,
   Link2,
@@ -11,13 +15,29 @@ import {
   UserPlus,
   Clock,
   Heart,
+  Flame,
+  Droplets,
+  CheckCircle,
+  ChevronRight,
+  ChevronDown,
 } from "lucide-react";
 import { useGuardianConnection } from "@/hooks/useGuardianConnection";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
 
+interface ConnectedUserSummary {
+  userId: string;
+  nickname: string;
+  todayCalories: number;
+  calorieGoal: number;
+  todayWater: number;
+  waterGoal: number;
+  missionsCompleted: number;
+  missionTotal: number;
+}
+
 export default function Guardian() {
-  const { profile } = useAuth();
+  const { user, profile } = useAuth();
   const {
     connections,
     pendingCode,
@@ -30,8 +50,109 @@ export default function Guardian() {
   const [inputCode, setInputCode] = useState("");
   const [isConnecting, setIsConnecting] = useState(false);
   const [copied, setCopied] = useState(false);
+  
+  // 보호자용: 연결된 사용자 데이터
+  const [connectedUsersSummary, setConnectedUsersSummary] = useState<ConnectedUserSummary[]>([]);
+  const [loadingUserData, setLoadingUserData] = useState(false);
+  const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
 
   const isGuardian = profile?.user_type === "guardian";
+
+  // 보호자일 경우 연결된 사용자 데이터 가져오기
+  useEffect(() => {
+    if (!isGuardian || !user) return;
+
+    const fetchConnectedUserData = async () => {
+      setLoadingUserData(true);
+      
+      const activeConnections = connections.filter(
+        (c) => c.guardian_id === user.id && c.user_id !== c.guardian_id
+      );
+
+      if (activeConnections.length === 0) {
+        setConnectedUsersSummary([]);
+        setLoadingUserData(false);
+        return;
+      }
+
+      const today = new Date().toISOString().split('T')[0];
+      const summaries: ConnectedUserSummary[] = [];
+
+      for (const conn of activeConnections) {
+        const targetUserId = conn.user_id;
+
+        // 프로필 조회
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('nickname')
+          .eq('id', targetUserId)
+          .single();
+
+        // 오늘 칼로리 조회
+        const { data: mealData } = await supabase
+          .from('meal_records')
+          .select('total_calories')
+          .eq('user_id', targetUserId)
+          .eq('date', today);
+
+        const todayCalories = (mealData || []).reduce((sum, r) => sum + (r.total_calories || 0), 0);
+
+        // 영양 설정 조회
+        const { data: nutritionSettings } = await supabase
+          .from('nutrition_settings')
+          .select('calorie_goal')
+          .eq('user_id', targetUserId)
+          .maybeSingle();
+
+        const calorieGoal = nutritionSettings?.calorie_goal || 2000;
+
+        // 오늘 물 섭취 조회
+        const { data: waterData } = await supabase
+          .from('water_logs')
+          .select('amount')
+          .eq('user_id', targetUserId)
+          .eq('date', today);
+
+        const todayWater = (waterData || []).reduce((sum, r) => sum + (r.amount || 0), 0);
+
+        // 물 설정 조회
+        const { data: waterSettings } = await supabase
+          .from('water_settings')
+          .select('daily_goal')
+          .eq('user_id', targetUserId)
+          .maybeSingle();
+
+        const waterGoal = waterSettings?.daily_goal || 2000;
+
+        // 오늘 미션 조회 (daily_logs에서 mission 타입)
+        const { data: missionData } = await supabase
+          .from('daily_logs')
+          .select('is_completed')
+          .eq('user_id', targetUserId)
+          .eq('log_date', today)
+          .eq('log_type', 'mission');
+
+        const missionsCompleted = (missionData || []).filter(m => m.is_completed).length;
+        const missionTotal = (missionData || []).length || 3;
+
+        summaries.push({
+          userId: targetUserId,
+          nickname: profileData?.nickname || '사용자',
+          todayCalories,
+          calorieGoal,
+          todayWater,
+          waterGoal,
+          missionsCompleted,
+          missionTotal,
+        });
+      }
+
+      setConnectedUsersSummary(summaries);
+      setLoadingUserData(false);
+    };
+
+    fetchConnectedUserData();
+  }, [isGuardian, user, connections]);
 
   const handleCopyCode = async () => {
     if (pendingCode) {
@@ -105,6 +226,110 @@ export default function Guardian() {
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* 보호자용: 연결된 사용자 건강 요약 */}
+      {isGuardian && activeConnections.length > 0 && (
+        <div className="space-y-4">
+          <h2 className="text-lg font-semibold flex items-center gap-2">
+            <Heart className="w-5 h-5 text-primary" />
+            부모님 오늘 건강 현황
+          </h2>
+
+          {loadingUserData ? (
+            <div className="space-y-3">
+              <Skeleton className="h-32 w-full" />
+              <Skeleton className="h-32 w-full" />
+            </div>
+          ) : connectedUsersSummary.length === 0 ? (
+            <Card>
+              <CardContent className="py-8 text-center text-muted-foreground">
+                연결된 가족의 데이터를 불러올 수 없습니다.
+              </CardContent>
+            </Card>
+          ) : (
+            connectedUsersSummary.map((summary) => (
+              <Card key={summary.userId} className="overflow-hidden">
+                <CardHeader 
+                  className="pb-3 cursor-pointer"
+                  onClick={() => setExpandedUserId(
+                    expandedUserId === summary.userId ? null : summary.userId
+                  )}
+                >
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Users className="w-5 h-5 text-primary" />
+                      {summary.nickname}님
+                    </CardTitle>
+                    {expandedUserId === summary.userId ? (
+                      <ChevronDown className="w-5 h-5 text-muted-foreground" />
+                    ) : (
+                      <ChevronRight className="w-5 h-5 text-muted-foreground" />
+                    )}
+                  </div>
+                </CardHeader>
+                
+                {expandedUserId === summary.userId && (
+                  <CardContent className="pt-0 space-y-4">
+                    {/* 칼로리 */}
+                    <div className="flex items-center justify-between p-3 bg-health-orange/10 rounded-xl">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-health-orange/20 flex items-center justify-center">
+                          <Flame className="w-5 h-5 text-health-orange" />
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">섭취 칼로리</p>
+                          <p className="font-semibold">
+                            {summary.todayCalories.toLocaleString()} / {summary.calorieGoal.toLocaleString()} kcal
+                          </p>
+                        </div>
+                      </div>
+                      {summary.todayCalories >= summary.calorieGoal && (
+                        <Badge className="bg-health-green text-white">달성</Badge>
+                      )}
+                    </div>
+
+                    {/* 물 섭취 */}
+                    <div className="flex items-center justify-between p-3 bg-health-blue/10 rounded-xl">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-health-blue/20 flex items-center justify-center">
+                          <Droplets className="w-5 h-5 text-health-blue" />
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">물 섭취</p>
+                          <p className="font-semibold">
+                            {summary.todayWater.toLocaleString()} / {summary.waterGoal.toLocaleString()} ml
+                          </p>
+                        </div>
+                      </div>
+                      {summary.todayWater >= summary.waterGoal && (
+                        <Badge className="bg-health-green text-white">달성</Badge>
+                      )}
+                    </div>
+
+                    {/* 미션 */}
+                    <div className="flex items-center justify-between p-3 bg-health-green/10 rounded-xl">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-health-green/20 flex items-center justify-center">
+                          <CheckCircle className="w-5 h-5 text-health-green" />
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">오늘 할 일</p>
+                          <p className="font-semibold">
+                            {summary.missionsCompleted} / {summary.missionTotal} 완료
+                          </p>
+                        </div>
+                      </div>
+                      {summary.missionsCompleted === summary.missionTotal && summary.missionTotal > 0 && (
+                        <Badge className="bg-health-green text-white">달성</Badge>
+                      )}
+                    </div>
+                  </CardContent>
+                )}
+              </Card>
+            ))
+          )}
         </div>
       )}
 
