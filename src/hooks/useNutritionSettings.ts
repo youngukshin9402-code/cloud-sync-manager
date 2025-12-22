@@ -2,9 +2,10 @@
  * Nutrition Settings Hook
  * - nutrition_settings 테이블에서 사용자 설정 관리
  * - 목표 칼로리/매크로 자동 계산
+ * - stale-while-revalidate 캐시로 플리커 방지
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { calculateNutritionGoals, NutritionGoals } from '@/lib/nutritionUtils';
@@ -36,15 +37,25 @@ const DEFAULT_GOALS: NutritionGoals = {
   fatGoalG: 44,
 };
 
+// Stale-while-revalidate 캐시 (앱 전역)
+const nutritionSettingsCache = new Map<string, { settings: NutritionSettingsData | null; cachedAt: number }>();
+
 export function useNutritionSettings() {
   const { user } = useAuth();
-  const [settings, setSettings] = useState<NutritionSettingsData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const queryKey = `nutritionSettings:${user?.id || 'anon'}`;
+  
+  // 캐시에서 초기값 가져오기
+  const cachedEntry = nutritionSettingsCache.get(queryKey);
+  const initialSettings = cachedEntry?.settings || null;
+  const hasCachedData = !!cachedEntry;
+  
+  const [settings, setSettings] = useState<NutritionSettingsData | null>(initialSettings);
+  // 캐시가 있으면 loading=false로 시작 (stale-while-revalidate)
+  const [loading, setLoading] = useState(!hasCachedData);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  // 쿼리 키 (React Query 스타일)
-  const queryKey = `nutritionSettings:${user?.id || 'anon'}`;
+  
+  const isMountedRef = useRef(true);
 
   const fetch = useCallback(async () => {
     if (!user) {
@@ -53,7 +64,10 @@ export function useNutritionSettings() {
       return;
     }
 
-    setLoading(true);
+    // 캐시가 없을 때만 로딩 표시
+    if (!nutritionSettingsCache.has(queryKey)) {
+      setLoading(true);
+    }
     setError(null);
 
     try {
@@ -65,8 +79,10 @@ export function useNutritionSettings() {
 
       if (fetchError) throw fetchError;
 
+      if (!isMountedRef.current) return;
+
       if (data) {
-        setSettings({
+        const newSettings: NutritionSettingsData = {
           userId: data.user_id,
           age: data.age,
           heightCm: data.height_cm,
@@ -77,18 +93,27 @@ export function useNutritionSettings() {
           proteinGoalG: data.protein_goal_g || DEFAULT_GOALS.proteinGoalG,
           fatGoalG: data.fat_goal_g || DEFAULT_GOALS.fatGoalG,
           updatedAt: data.updated_at || new Date().toISOString(),
-        });
+        };
+        
+        // 캐시 업데이트
+        nutritionSettingsCache.set(queryKey, { settings: newSettings, cachedAt: Date.now() });
+        setSettings(newSettings);
       } else {
-        // 설정 없음 - null로 설정
+        // 설정 없음 - null로 캐시
+        nutritionSettingsCache.set(queryKey, { settings: null, cachedAt: Date.now() });
         setSettings(null);
       }
     } catch (err) {
       console.error('Error fetching nutrition settings:', err);
-      setError('설정을 불러오는 중 오류가 발생했습니다.');
+      if (isMountedRef.current) {
+        setError('설정을 불러오는 중 오류가 발생했습니다.');
+      }
     } finally {
-      setLoading(false);
+      if (isMountedRef.current) {
+        setLoading(false);
+      }
     }
-  }, [user]);
+  }, [user, queryKey]);
 
   // 설정 저장 (upsert)
   const save = useCallback(async (input: NutritionSettingsInput): Promise<boolean> => {
@@ -123,8 +148,7 @@ export function useNutritionSettings() {
 
       if (upsertError) throw upsertError;
 
-      // 로컬 상태 업데이트
-      setSettings({
+      const newSettings: NutritionSettingsData = {
         userId: user.id,
         age: input.age || null,
         heightCm: input.heightCm || null,
@@ -132,7 +156,11 @@ export function useNutritionSettings() {
         goalWeight: input.goalWeight || null,
         ...goals,
         updatedAt: new Date().toISOString(),
-      });
+      };
+      
+      // 즉시 캐시 및 상태 업데이트
+      nutritionSettingsCache.set(queryKey, { settings: newSettings, cachedAt: Date.now() });
+      setSettings(newSettings);
 
       return true;
     } catch (err) {
@@ -142,10 +170,12 @@ export function useNutritionSettings() {
     } finally {
       setSaving(false);
     }
-  }, [user]);
+  }, [user, queryKey]);
 
-  // 목표값 반환 (설정 없으면 기본값)
-  const getGoals = useCallback((): NutritionGoals => {
+  // 목표값 반환 (설정 없으면 기본값, 단 loading 중이고 캐시가 없으면 null 반환)
+  const getGoals = useCallback((): NutritionGoals | null => {
+    // 로딩 중이고 캐시도 없으면 null (기본값 사용하지 않음)
+    if (loading && !settings) return null;
     if (!settings) return DEFAULT_GOALS;
     return {
       calorieGoal: settings.calorieGoal,
@@ -153,7 +183,7 @@ export function useNutritionSettings() {
       proteinGoalG: settings.proteinGoalG,
       fatGoalG: settings.fatGoalG,
     };
-  }, [settings]);
+  }, [settings, loading]);
 
   // 설정이 있는지 확인
   const hasSettings = settings !== null && 
@@ -161,7 +191,11 @@ export function useNutritionSettings() {
     settings.currentWeight > 0;
 
   useEffect(() => {
+    isMountedRef.current = true;
     fetch();
+    return () => {
+      isMountedRef.current = false;
+    };
   }, [fetch]);
 
   return {

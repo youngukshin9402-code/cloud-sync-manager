@@ -77,7 +77,7 @@ export default function Dashboard() {
   } = useDailyData();
 
   // 단일 소스: nutrition_settings에서 목표, meal_records에서 섭취량
-  const { getGoals, hasSettings } = useNutritionSettings();
+  const { getGoals, hasSettings, loading: settingsLoading, refetch: refetchSettings } = useNutritionSettings();
   const {
     totals,
     records: todayMealRecords,
@@ -89,8 +89,10 @@ export default function Dashboard() {
   const goals = getGoals();
   // Dashboard 칼로리는 무조건 오늘 meal_records 합계 사용 (DailyData 컨텍스트 대신)
   const todayCalories = totals.totalCalories;
-  const calorieGoal = goals.calorieGoal;
-  const caloriesReady = todayMealRecords.length > 0 || !mealsLoading;
+  // goals가 null이면 로딩 중 (기본값 사용하지 않음)
+  const calorieGoal = goals?.calorieGoal ?? 0;
+  const goalsReady = goals !== null;
+  const caloriesReady = goalsReady && (todayMealRecords.length > 0 || !mealsLoading);
   const caloriesMet = caloriesReady && calorieGoal > 0 && todayCalories >= calorieGoal;
 
   const [showAIDialog, setShowAIDialog] = useState(false);
@@ -103,17 +105,19 @@ export default function Dashboard() {
     refreshWater();
     refreshPoints();
     refetchMeals();
-  }, [refreshWater, refreshPoints, refetchMeals]);
+    refetchSettings();
+  }, [refreshWater, refreshPoints, refetchMeals, refetchSettings]);
 
   useEffect(() => {
     const handleFocus = () => {
       refreshWater();
       refreshPoints();
       refetchMeals();
+      refetchSettings();
     };
     window.addEventListener('focus', handleFocus);
     return () => window.removeEventListener('focus', handleFocus);
-  }, [refreshWater, refreshPoints, refetchMeals]);
+  }, [refreshWater, refreshPoints, refetchMeals, refetchSettings]);
 
   // Initialize missions if not exists
   useEffect(() => {
@@ -207,22 +211,24 @@ export default function Dashboard() {
                   </div>
                   <span className="text-xs text-muted-foreground whitespace-nowrap truncate">섭취 칼로리</span>
                 </div>
-                {caloriesMet && (
+                {caloriesReady && caloriesMet && (
                   <Badge className="bg-health-green text-white text-[9px] px-1 py-0 shrink-0">
                     달성
                   </Badge>
                 )}
               </div>
               <p className="text-lg font-bold tabular-nums">
-                {caloriesReady ? todayCalories.toLocaleString() : "…"}
+                {goalsReady && !mealsLoading ? todayCalories.toLocaleString() : "…"}
               </p>
-              <p className="text-[10px] text-muted-foreground">목표 {calorieGoal.toLocaleString()} kcal</p>
+              <p className="text-[10px] text-muted-foreground">
+                목표 {goalsReady ? calorieGoal.toLocaleString() : "…"} kcal
+              </p>
               <div className="mt-1.5 h-1 bg-muted rounded-full overflow-hidden">
                 <div
                   className="h-full bg-health-orange transition-all"
                   style={{
                     width: `${
-                      caloriesReady && calorieGoal > 0
+                      goalsReady && calorieGoal > 0
                         ? Math.min((todayCalories / calorieGoal) * 100, 100)
                         : 0
                     }%`,
