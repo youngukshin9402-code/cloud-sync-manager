@@ -308,17 +308,17 @@ export default function Shop() {
                 무료 상담 신청하기
               </Button>
 
-              {/* 결제하기 버튼 */}
-              {coachingProduct && !isPaid && !checkingPayment && (
+              {/* 결제하기 버튼 - 항상 표시, 로딩 중에는 비활성화 */}
+              {!isPaid && (
                 <Button 
                   size="lg" 
                   variant="outline"
                   className="w-full h-14 text-lg border-primary text-primary hover:bg-primary hover:text-primary-foreground"
                   onClick={handleStartPayment}
-                  disabled={paymentLoading}
+                  disabled={paymentLoading || checkingPayment || !coachingProduct}
                 >
                   <CreditCard className="w-5 h-5 mr-2" />
-                  {paymentLoading ? "처리 중..." : "결제하기"}
+                  {checkingPayment ? "확인 중..." : paymentLoading ? "처리 중..." : "결제하기"}
                 </Button>
               )}
             </div>
