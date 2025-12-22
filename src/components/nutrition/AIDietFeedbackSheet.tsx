@@ -90,11 +90,19 @@ export function AIDietFeedbackSheet({
     }
   };
 
-  // 시트 열릴 때 피드백 생성
+  // 시트 열릴 때마다 새로 피드백 생성
   const handleOpenChange = (isOpen: boolean) => {
     onOpenChange(isOpen);
-    if (isOpen && hasRecords && !feedback && !loading) {
+    if (isOpen && hasRecords && !loading) {
+      // 시트 열릴 때 항상 새로 분석
+      setFeedback(null);
+      setError(null);
       generateFeedback();
+    }
+    if (!isOpen) {
+      // 닫힐 때 상태 초기화
+      setFeedback(null);
+      setError(null);
     }
   };
 
