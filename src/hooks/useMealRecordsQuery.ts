@@ -41,9 +41,10 @@ function parseMealRecord(row: {
 export interface UseMealRecordsQueryOptions {
   dateStr: string;
   enabled?: boolean;
+  skipImageResolve?: boolean; // 이미지 URL resolve 스킵 (Dashboard용)
 }
 
-export function useMealRecordsQuery({ dateStr, enabled = true }: UseMealRecordsQueryOptions) {
+export function useMealRecordsQuery({ dateStr, enabled = true, skipImageResolve = false }: UseMealRecordsQueryOptions) {
   const { user } = useAuth();
   const [records, setRecords] = useState<MealRecordServer[]>([]);
   const [loading, setLoading] = useState(true);
@@ -96,22 +97,26 @@ export function useMealRecordsQuery({ dateStr, enabled = true }: UseMealRecordsQ
 
       const parsed = (data || []).map(parseMealRecord);
       
-      // Resolve image URLs
-      const withImages = await Promise.all(
-        parsed.map(async (record) => ({
-          ...record,
-          image_url: await resolveImageUrl(record.image_url),
-        }))
-      );
-
-      setRecords(withImages);
+      // skipImageResolve가 true면 이미지 resolve 스킵 (Dashboard에서 빠른 로딩)
+      if (skipImageResolve) {
+        setRecords(parsed);
+      } else {
+        // Resolve image URLs
+        const withImages = await Promise.all(
+          parsed.map(async (record) => ({
+            ...record,
+            image_url: await resolveImageUrl(record.image_url),
+          }))
+        );
+        setRecords(withImages);
+      }
     } catch (err) {
       console.error('Error fetching meal records:', err);
       setError('식사 기록을 불러오는 중 오류가 발생했습니다.');
     } finally {
       setLoading(false);
     }
-  }, [user, dateStr, enabled, resolveImageUrl]);
+  }, [user, dateStr, enabled, resolveImageUrl, skipImageResolve]);
 
   // Add a meal record
   const add = useCallback(async (
@@ -324,8 +329,8 @@ export function useMealRecordsQuery({ dateStr, enabled = true }: UseMealRecordsQ
   };
 }
 
-// 오늘 기록 전용 훅 (Dashboard에서 사용)
+// 오늘 기록 전용 훅 (Dashboard에서 사용) - 이미지 resolve 스킵으로 빠른 로딩
 export function useTodayMealRecords() {
   const todayStr = getKSTDateString();
-  return useMealRecordsQuery({ dateStr: todayStr });
+  return useMealRecordsQuery({ dateStr: todayStr, skipImageResolve: true });
 }

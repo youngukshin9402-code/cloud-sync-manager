@@ -860,11 +860,7 @@ export default function Exercise() {
               <Button size="lg" className="w-full" onClick={() => addToPendingExercises(false)}>
                 수정 완료
               </Button>
-            ) : (
-              <Button size="lg" className="w-full" variant="outline" onClick={() => addToPendingExercises(false)}>
-                장바구니에 추가 후 닫기
-              </Button>
-            )}
+            ) : null}
           </div>
         ) : (
           /* 운동 추가 버튼 */
