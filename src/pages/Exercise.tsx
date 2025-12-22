@@ -701,50 +701,54 @@ export default function Exercise() {
                       )}
                     </div>
                     
-                    {/* 무게 + 횟수 입력 - 한 줄 정렬 */}
-                    <div className="flex items-center justify-between gap-4">
-                      {/* 무게 */}
-                      <div className="flex items-center gap-1">
-                        <span className="text-xs text-muted-foreground w-8">무게</span>
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          className="h-8 w-8 shrink-0"
-                          onClick={() => updateSet(index, "weight", -5)}
-                        >
-                          <Minus className="w-3 h-3" />
-                        </Button>
-                        <span className="min-w-[50px] text-center font-bold text-sm">{set.weight}kg</span>
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          className="h-8 w-8 shrink-0"
-                          onClick={() => updateSet(index, "weight", 5)}
-                        >
-                          <Plus className="w-3 h-3" />
-                        </Button>
+                    {/* 무게 + 횟수 입력 - 세로 정렬 */}
+                    <div className="flex flex-col gap-2">
+                      {/* 무게 줄 */}
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground w-10 shrink-0">무게</span>
+                        <div className="flex items-center gap-1 flex-1 justify-start">
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="h-9 w-9 shrink-0"
+                            onClick={() => updateSet(index, "weight", -5)}
+                          >
+                            <Minus className="w-3 h-3" />
+                          </Button>
+                          <span className="w-16 text-center font-bold">{set.weight}kg</span>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="h-9 w-9 shrink-0"
+                            onClick={() => updateSet(index, "weight", 5)}
+                          >
+                            <Plus className="w-3 h-3" />
+                          </Button>
+                        </div>
                       </div>
 
-                      {/* 횟수 */}
-                      <div className="flex items-center gap-1">
-                        <span className="text-xs text-muted-foreground w-8">횟수</span>
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          className="h-8 w-8 shrink-0"
-                          onClick={() => updateSet(index, "reps", -1)}
-                        >
-                          <Minus className="w-3 h-3" />
-                        </Button>
-                        <span className="min-w-[40px] text-center font-bold text-sm">{set.reps}회</span>
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          className="h-8 w-8 shrink-0"
-                          onClick={() => updateSet(index, "reps", 1)}
-                        >
-                          <Plus className="w-3 h-3" />
-                        </Button>
+                      {/* 횟수 줄 */}
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground w-10 shrink-0">횟수</span>
+                        <div className="flex items-center gap-1 flex-1 justify-start">
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="h-9 w-9 shrink-0"
+                            onClick={() => updateSet(index, "reps", -1)}
+                          >
+                            <Minus className="w-3 h-3" />
+                          </Button>
+                          <span className="w-16 text-center font-bold">{set.reps}회</span>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="h-9 w-9 shrink-0"
+                            onClick={() => updateSet(index, "reps", 1)}
+                          >
+                            <Plus className="w-3 h-3" />
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   </div>

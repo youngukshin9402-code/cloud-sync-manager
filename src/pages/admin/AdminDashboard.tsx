@@ -17,6 +17,7 @@ import {
   ClipboardList,
   Video,
   MessageSquare,
+  Brain,
 } from "lucide-react";
 
 export default function AdminDashboard() {
@@ -61,6 +62,13 @@ export default function AdminDashboard() {
       path: "/admin/health-records",
       count: `${stats.pendingReviews}건 대기`,
       highlight: stats.pendingReviews > 0,
+    },
+    {
+      id: "health-reviews",
+      icon: Brain,
+      label: "AI 분석 검토",
+      description: "건강검진 AI 분석 검토/코멘트",
+      path: "/admin/health-reviews",
     },
     {
       id: "products",

@@ -160,7 +160,7 @@ export function ChatWindow({
   };
 
   return (
-    <div className="flex flex-col h-full min-h-0 bg-background">
+    <div className="flex flex-col h-full min-h-0 bg-background relative">
       {/* Messages Area - flex-1 with proper scroll */}
       <div 
         ref={scrollContainerRef}

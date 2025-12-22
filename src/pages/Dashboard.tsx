@@ -6,6 +6,7 @@ import { useNutritionSettings } from "@/hooks/useNutritionSettings";
 import { useTodayMealRecords } from "@/hooks/useMealRecordsQuery";
 import { useGoalAchievement } from "@/hooks/useGoalAchievement";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
@@ -190,7 +191,13 @@ export default function Dashboard() {
         <div className="grid grid-cols-2 gap-3">
           {/* Calories */}
           <Link to="/nutrition" className="block">
-            <div className="bg-card rounded-2xl border border-border p-4 hover:shadow-md transition-shadow">
+            <div className="bg-card rounded-2xl border border-border p-4 hover:shadow-md transition-shadow relative">
+              {/* 달성 배지 */}
+              {todayCalories >= calorieGoal * 0.9 && todayCalories <= calorieGoal * 1.1 && (
+                <Badge className="absolute top-2 right-2 bg-health-green text-white text-[10px] px-1.5 py-0.5">
+                  달성 완료
+                </Badge>
+              )}
               <div className="flex items-center gap-2 mb-2">
                 <div className="w-8 h-8 rounded-full bg-health-orange/10 flex items-center justify-center">
                   <Flame className="w-4 h-4 text-health-orange" />
@@ -210,7 +217,13 @@ export default function Dashboard() {
 
           {/* Water */}
           <Link to="/water" className="block">
-            <div className="bg-card rounded-2xl border border-border p-4 hover:shadow-md transition-shadow">
+            <div className="bg-card rounded-2xl border border-border p-4 hover:shadow-md transition-shadow relative">
+              {/* 달성 배지 */}
+              {todayWater >= waterGoal && (
+                <Badge className="absolute top-2 right-2 bg-health-green text-white text-[10px] px-1.5 py-0.5">
+                  달성 완료
+                </Badge>
+              )}
               <div className="flex items-center gap-2 mb-2">
                 <div className="w-8 h-8 rounded-full bg-health-blue/10 flex items-center justify-center">
                   <Droplets className="w-4 h-4 text-health-blue" />
@@ -229,7 +242,13 @@ export default function Dashboard() {
           </Link>
 
           {/* 오늘 할 일 카드 - 클릭해도 이동 안함, 홈 체크리스트만 반영 */}
-          <div className="bg-card rounded-2xl border border-border p-4">
+          <div className="bg-card rounded-2xl border border-border p-4 relative">
+            {/* 달성 배지 */}
+            {completedMissions === totalMissions && totalMissions > 0 && (
+              <Badge className="absolute top-2 right-2 bg-health-green text-white text-[10px] px-1.5 py-0.5">
+                달성 완료
+              </Badge>
+            )}
             <div className="flex items-center gap-2 mb-2">
               <div className="w-8 h-8 rounded-full bg-health-green/10 flex items-center justify-center">
                 <CheckCircle className="w-4 h-4 text-health-green" />

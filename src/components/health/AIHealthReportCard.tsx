@@ -94,7 +94,37 @@ export function AIHealthReportCard({ sourceRecordId }: Props) {
     };
 
     fetchData();
-  }, [user, sourceRecordId]);
+
+    // Realtime 구독: 리뷰 변경 시 즉시 반영
+    const channel = supabase
+      .channel('ai_health_reviews_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'ai_health_reviews',
+        },
+        (payload) => {
+          // 새 리뷰가 published 되었을 때만 반영
+          const newReview = payload.new as AIHealthReview;
+          if (newReview && newReview.review_status === 'published') {
+            // 현재 report와 매칭되는지 확인
+            if (report && (payload.new as any).report_id === report.id) {
+              setReview(newReview);
+            } else {
+              // report_id가 없을 수 있으니 전체 refetch
+              fetchData();
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, sourceRecordId, report?.id]);
 
   if (loading) {
     return (
