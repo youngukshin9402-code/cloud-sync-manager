@@ -18,6 +18,7 @@ import {
   Download,
   MessageCircle,
 } from "lucide-react";
+import { CheckinSheet } from "@/components/CheckinSheet";
 
 export default function Profile() {
   const { profile, signOut } = useAuth();
@@ -144,6 +145,11 @@ export default function Profile() {
           <MessageCircle className="w-5 h-5" />
           코치 채팅
         </Button>
+
+        {/* 체크인 버튼 */}
+        <div className="mt-3">
+          <CheckinSheet />
+        </div>
       </div>
 
       {/* 메뉴 리스트 */}

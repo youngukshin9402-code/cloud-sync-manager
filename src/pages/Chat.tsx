@@ -77,7 +77,7 @@ export default function Chat() {
 
   // 채팅 UI 바로 표시 (이름만 늦게 로딩)
   return (
-    <div className="h-screen flex flex-col bg-background">
+    <div className="h-screen flex flex-col bg-background overflow-hidden">
       {/* Header - shrink-0 */}
       <header className="shrink-0 bg-card border-b px-4 py-3 flex items-center gap-3">
         <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
@@ -91,8 +91,8 @@ export default function Chat() {
         </div>
       </header>
 
-      {/* Chat Window - flex-1 with proper height calculation */}
-      <div className="flex-1 min-h-0 relative">
+      {/* Chat Window - flex-1 with min-h-0 to prevent overflow */}
+      <div className="flex-1 min-h-0 overflow-hidden">
         <ChatWindow
           messages={messages}
           loading={loading}

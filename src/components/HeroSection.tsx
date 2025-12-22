@@ -20,25 +20,14 @@ export function HeroSection() {
           {/* 배지 */}
           <div className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-primary/10 text-primary mb-8 animate-fade-in">
             <Sparkles className="w-5 h-5" />
-            <span className="text-lg font-medium">시니어를 위한 맞춤 건강 관리</span>
+            <span className="text-lg font-medium">성인을 위한 맞춤 건강 관리</span>
           </div>
 
           {/* 메인 타이틀 */}
           <h1 className="text-4xl md:text-5xl lg:text-7xl font-bold text-foreground mb-8 leading-tight animate-slide-up">
             <span className="whitespace-nowrap">
               건강도{" "}
-              <span className="text-primary relative">
-                양갱
-                <svg className="absolute -bottom-2 left-0 w-full" viewBox="0 0 200 12" fill="none">
-                  <path
-                    d="M2 8C50 2 150 2 198 8"
-                    stroke="hsl(var(--primary))"
-                    strokeWidth="4"
-                    strokeLinecap="round"
-                    className="opacity-30"
-                  />
-                </svg>
-              </span>
+              <span className="text-primary">양갱</span>
               처럼
             </span>
             <br />

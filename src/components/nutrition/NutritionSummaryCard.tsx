@@ -31,7 +31,7 @@ export function NutritionSummaryCard({ totals, goals, hasSettings, onGoalsUpdate
   }
 
   return (
-    <div className="bg-gradient-to-br from-orange-500 to-amber-600 rounded-3xl p-5 text-white space-y-4">
+    <div className="bg-gradient-to-br from-[#2F4DB6] to-[#5B7CFF] rounded-3xl p-5 text-white space-y-4">
       {/* 상단: 섭취/목표 */}
       <div className="flex items-end justify-between">
         <div>
@@ -44,12 +44,12 @@ export function NutritionSummaryCard({ totals, goals, hasSettings, onGoalsUpdate
         <NutritionSettingsForm compact onGoalsUpdate={onGoalsUpdate} />
       </div>
 
-      {/* 칼로리 프로그레스 - 주황 카드 위 파란 테마 */}
+      {/* 칼로리 프로그레스 */}
       <div>
         <Progress 
           value={caloriePercent} 
           className="h-3 bg-white/20"
-          indicatorClassName="bg-sky-400"
+          indicatorClassName="bg-[#8FB3FF]"
         />
         <p className="text-sm text-white/80 mt-2 flex items-center gap-1">
           <Flame className="w-4 h-4" />
@@ -65,7 +65,7 @@ export function NutritionSummaryCard({ totals, goals, hasSettings, onGoalsUpdate
             <Wheat className="w-4 h-4" />
             <span className="text-xs">탄수화물</span>
           </div>
-          <Progress value={carbPercent} className="h-1.5 bg-white/20 mb-1" indicatorClassName="bg-sky-400" />
+          <Progress value={carbPercent} className="h-1.5 bg-white/20 mb-1" indicatorClassName="bg-white/70" />
           <p className="text-sm font-semibold">
             {totals.totalCarbs}g / {goals.carbGoalG}g
           </p>
@@ -78,7 +78,7 @@ export function NutritionSummaryCard({ totals, goals, hasSettings, onGoalsUpdate
             <Beef className="w-4 h-4" />
             <span className="text-xs">단백질</span>
           </div>
-          <Progress value={proteinPercent} className="h-1.5 bg-white/20 mb-1" indicatorClassName="bg-sky-400" />
+          <Progress value={proteinPercent} className="h-1.5 bg-white/20 mb-1" indicatorClassName="bg-white/70" />
           <p className="text-sm font-semibold">
             {totals.totalProtein}g / {goals.proteinGoalG}g
           </p>
@@ -91,7 +91,7 @@ export function NutritionSummaryCard({ totals, goals, hasSettings, onGoalsUpdate
             <Droplet className="w-4 h-4" />
             <span className="text-xs">지방</span>
           </div>
-          <Progress value={fatPercent} className="h-1.5 bg-white/20 mb-1" indicatorClassName="bg-sky-400" />
+          <Progress value={fatPercent} className="h-1.5 bg-white/20 mb-1" indicatorClassName="bg-white/70" />
           <p className="text-sm font-semibold">
             {totals.totalFat}g / {goals.fatGoalG}g
           </p>

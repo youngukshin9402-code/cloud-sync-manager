@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -27,6 +27,14 @@ interface CoachProfile {
   nickname: string | null;
 }
 
+interface CheckinData {
+  conditionScore: number;
+  sleepHours: number;
+  exerciseDone: boolean;
+  mealCount: number;
+  notes?: string;
+}
+
 export function useCoaching() {
   const { user, profile } = useAuth();
   const { toast } = useToast();
@@ -34,11 +42,10 @@ export function useCoaching() {
   const [mySessions, setMySessions] = useState<CoachingSession[]>([]);
   const [coaches, setCoaches] = useState<CoachProfile[]>([]);
   const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
 
-  // 사용 가능한 코치 슬롯 가져오기
   const fetchAvailableSlots = async () => {
     const today = new Date().toISOString().split("T")[0];
-    
     const { data, error } = await supabase
       .from("coach_availability")
       .select("*")
@@ -46,171 +53,115 @@ export function useCoaching() {
       .eq("is_booked", false)
       .order("available_date", { ascending: true })
       .order("start_time", { ascending: true });
-
-    if (error) {
-      console.error("Error fetching slots:", error);
-      return;
-    }
-
-    setAvailableSlots(data || []);
+    if (!error) setAvailableSlots(data || []);
   };
 
-  // 내 코칭 세션 가져오기
   const fetchMySessions = async () => {
     if (!user) return;
-
     const { data, error } = await supabase
       .from("coaching_sessions")
       .select("*")
       .eq("user_id", user.id)
       .order("scheduled_at", { ascending: true });
-
-    if (error) {
-      console.error("Error fetching sessions:", error);
-      return;
-    }
-
-    setMySessions(data || []);
+    if (!error) setMySessions(data || []);
   };
 
-  // 코치 목록 가져오기
   const fetchCoaches = async () => {
     const { data, error } = await supabase
       .from("profiles")
       .select("id, nickname")
       .eq("user_type", "coach");
-
-    if (error) {
-      console.error("Error fetching coaches:", error);
-      return;
-    }
-
-    setCoaches(data || []);
+    if (!error) setCoaches(data || []);
   };
 
-  // 코칭 세션 예약하기
   const bookSession = async (slotId: string, coachId: string, scheduledAt: string) => {
-    if (!user) {
-      toast({
-        title: "로그인 필요",
-        description: "코칭을 예약하려면 로그인이 필요합니다.",
-        variant: "destructive",
-      });
-      return false;
-    }
-
+    if (!user) return false;
     if (profile?.subscription_tier !== "premium") {
-      toast({
-        title: "프리미엄 전용",
-        description: "1:1 코칭은 프리미엄 회원만 이용할 수 있습니다.",
-        variant: "destructive",
-      });
+      toast({ title: "프리미엄 전용", variant: "destructive" });
       return false;
     }
-
     try {
-      // 슬롯을 예약됨으로 표시
-      const { error: slotError } = await supabase
-        .from("coach_availability")
-        .update({ is_booked: true })
-        .eq("id", slotId);
-
-      if (slotError) throw slotError;
-
-      // 비디오 룸 ID 생성
-      const videoRoomId = `coaching_${user.id}_${Date.now()}`;
-
-      // 코칭 세션 생성
-      const { error: sessionError } = await supabase
-        .from("coaching_sessions")
-        .insert({
-          coach_id: coachId,
-          user_id: user.id,
-          scheduled_at: scheduledAt,
-          status: "scheduled",
-          video_room_id: videoRoomId,
-        });
-
-      if (sessionError) throw sessionError;
-
-      toast({
-        title: "예약 완료! 🎉",
-        description: "코칭 세션이 성공적으로 예약되었습니다.",
+      await supabase.from("coach_availability").update({ is_booked: true }).eq("id", slotId);
+      await supabase.from("coaching_sessions").insert({
+        coach_id: coachId,
+        user_id: user.id,
+        scheduled_at: scheduledAt,
+        status: "scheduled",
+        video_room_id: `coaching_${user.id}_${Date.now()}`,
       });
-
+      toast({ title: "예약 완료!" });
       await fetchAvailableSlots();
       await fetchMySessions();
       return true;
-    } catch (error) {
-      console.error("Booking error:", error);
-      toast({
-        title: "예약 실패",
-        description: "예약 중 오류가 발생했습니다. 다시 시도해주세요.",
-        variant: "destructive",
-      });
+    } catch {
+      toast({ title: "예약 실패", variant: "destructive" });
       return false;
     }
   };
 
-  // 세션 취소
   const cancelSession = async (sessionId: string) => {
     try {
-      const { error } = await supabase
-        .from("coaching_sessions")
-        .update({ status: "cancelled" })
-        .eq("id", sessionId);
-
-      if (error) throw error;
-
-      toast({
-        title: "취소 완료",
-        description: "코칭 세션이 취소되었습니다.",
-      });
-
+      await supabase.from("coaching_sessions").update({ status: "cancelled" }).eq("id", sessionId);
+      toast({ title: "취소 완료" });
       await fetchMySessions();
       return true;
-    } catch (error) {
-      console.error("Cancel error:", error);
-      toast({
-        title: "취소 실패",
-        description: "취소 중 오류가 발생했습니다.",
-        variant: "destructive",
-      });
+    } catch {
       return false;
     }
   };
 
-  // 다음 예정된 세션 가져오기
   const getUpcomingSession = () => {
     const now = new Date();
-    return mySessions.find(
-      (s) => s.status === "scheduled" && new Date(s.scheduled_at) > now
-    );
+    return mySessions.find((s) => s.status === "scheduled" && new Date(s.scheduled_at) > now);
   };
+
+  const sendCheckin = useCallback(async (data: CheckinData): Promise<boolean> => {
+    if (!user || !profile?.assigned_coach_id) {
+      toast({ title: '코치가 배정되지 않았습니다', variant: 'destructive' });
+      return false;
+    }
+    setSending(true);
+    try {
+      const conditionEmoji = ['😫', '😕', '😐', '🙂', '😊'][data.conditionScore - 1] || '😐';
+      const message = `📋 오늘의 체크인\n\n${conditionEmoji} 컨디션: ${data.conditionScore}/5점\n😴 수면: ${data.sleepHours}시간\n${data.exerciseDone ? '✅ 운동 완료' : '❌ 운동 안함'}\n🍽️ 식사 횟수: ${data.mealCount}회${data.notes ? `\n📝 메모: ${data.notes}` : ''}`;
+
+      await supabase.from('chat_messages').insert({
+        sender_id: user.id,
+        receiver_id: profile.assigned_coach_id,
+        message,
+        message_type: 'text',
+      });
+      await supabase.from('checkin_templates').insert({
+        user_id: user.id,
+        condition_score: data.conditionScore,
+        sleep_hours: data.sleepHours,
+        exercise_done: data.exerciseDone,
+        meal_count: data.mealCount,
+        notes: data.notes,
+      });
+      toast({ title: '체크인 전송 완료' });
+      return true;
+    } catch {
+      toast({ title: '전송 실패', variant: 'destructive' });
+      return false;
+    } finally {
+      setSending(false);
+    }
+  }, [user, profile, toast]);
 
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
-      await Promise.all([
-        fetchAvailableSlots(),
-        fetchMySessions(),
-        fetchCoaches(),
-      ]);
+      await Promise.all([fetchAvailableSlots(), fetchMySessions(), fetchCoaches()]);
       setLoading(false);
     };
-
     loadData();
   }, [user]);
 
   return {
-    availableSlots,
-    mySessions,
-    coaches,
-    loading,
-    bookSession,
-    cancelSession,
-    getUpcomingSession,
-    refreshSlots: fetchAvailableSlots,
-    refreshSessions: fetchMySessions,
+    availableSlots, mySessions, coaches, loading, sending,
+    bookSession, cancelSession, getUpcomingSession,
+    refreshSlots: fetchAvailableSlots, refreshSessions: fetchMySessions,
+    sendCheckin, hasCoach: !!profile?.assigned_coach_id,
   };
 }
