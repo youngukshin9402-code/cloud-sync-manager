@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 
-export type HealthRecordStatus = "uploading" | "analyzing" | "pending_review" | "completed";
+export type HealthRecordStatus = "uploading" | "analyzing" | "pending_review" | "completed" | "rejected";
 
 export interface HealthRecordItem {
   name: string;
@@ -180,7 +180,7 @@ export function useHealthRecords() {
       toast.success("업로드 완료! AI가 분석을 시작합니다.");
 
       // Trigger AI analysis
-      const { error: fnError } = await supabase.functions.invoke(
+      const { data: fnData, error: fnError } = await supabase.functions.invoke(
         "analyze-health-checkup",
         {
           body: {
@@ -192,7 +192,25 @@ export function useHealthRecords() {
 
       if (fnError) {
         console.error("Function error:", fnError);
-        toast.error("AI 분석 요청에 실패했습니다. 잠시 후 다시 시도해주세요.");
+        
+        // Check if it's an invalid image error
+        try {
+          const errorBody = typeof fnError === 'object' && fnError.message ? JSON.parse(fnError.message) : null;
+          if (errorBody?.error === "invalid_image") {
+            toast.error("업로드하신 이미지가 건강검진 결과지가 아닙니다. 올바른 이미지를 업로드해주세요.", {
+              duration: 5000
+            });
+          } else {
+            toast.error("AI 분석 요청에 실패했습니다. 잠시 후 다시 시도해주세요.");
+          }
+        } catch {
+          toast.error("AI 분석 요청에 실패했습니다. 잠시 후 다시 시도해주세요.");
+        }
+      } else if (fnData && fnData.error === "invalid_image") {
+        // Handle invalid image response
+        toast.error(fnData.message || "업로드하신 이미지가 건강검진 결과지가 아닙니다. 올바른 이미지를 업로드해주세요.", {
+          duration: 5000
+        });
       }
 
       return record;

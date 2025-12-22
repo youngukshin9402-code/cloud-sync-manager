@@ -151,23 +151,61 @@ health_tags는 해당되는 항목만 배열에 포함해주세요: high_bp, low
 
     // Parse the JSON response from AI
     let parsedData;
+    let isInvalidImage = false;
     try {
       // Extract JSON from the response (it might be wrapped in markdown code blocks)
       const jsonMatch = content.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         parsedData = JSON.parse(jsonMatch[0]);
+        
+        // Check if the AI indicates this is not a health checkup image
+        // Common indicators: no items, null health_age, summary mentions it's not a health checkup
+        const isNotHealthCheckup = 
+          (parsedData.items && parsedData.items.length === 0 && parsedData.health_age === null) ||
+          (parsedData.summary && (
+            parsedData.summary.includes("건강검진 결과가 아닌") ||
+            parsedData.summary.includes("건강검진 결과 이미지가 아닙니다") ||
+            parsedData.summary.includes("식단") ||
+            parsedData.summary.includes("물 섭취")
+          ));
+        
+        if (isNotHealthCheckup) {
+          isInvalidImage = true;
+        }
       } else {
-        throw new Error("No JSON found in response");
+        // No JSON found - likely AI explained that it's not a health checkup image
+        isInvalidImage = true;
+        console.log("No JSON found in AI response - likely not a health checkup image");
       }
     } catch (parseError) {
       console.error("Failed to parse AI response:", parseError);
-      parsedData = {
-        health_age: null,
-        summary: "분석 결과를 처리하는 중 오류가 발생했습니다. 코치님의 검토가 필요합니다.",
-        items: [],
-        health_tags: [],
-        recommendations: [],
-      };
+      isInvalidImage = true;
+    }
+
+    // Handle invalid image case
+    if (isInvalidImage) {
+      console.log("Invalid health checkup image detected");
+      
+      // Update record status to rejected with explanation
+      await supabase
+        .from("health_records")
+        .update({ 
+          status: "rejected",
+          coach_comment: "업로드하신 이미지가 건강검진 결과지가 아닙니다. 건강검진 결과지 이미지를 업로드해주세요."
+        })
+        .eq("id", recordId);
+
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: "invalid_image",
+          message: "업로드하신 이미지가 건강검진 결과지가 아닙니다. 건강검진 결과지 이미지를 다시 업로드해주세요.",
+        }),
+        { 
+          status: 400, 
+          headers: { ...corsHeaders, "Content-Type": "application/json" } 
+        }
+      );
     }
 
     // Get user_id from health_records
