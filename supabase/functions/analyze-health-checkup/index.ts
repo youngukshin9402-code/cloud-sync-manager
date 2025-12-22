@@ -170,6 +170,17 @@ health_tags는 해당되는 항목만 배열에 포함해주세요: high_bp, low
       };
     }
 
+    // Get user_id from health_records
+    const { data: recordData } = await supabase
+      .from("health_records")
+      .select("user_id")
+      .eq("id", recordId)
+      .single();
+
+    if (!recordData) {
+      throw new Error("Record not found");
+    }
+
     // Update health record with parsed data
     const { error: updateError } = await supabase
       .from("health_records")
@@ -184,6 +195,25 @@ health_tags는 해당되는 항목만 배열에 포함해주세요: high_bp, low
     if (updateError) {
       console.error("Failed to update health record:", updateError);
       throw new Error("분석 결과 저장에 실패했습니다.");
+    }
+
+    // Also create/update ai_health_reports for AIHealthReportCard display
+    const { error: reportError } = await supabase
+      .from("ai_health_reports")
+      .upsert({
+        user_id: recordData.user_id,
+        source_type: "health_checkup",
+        source_record_id: recordId,
+        status: "completed",
+        ai_result: parsedData,
+        input_snapshot: { imageUrls },
+      }, {
+        onConflict: "source_record_id",
+      });
+
+    if (reportError) {
+      console.error("Failed to create ai_health_report:", reportError);
+      // Non-fatal, continue anyway
     }
 
     console.log("Health checkup analysis completed successfully");

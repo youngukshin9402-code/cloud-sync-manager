@@ -282,6 +282,32 @@ export function useMealRecordsQuery({ dateStr, enabled = true }: UseMealRecordsQ
     fetch();
   }, [fetch]);
 
+  // Realtime 구독: meal_records 변경 시 즉시 반영
+  useEffect(() => {
+    if (!user || !enabled) return;
+
+    const channel = supabase
+      .channel(`meal_records_${user.id}_${dateStr}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'meal_records',
+          filter: `user_id=eq.${user.id}`,
+        },
+        async (payload) => {
+          // INSERT/UPDATE/DELETE 모두 refetch로 동기화
+          await fetch();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, dateStr, enabled, fetch]);
+
   return {
     records,
     loading,

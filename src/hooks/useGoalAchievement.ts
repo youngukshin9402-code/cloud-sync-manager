@@ -78,6 +78,7 @@ export function useGoalAchievement() {
   }, [user, today]);
 
   // 목표 달성 체크 및 알림
+  // 핵심: 이미 notifiedAt이 있으면(오늘 알림 완료) 재알림 금지
   const checkAndNotify = useCallback(async (
     caloriesMet: boolean,
     waterMet: boolean,
@@ -87,18 +88,21 @@ export function useGoalAchievement() {
 
     const allGoalsMet = caloriesMet && waterMet && missionsMet;
     const wasAchieved = prevAchievedRef.current;
+    const alreadyNotifiedToday = achievementState.notifiedAt !== null;
 
     // 상태 변화 없으면 무시
     if (allGoalsMet === wasAchieved) return;
 
-    // DB 업데이트
+    // DB 업데이트 - 알림은 한번만 (notifiedAt이 null일 때만 설정)
+    const shouldNotify = allGoalsMet && !wasAchieved && !alreadyNotifiedToday;
+    
     const { error } = await supabase
       .from('daily_goal_achievements')
       .upsert({
         user_id: user.id,
         date: today,
         achieved: allGoalsMet,
-        notified_at: allGoalsMet && !wasAchieved ? new Date().toISOString() : null,
+        notified_at: shouldNotify ? new Date().toISOString() : achievementState.notifiedAt,
         updated_at: new Date().toISOString(),
       }, {
         onConflict: 'user_id,date',
@@ -109,8 +113,8 @@ export function useGoalAchievement() {
       return;
     }
 
-    // false → true 전환 시에만 알림
-    if (allGoalsMet && !wasAchieved) {
+    // 오늘 처음 달성 시에만 알림 (이미 알림 받았으면 X)
+    if (shouldNotify) {
       toast({
         title: "🎉 오늘의 목표 달성!",
         description: "칼로리, 물, 미션 모두 완료했어요!",
@@ -120,7 +124,7 @@ export function useGoalAchievement() {
     prevAchievedRef.current = allGoalsMet;
     setAchievementState({
       achieved: allGoalsMet,
-      notifiedAt: allGoalsMet && !wasAchieved ? new Date().toISOString() : achievementState.notifiedAt,
+      notifiedAt: shouldNotify ? new Date().toISOString() : achievementState.notifiedAt,
     });
   }, [user, today, toast, achievementState.notifiedAt]);
 
