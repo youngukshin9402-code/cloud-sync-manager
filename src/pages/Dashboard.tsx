@@ -289,6 +289,7 @@ export default function Dashboard() {
             size="sm" 
             className="flex-1 min-h-[40px] whitespace-normal text-sm"
             onClick={handleReshuffle}
+            disabled={completedMissions > 0}
           >
             <RefreshCw className="w-4 h-4 mr-2 shrink-0" />
             <span>다른 제안 받기</span>

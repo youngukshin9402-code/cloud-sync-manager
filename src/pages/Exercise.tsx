@@ -212,11 +212,7 @@ export default function Exercise() {
 
   // 운동 저장
   const saveExercise = async () => {
-    if (!currentExercise || !currentExercise.name) {
-      toast({ title: "운동명을 입력해주세요", variant: "destructive" });
-      return;
-    }
-
+    // 세부 운동명(name)은 비워도 저장 가능
     if (!user) {
       toast({ title: "로그인이 필요합니다", variant: "destructive" });
       return;
@@ -226,9 +222,15 @@ export default function Exercise() {
       const existingRecord = gymRecords.find((r) => r.date === dateStr);
       
       // Convert to GymExercise format for storage
+      // name이 비어있으면 종목명만 표시
+      const sportLabel = SPORT_TYPES.find(s => s.value === currentExercise.sportType)?.label || currentExercise.sportType;
+      const displayName = currentExercise.name?.trim() 
+        ? `[${sportLabel}] ${currentExercise.name}` 
+        : `[${sportLabel}]`;
+      
       const exerciseToSave: GymExercise = {
         id: currentExercise.id,
-        name: `[${SPORT_TYPES.find(s => s.value === currentExercise.sportType)?.label || currentExercise.sportType}] ${currentExercise.name}`,
+        name: displayName,
         sets: currentExercise.sets || [],
         imageUrl: currentExercise.imageUrl,
       };
@@ -583,54 +585,50 @@ export default function Exercise() {
                       )}
                     </div>
                     
-                    {/* 무게 + 횟수 입력 - 모바일 반응형 */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* 무게 + 횟수 입력 - 한 줄 정렬 */}
+                    <div className="flex items-center justify-between gap-4">
                       {/* 무게 */}
-                      <div className="flex items-center justify-between sm:flex-col sm:items-center gap-2">
-                        <span className="text-xs text-muted-foreground whitespace-nowrap">무게</span>
-                        <div className="flex items-center gap-1">
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            className="h-9 w-9 shrink-0"
-                            onClick={() => updateSet(index, "weight", -5)}
-                          >
-                            <Minus className="w-4 h-4" />
-                          </Button>
-                          <span className="min-w-[56px] text-center font-bold text-base sm:text-lg">{set.weight}kg</span>
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            className="h-9 w-9 shrink-0"
-                            onClick={() => updateSet(index, "weight", 5)}
-                          >
-                            <Plus className="w-4 h-4" />
-                          </Button>
-                        </div>
+                      <div className="flex items-center gap-1">
+                        <span className="text-xs text-muted-foreground w-8">무게</span>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-8 w-8 shrink-0"
+                          onClick={() => updateSet(index, "weight", -5)}
+                        >
+                          <Minus className="w-3 h-3" />
+                        </Button>
+                        <span className="min-w-[50px] text-center font-bold text-sm">{set.weight}kg</span>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-8 w-8 shrink-0"
+                          onClick={() => updateSet(index, "weight", 5)}
+                        >
+                          <Plus className="w-3 h-3" />
+                        </Button>
                       </div>
 
                       {/* 횟수 */}
-                      <div className="flex items-center justify-between sm:flex-col sm:items-center gap-2">
-                        <span className="text-xs text-muted-foreground whitespace-nowrap">횟수</span>
-                        <div className="flex items-center gap-1">
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            className="h-9 w-9 shrink-0"
-                            onClick={() => updateSet(index, "reps", -1)}
-                          >
-                            <Minus className="w-4 h-4" />
-                          </Button>
-                          <span className="min-w-[48px] text-center font-bold text-base sm:text-lg">{set.reps}회</span>
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            className="h-9 w-9 shrink-0"
-                            onClick={() => updateSet(index, "reps", 1)}
-                          >
-                            <Plus className="w-4 h-4" />
-                          </Button>
-                        </div>
+                      <div className="flex items-center gap-1">
+                        <span className="text-xs text-muted-foreground w-8">횟수</span>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-8 w-8 shrink-0"
+                          onClick={() => updateSet(index, "reps", -1)}
+                        >
+                          <Minus className="w-3 h-3" />
+                        </Button>
+                        <span className="min-w-[40px] text-center font-bold text-sm">{set.reps}회</span>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-8 w-8 shrink-0"
+                          onClick={() => updateSet(index, "reps", 1)}
+                        >
+                          <Plus className="w-3 h-3" />
+                        </Button>
                       </div>
                     </div>
                   </div>

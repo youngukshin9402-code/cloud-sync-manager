@@ -59,6 +59,7 @@ import AdminCoaches from "./pages/admin/AdminCoaches";
 import AdminPoints from "./pages/admin/AdminPoints";
 import AdminStats from "./pages/admin/AdminStats";
 import AdminChats from "./pages/admin/AdminChats";
+import AdminConsultations from "./pages/admin/AdminConsultations";
 import CoachingFeedback from "./pages/mypage/CoachingFeedback";
 import Chat from "./pages/Chat";
 
@@ -298,6 +299,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute allowedTypes={["admin"]}>
             <AdminChats />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/consultations"
+        element={
+          <ProtectedRoute allowedTypes={["admin"]}>
+            <AdminConsultations />
           </ProtectedRoute>
         }
       />

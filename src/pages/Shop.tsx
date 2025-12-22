@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import {
   ArrowLeft,
   Check,
@@ -23,6 +25,7 @@ type Step = "info" | "request" | "success";
 export default function Shop() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user } = useAuth();
 
   const [step, setStep] = useState<Step>("info");
   const [requestForm, setRequestForm] = useState({
@@ -39,14 +42,36 @@ export default function Shop() {
       return;
     }
 
+    if (!user) {
+      toast({ title: "로그인이 필요합니다", variant: "destructive" });
+      return;
+    }
+
     setIsSubmitting(true);
     
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    setIsSubmitting(false);
-    setStep("success");
-    toast({ title: "상담 신청이 완료되었습니다!" });
+    try {
+      // consultation_requests 테이블에 저장
+      const { error } = await supabase
+        .from("consultation_requests")
+        .insert({
+          user_id: user.id,
+          name: requestForm.name.trim(),
+          phone: requestForm.phone.trim(),
+          goal: requestForm.goal.trim() || null,
+          message: requestForm.message.trim() || null,
+          status: "pending",
+        });
+
+      if (error) throw error;
+      
+      setStep("success");
+      toast({ title: "상담 신청이 완료되었습니다!" });
+    } catch (error) {
+      console.error("Consultation request error:", error);
+      toast({ title: "신청 실패", description: "다시 시도해주세요", variant: "destructive" });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (

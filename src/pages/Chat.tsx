@@ -50,7 +50,7 @@ export default function Chat() {
   // No assigned coach
   if (!assignedCoachId) {
     return (
-      <div className="h-screen flex flex-col bg-background">
+      <div className="h-[100dvh] flex flex-col bg-background overflow-hidden">
         <header className="shrink-0 bg-card border-b px-4 py-3 flex items-center gap-3">
           <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
             <ArrowLeft className="h-5 w-5" />
@@ -77,8 +77,8 @@ export default function Chat() {
 
   // 채팅 UI 바로 표시 (이름만 늦게 로딩)
   return (
-    <div className="h-screen flex flex-col bg-background overflow-hidden">
-      {/* Header - shrink-0 */}
+    <div className="h-[100dvh] flex flex-col bg-background overflow-hidden">
+      {/* Header - shrink-0 고정 */}
       <header className="shrink-0 bg-card border-b px-4 py-3 flex items-center gap-3">
         <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
           <ArrowLeft className="h-5 w-5" />
@@ -91,7 +91,7 @@ export default function Chat() {
         </div>
       </header>
 
-      {/* Chat Window - flex-1 with min-h-0 to prevent overflow */}
+      {/* Chat Window - flex-1 + min-h-0 + overflow-hidden */}
       <div className="flex-1 min-h-0 overflow-hidden">
         <ChatWindow
           messages={messages}

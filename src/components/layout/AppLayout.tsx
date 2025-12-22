@@ -9,7 +9,7 @@ import {
   User,
   LogOut,
   Heart,
-  ShoppingBag,
+  GraduationCap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -18,7 +18,7 @@ const navItems = [
   { path: "/medical", icon: Stethoscope, label: "건강" },
   { path: "/nutrition", icon: Utensils, label: "영양" },
   { path: "/exercise", icon: Dumbbell, label: "운동" },
-  { path: "/shop", icon: ShoppingBag, label: "상점" },
+  { path: "/shop", icon: GraduationCap, label: "코칭" },
   { path: "/profile", icon: User, label: "마이" },
 ];
 
