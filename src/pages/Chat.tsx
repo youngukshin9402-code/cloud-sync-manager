@@ -50,15 +50,15 @@ export default function Chat() {
   // No assigned coach
   if (!assignedCoachId) {
     return (
-      <div className="min-h-screen bg-background">
-        <header className="sticky top-0 z-10 bg-card border-b px-4 py-3 flex items-center gap-3">
+      <div className="h-screen flex flex-col bg-background">
+        <header className="shrink-0 bg-card border-b px-4 py-3 flex items-center gap-3">
           <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <h1 className="text-lg font-semibold">코치 채팅</h1>
         </header>
 
-        <div className="flex flex-col items-center justify-center h-[60vh] p-6 text-center">
+        <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
           <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center mb-4">
             <MessageCircle className="h-10 w-10 text-muted-foreground" />
           </div>
@@ -77,8 +77,9 @@ export default function Chat() {
 
   // 채팅 UI 바로 표시 (이름만 늦게 로딩)
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      <header className="sticky top-0 z-10 bg-card border-b px-4 py-3 flex items-center gap-3">
+    <div className="h-screen flex flex-col bg-background">
+      {/* Header - shrink-0 */}
+      <header className="shrink-0 bg-card border-b px-4 py-3 flex items-center gap-3">
         <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
           <ArrowLeft className="h-5 w-5" />
         </Button>
@@ -90,7 +91,8 @@ export default function Chat() {
         </div>
       </header>
 
-      <div className="flex-1 flex flex-col">
+      {/* Chat Window - flex-1 with proper height calculation */}
+      <div className="flex-1 min-h-0 relative">
         <ChatWindow
           messages={messages}
           loading={loading}

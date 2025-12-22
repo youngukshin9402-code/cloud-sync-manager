@@ -1,25 +1,13 @@
-import { useState, useRef, useEffect } from 'react';
-import { Send, Smile, Image as ImageIcon, Camera, X } from 'lucide-react';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { Send, Plus, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { ChatMessage } from './ChatMessage';
+import { ChatAttachmentPanel } from './ChatAttachmentPanel';
 import { useAuth } from '@/contexts/AuthContext';
 import type { ChatMessage as ChatMessageType } from '@/hooks/useChat';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 
-// 기본 이모지 목록
-const EMOJI_LIST = [
-  '😀', '😃', '😄', '😁', '😆', '😅', '🤣', '😂',
-  '🙂', '😊', '😇', '🥰', '😍', '🤩', '😘', '😗',
-  '😋', '😛', '😜', '🤪', '😝', '🤑', '🤗', '🤭',
-  '🤔', '🤐', '😐', '😑', '😶', '😏', '😒', '🙄',
-  '👍', '👎', '👏', '🙏', '💪', '❤️', '🔥', '✨',
-  '🎉', '🎊', '💯', '👌', '✅', '🆗', '💬', '📸',
-];
+type PanelTab = 'emoji' | 'gallery' | 'camera' | null;
 
 interface ChatWindowProps {
   messages: ChatMessageType[];
@@ -43,24 +31,73 @@ export function ChatWindow({
   const { user } = useAuth();
   const [inputValue, setInputValue] = useState('');
   const [previewImage, setPreviewImage] = useState<{ file: File; url: string } | null>(null);
-  const [emojiOpen, setEmojiOpen] = useState(false);
+  const [panelTab, setPanelTab] = useState<PanelTab>(null);
+  const [isNearBottom, setIsNearBottom] = useState(true);
+  
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+  const prevMessagesLengthRef = useRef(messages.length);
 
-  // Auto-scroll to bottom when new messages arrive
-  useEffect(() => {
+  // Scroll to bottom
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = 'auto') => {
     if (scrollContainerRef.current) {
-      scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
+      scrollContainerRef.current.scrollTo({
+        top: scrollContainerRef.current.scrollHeight,
+        behavior,
+      });
     }
-  }, [messages]);
+  }, []);
+
+  // Check if user is near bottom
+  const checkIfNearBottom = useCallback(() => {
+    if (!scrollContainerRef.current) return true;
+    const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
+    return scrollHeight - scrollTop - clientHeight < 100;
+  }, []);
+
+  // Handle scroll event
+  const handleScroll = useCallback(() => {
+    setIsNearBottom(checkIfNearBottom());
+  }, [checkIfNearBottom]);
+
+  // Initial scroll to bottom
+  useEffect(() => {
+    if (!loading && messages.length > 0) {
+      scrollToBottom();
+    }
+  }, [loading, scrollToBottom]);
+
+  // Auto-scroll on new messages if near bottom
+  useEffect(() => {
+    if (messages.length > prevMessagesLengthRef.current) {
+      // New message arrived
+      const lastMessage = messages[messages.length - 1];
+      const isOwnMessage = lastMessage?.sender_id === user?.id;
+      
+      if (isOwnMessage || isNearBottom) {
+        setTimeout(() => scrollToBottom('smooth'), 50);
+      }
+    }
+    prevMessagesLengthRef.current = messages.length;
+  }, [messages, user?.id, isNearBottom, scrollToBottom]);
+
+  // Auto-resize textarea
+  const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setInputValue(e.target.value);
+    
+    const textarea = e.target;
+    textarea.style.height = 'auto';
+    const maxHeight = 120; // ~5 lines
+    textarea.style.height = `${Math.min(textarea.scrollHeight, maxHeight)}px`;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (sending || readOnly) return;
 
-    // 이미지 전송
+    // Image send
     if (previewImage && onSendImage) {
       const success = await onSendImage(previewImage.file);
       if (success) {
@@ -69,24 +106,36 @@ export function ChatWindow({
       return;
     }
 
-    // 텍스트 전송
+    // Text send
     if (!inputValue.trim()) return;
 
     const message = inputValue;
     setInputValue('');
     
-    const success = await onSendMessage(message);
-    if (!success) {
-      setInputValue(message); // Restore on failure
+    // Reset textarea height
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
     }
     
-    inputRef.current?.focus();
+    const success = await onSendMessage(message);
+    if (!success) {
+      setInputValue(message);
+    }
+    
+    textareaRef.current?.focus();
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSubmit(e);
+    }
   };
 
   const handleEmojiSelect = (emoji: string) => {
     setInputValue((prev) => prev + emoji);
-    setEmojiOpen(false);
-    inputRef.current?.focus();
+    setPanelTab(null);
+    textareaRef.current?.focus();
   };
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -95,7 +144,8 @@ export function ChatWindow({
 
     const url = URL.createObjectURL(file);
     setPreviewImage({ file, url });
-    e.target.value = ''; // Reset input
+    setPanelTab(null);
+    e.target.value = '';
   };
 
   const cancelImagePreview = () => {
@@ -105,41 +155,25 @@ export function ChatWindow({
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex flex-col h-full">
-        <div className="border-b p-4 bg-card">
-          <div className="font-semibold">{partnerName}</div>
-        </div>
-        <div className="flex-1 p-4 space-y-4">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className={`flex ${i % 2 === 0 ? 'justify-end' : 'justify-start'}`}>
-              <div className="h-12 w-48 rounded-2xl bg-muted animate-pulse" />
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
+  const togglePanel = () => {
+    setPanelTab(panelTab ? null : 'emoji');
+  };
 
   return (
-    <div className="flex flex-col h-full bg-background">
-      {/* Header */}
-      <div className="border-b px-4 py-3 bg-card">
-        <h3 className="font-semibold">{partnerName}</h3>
-        {readOnly && (
-          <span className="text-xs text-muted-foreground">읽기 전용 모드</span>
-        )}
-      </div>
-
-      {/* Messages */}
+    <div className="flex flex-col h-full min-h-0 bg-background">
+      {/* Messages Area - flex-1 with proper scroll */}
       <div 
         ref={scrollContainerRef}
-        className="flex-1 overflow-y-auto p-4"
+        className="flex-1 min-h-0 overflow-y-auto px-4 py-3"
+        onScroll={handleScroll}
       >
-        {messages.length === 0 ? (
-          <div className="flex items-center justify-center h-full text-muted-foreground">
-            <p className="text-center">
+        {loading ? (
+          <div className="flex items-center justify-center h-full">
+            <p className="text-muted-foreground text-sm">불러오는 중...</p>
+          </div>
+        ) : messages.length === 0 ? (
+          <div className="flex items-center justify-center h-full">
+            <p className="text-center text-muted-foreground text-sm">
               아직 대화가 없습니다.<br />
               {!readOnly && '첫 메시지를 보내보세요!'}
             </p>
@@ -162,9 +196,23 @@ export function ChatWindow({
         )}
       </div>
 
+      {/* Scroll to bottom button */}
+      {!isNearBottom && messages.length > 0 && (
+        <div className="absolute bottom-24 right-4">
+          <Button
+            variant="secondary"
+            size="sm"
+            className="rounded-full shadow-lg"
+            onClick={() => scrollToBottom('smooth')}
+          >
+            ↓ 최신
+          </Button>
+        </div>
+      )}
+
       {/* Image Preview */}
       {previewImage && (
-        <div className="px-3 py-2 border-t bg-card">
+        <div className="shrink-0 px-4 py-2 border-t bg-card">
           <div className="relative inline-block">
             <img 
               src={previewImage.url} 
@@ -173,7 +221,7 @@ export function ChatWindow({
             />
             <button
               onClick={cancelImagePreview}
-              className="absolute -top-2 -right-2 w-6 h-6 bg-destructive text-destructive-foreground rounded-full flex items-center justify-center"
+              className="absolute -top-2 -right-2 w-6 h-6 bg-destructive text-destructive-foreground rounded-full flex items-center justify-center shadow"
             >
               <X className="w-4 h-4" />
             </button>
@@ -181,86 +229,67 @@ export function ChatWindow({
         </div>
       )}
 
-      {/* Input */}
+      {/* Attachment Panel */}
+      <ChatAttachmentPanel
+        activeTab={panelTab}
+        onClose={() => setPanelTab(null)}
+        onSelectEmoji={handleEmojiSelect}
+        onSelectImage={() => imageInputRef.current?.click()}
+        onOpenCamera={() => cameraInputRef.current?.click()}
+      />
+
+      {/* Hidden file inputs */}
+      <input
+        ref={imageInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleImageSelect}
+      />
+      <input
+        ref={cameraInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={handleImageSelect}
+      />
+
+      {/* Input Bar - shrink-0, sticky at bottom */}
       {!readOnly && (
-        <form onSubmit={handleSubmit} className="border-t p-3 bg-card">
-          <div className="flex items-center gap-2">
-            {/* 이모지 버튼 */}
-            <Popover open={emojiOpen} onOpenChange={setEmojiOpen}>
-              <PopoverTrigger asChild>
-                <Button type="button" variant="ghost" size="icon" className="shrink-0">
-                  <Smile className="h-5 w-5" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-72 p-2" side="top" align="start">
-                <div className="grid grid-cols-8 gap-1">
-                  {EMOJI_LIST.map((emoji) => (
-                    <button
-                      key={emoji}
-                      type="button"
-                      className="text-xl p-1 hover:bg-muted rounded transition-colors"
-                      onClick={() => handleEmojiSelect(emoji)}
-                    >
-                      {emoji}
-                    </button>
-                  ))}
-                </div>
-              </PopoverContent>
-            </Popover>
-
-            {/* 사진 첨부 버튼 */}
+        <form 
+          onSubmit={handleSubmit} 
+          className="shrink-0 border-t bg-card px-3 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]"
+        >
+          <div className="flex items-end gap-2">
+            {/* Plus button */}
             <Button 
               type="button" 
-              variant="ghost" 
+              variant={panelTab ? 'secondary' : 'ghost'}
               size="icon" 
-              className="shrink-0"
-              onClick={() => imageInputRef.current?.click()}
-              disabled={!!previewImage}
+              className="shrink-0 mb-0.5"
+              onClick={togglePanel}
             >
-              <ImageIcon className="h-5 w-5" />
+              <Plus className={`h-5 w-5 transition-transform ${panelTab ? 'rotate-45' : ''}`} />
             </Button>
-            <input
-              ref={imageInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={handleImageSelect}
-            />
 
-            {/* 카메라 버튼 (모바일) */}
-            <Button 
-              type="button" 
-              variant="ghost" 
-              size="icon" 
-              className="shrink-0"
-              onClick={() => cameraInputRef.current?.click()}
-              disabled={!!previewImage}
-            >
-              <Camera className="h-5 w-5" />
-            </Button>
-            <input
-              ref={cameraInputRef}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              className="hidden"
-              onChange={handleImageSelect}
-            />
-
-            {/* 텍스트 입력 */}
-            <Input
-              ref={inputRef}
+            {/* Text input - auto-grow */}
+            <Textarea
+              ref={textareaRef}
               value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              placeholder={previewImage ? "사진을 전송하세요" : "메시지를 입력하세요..."}
+              onChange={handleTextareaChange}
+              onKeyDown={handleKeyDown}
+              placeholder={previewImage ? "사진을 전송하세요" : "메시지를 입력하세요"}
               disabled={sending || !!previewImage}
-              className="flex-1"
+              className="flex-1 min-h-[40px] max-h-[120px] resize-none py-2 px-3"
+              rows={1}
             />
 
-            {/* 전송 버튼 */}
+            {/* Send button */}
             <Button 
               type="submit" 
               size="icon" 
+              className="shrink-0 mb-0.5"
               disabled={((!inputValue.trim() && !previewImage) || sending)}
             >
               <Send className="h-4 w-4" />
