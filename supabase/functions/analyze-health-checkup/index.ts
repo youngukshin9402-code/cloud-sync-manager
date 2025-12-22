@@ -171,14 +171,23 @@ health_tags는 해당되는 항목만 배열에 포함해주세요: high_bp, low
     }
 
     // Get user_id from health_records
-    const { data: recordData } = await supabase
+    const { data: recordData, error: recordFetchError } = await supabase
       .from("health_records")
       .select("user_id")
       .eq("id", recordId)
       .single();
 
-    if (!recordData) {
-      throw new Error("Record not found");
+    if (recordFetchError || !recordData) {
+      console.error("Failed to fetch health record:", recordFetchError);
+      // Record might have been deleted during analysis - just return success without updating
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          message: "레코드를 찾을 수 없습니다. 레코드가 삭제되었을 수 있습니다.",
+          data: parsedData 
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     // Update health record with parsed data
