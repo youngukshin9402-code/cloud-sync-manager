@@ -35,6 +35,9 @@ import { MealCardsGrid } from "@/components/nutrition/MealCardsGrid";
 import { AddFoodSheet } from "@/components/nutrition/AddFoodSheet";
 import { FoodAnalysisSheet } from "@/components/nutrition/FoodAnalysisSheet";
 import { AIDietFeedbackSheet } from "@/components/nutrition/AIDietFeedbackSheet";
+import { NutritionRecommendations } from "@/components/nutrition/NutritionRecommendations";
+import { WeeklyReportCard } from "@/components/nutrition/WeeklyReportCard";
+import { useWeeklyReport } from "@/hooks/useWeeklyReport";
 
 interface AnalyzedFood {
   name: string;
@@ -93,6 +96,9 @@ export default function Nutrition() {
   // 낙관적 업데이트를 위한 로컬 goals 상태
   const [localGoals, setLocalGoals] = useState<NutritionGoals | null>(null);
   const goals = localGoals || getGoals();
+  
+  // 주간 리포트
+  const { report: weeklyReport, loading: reportLoading } = useWeeklyReport(goals);
   
   const loading = settingsLoading || recordsLoading;
   const isTodaySelected = isToday(dateStr);
@@ -327,6 +333,14 @@ export default function Nutrition() {
         onDeleteRecord={handleDeleteRecord}
         onUpdateRecord={handleUpdateRecord}
       />
+
+      {/* 맞춤 추천 */}
+      {isTodaySelected && hasSettings && (
+        <NutritionRecommendations totals={totals} goals={goals} />
+      )}
+
+      {/* 주간 리포트 */}
+      <WeeklyReportCard report={weeklyReport} loading={reportLoading} />
 
       {/* 분석 중 오버레이 */}
       {analyzing && (

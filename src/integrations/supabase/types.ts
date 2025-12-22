@@ -83,6 +83,39 @@ export type Database = {
         }
         Relationships: []
       }
+      checkin_templates: {
+        Row: {
+          condition_score: number | null
+          created_at: string
+          exercise_done: boolean | null
+          id: string
+          meal_count: number | null
+          notes: string | null
+          sleep_hours: number | null
+          user_id: string
+        }
+        Insert: {
+          condition_score?: number | null
+          created_at?: string
+          exercise_done?: boolean | null
+          id?: string
+          meal_count?: number | null
+          notes?: string | null
+          sleep_hours?: number | null
+          user_id: string
+        }
+        Update: {
+          condition_score?: number | null
+          created_at?: string
+          exercise_done?: boolean | null
+          id?: string
+          meal_count?: number | null
+          notes?: string | null
+          sleep_hours?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       coach_availability: {
         Row: {
           available_date: string
@@ -292,6 +325,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      favorite_foods: {
+        Row: {
+          calories: number
+          carbs: number
+          created_at: string
+          fat: number
+          id: string
+          name: string
+          portion: string | null
+          protein: number
+          user_id: string
+        }
+        Insert: {
+          calories?: number
+          carbs?: number
+          created_at?: string
+          fat?: number
+          id?: string
+          name: string
+          portion?: string | null
+          protein?: number
+          user_id: string
+        }
+        Update: {
+          calories?: number
+          carbs?: number
+          created_at?: string
+          fat?: number
+          id?: string
+          name?: string
+          portion?: string | null
+          protein?: number
+          user_id?: string
+        }
+        Relationships: []
       }
       guardian_connections: {
         Row: {
@@ -541,6 +610,39 @@ export type Database = {
           image_url?: string | null
           meal_type?: string
           total_calories?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      meal_sets: {
+        Row: {
+          created_at: string
+          foods: Json
+          id: string
+          meal_type: string
+          name: string
+          total_calories: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          foods?: Json
+          id?: string
+          meal_type?: string
+          name: string
+          total_calories?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          foods?: Json
+          id?: string
+          meal_type?: string
+          name?: string
+          total_calories?: number
+          updated_at?: string
           user_id?: string
         }
         Relationships: []
@@ -1090,6 +1192,57 @@ export type Database = {
           reminder_start?: string | null
           updated_at?: string | null
           user_id?: string
+        }
+        Relationships: []
+      }
+      weekly_reports: {
+        Row: {
+          avg_calories: number | null
+          avg_carbs: number | null
+          avg_fat: number | null
+          avg_protein: number | null
+          calorie_goal_rate: number | null
+          created_at: string
+          id: string
+          improvements: Json | null
+          protein_goal_rate: number | null
+          recommendations: Json | null
+          top_foods: Json | null
+          user_id: string
+          week_end: string
+          week_start: string
+        }
+        Insert: {
+          avg_calories?: number | null
+          avg_carbs?: number | null
+          avg_fat?: number | null
+          avg_protein?: number | null
+          calorie_goal_rate?: number | null
+          created_at?: string
+          id?: string
+          improvements?: Json | null
+          protein_goal_rate?: number | null
+          recommendations?: Json | null
+          top_foods?: Json | null
+          user_id: string
+          week_end: string
+          week_start: string
+        }
+        Update: {
+          avg_calories?: number | null
+          avg_carbs?: number | null
+          avg_fat?: number | null
+          avg_protein?: number | null
+          calorie_goal_rate?: number | null
+          created_at?: string
+          id?: string
+          improvements?: Json | null
+          protein_goal_rate?: number | null
+          recommendations?: Json | null
+          top_foods?: Json | null
+          user_id?: string
+          week_end?: string
+          week_start?: string
         }
         Relationships: []
       }
