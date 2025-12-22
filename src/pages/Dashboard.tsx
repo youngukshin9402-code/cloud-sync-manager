@@ -387,20 +387,20 @@ export default function Dashboard() {
         </DialogContent>
       </Dialog>
 
-      {/* Guardian Family Section */}
+      {/* Guardian Family Section - 보호자만 표시 */}
       {isGuardian && (
-        <Link to="/mypage/guardian" className="block">
-          <div className="bg-card rounded-2xl border border-border p-4 flex items-center justify-between hover:shadow-md transition-shadow">
+        <Link to="/guardian" className="block">
+          <div className="bg-gradient-to-r from-primary/10 to-primary/5 rounded-2xl border border-primary/20 p-4 flex items-center justify-between hover:shadow-md transition-shadow">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+              <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center">
                 <TrendingUp className="w-6 h-6 text-primary" />
               </div>
               <div>
-                <p className="font-semibold">연결된 가족 현황</p>
+                <p className="font-semibold text-primary">연결된 가족 현황</p>
                 <p className="text-sm text-muted-foreground">건강 요약 보기</p>
               </div>
             </div>
-            <ChevronRight className="w-5 h-5 text-muted-foreground" />
+            <ChevronRight className="w-5 h-5 text-primary" />
           </div>
         </Link>
       )}

@@ -323,7 +323,7 @@ function SettingsDialog({
 }: SettingsDialogProps) {
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-md mx-4 max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-md w-[calc(100%-2rem)] max-h-[90vh] overflow-y-auto fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-xl">
             <Target className="w-5 h-5 text-primary" />

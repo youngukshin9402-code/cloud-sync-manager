@@ -214,8 +214,8 @@ export default function Auth() {
         >
           <User className="w-10 h-10 mx-auto mb-3 text-primary" />
           <p className="text-base font-semibold whitespace-nowrap">직접관리</p>
-          <p className="text-sm text-muted-foreground mt-1">
-            내 건강을 직접 관리할게요
+          <p className="text-sm text-muted-foreground mt-1 whitespace-pre-line text-center">
+            {"내 건강을\n직접\n관리할게요"}
           </p>
         </button>
         <button
@@ -229,8 +229,8 @@ export default function Auth() {
         >
           <Users className="w-10 h-10 mx-auto mb-3 text-primary" />
           <p className="text-lg font-semibold">보호자</p>
-          <p className="text-sm text-muted-foreground mt-1">
-            부모님 건강을 관리할게요
+          <p className="text-sm text-muted-foreground mt-1 whitespace-pre-line text-center">
+            {"부모님 건강을\n관리할게요"}
           </p>
         </button>
       </div>
@@ -401,8 +401,8 @@ export default function Auth() {
         </div>
 
         {/* 하단 안내 */}
-        <p className="text-center text-muted-foreground mt-6">
-          가입하면 서비스 이용약관에 동의하는 것으로 간주됩니다.
+        <p className="text-center text-muted-foreground mt-6 whitespace-pre-line">
+          {"가입하면 서비스 이용약관에\n동의하는 것으로 간주됩니다."}
         </p>
       </div>
     </div>

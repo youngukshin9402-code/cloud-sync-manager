@@ -58,7 +58,7 @@ export default function Guardian() {
 
   const isGuardian = profile?.user_type === "guardian";
 
-  // 보호자일 경우 연결된 사용자 데이터 가져오기
+  // 보호자일 경우 연결된 사용자 데이터 가져오기 (+ 실시간 갱신)
   useEffect(() => {
     if (!isGuardian || !user) return;
 
@@ -152,6 +152,16 @@ export default function Guardian() {
     };
 
     fetchConnectedUserData();
+
+    // 포커스 시 데이터 리프레시
+    const handleFocus = () => {
+      fetchConnectedUserData();
+    };
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+    };
   }, [isGuardian, user, connections]);
 
   const handleCopyCode = async () => {

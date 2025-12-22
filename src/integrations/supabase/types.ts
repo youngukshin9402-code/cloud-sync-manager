@@ -157,6 +157,33 @@ export type Database = {
         }
         Relationships: []
       }
+      checkin_reports: {
+        Row: {
+          coach_id: string
+          created_at: string
+          id: string
+          report_date: string
+          summary: Json
+          user_id: string
+        }
+        Insert: {
+          coach_id: string
+          created_at?: string
+          id?: string
+          report_date?: string
+          summary?: Json
+          user_id: string
+        }
+        Update: {
+          coach_id?: string
+          created_at?: string
+          id?: string
+          report_date?: string
+          summary?: Json
+          user_id?: string
+        }
+        Relationships: []
+      }
       checkin_templates: {
         Row: {
           condition_score: number | null
