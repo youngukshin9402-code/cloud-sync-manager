@@ -25,6 +25,7 @@ import {
   generateId,
   getTodayString,
 } from "@/lib/localStorage";
+import { AIHealthReportCard } from "@/components/health/AIHealthReportCard";
 
 const emptyRecord: Omit<HealthCheckupRecord, 'id' | 'createdAt'> = {
   date: getTodayString(),
@@ -284,6 +285,9 @@ export default function HealthCheckup() {
             </Button>
           </div>
         )}
+
+        {/* AI 분석 + 관리자 검토 카드 (건강검진 영역에서만) */}
+        <AIHealthReportCard />
 
         {/* Records List */}
         {records.length > 0 && (

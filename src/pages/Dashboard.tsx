@@ -4,6 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useDailyData } from "@/contexts/DailyDataContext";
 import { useNutritionSettings } from "@/hooks/useNutritionSettings";
 import { useTodayMealRecords } from "@/hooks/useMealRecordsQuery";
+import { useGoalAchievement } from "@/hooks/useGoalAchievement";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -77,6 +78,7 @@ export default function Dashboard() {
   // 단일 소스: nutrition_settings에서 목표, meal_records에서 섭취량
   const { getGoals, hasSettings } = useNutritionSettings();
   const { totals, loading: mealsLoading, refetch: refetchMeals } = useTodayMealRecords();
+  const { checkAndNotify } = useGoalAchievement();
 
   const goals = getGoals();
   // Dashboard 칼로리는 무조건 오늘 meal_records 합계 사용 (DailyData 컨텍스트 대신)
@@ -112,6 +114,18 @@ export default function Dashboard() {
       reshuffleMissions(todayHabits);
     }
   }, [today, todayMissions, reshuffleMissions]);
+
+  // 목표 달성 체크 및 알림 (false→true 전환 시에만)
+  useEffect(() => {
+    const completedMissionsCount = todayMissions?.missions.filter(m => m.completed).length || 0;
+    const totalMissionsCount = todayMissions?.missions.length || 3;
+    
+    const caloriesMet = todayCalories >= calorieGoal * 0.9 && todayCalories <= calorieGoal * 1.1;
+    const waterMet = todayWater >= waterGoal;
+    const missionsMet = completedMissionsCount === totalMissionsCount;
+    
+    checkAndNotify(caloriesMet, waterMet, missionsMet);
+  }, [todayCalories, calorieGoal, todayWater, waterGoal, todayMissions, checkAndNotify]);
 
   const handleMissionToggle = async (missionId: string) => {
     const allCompletedBefore = todayMissions?.missions.every(m => m.completed) || false;
