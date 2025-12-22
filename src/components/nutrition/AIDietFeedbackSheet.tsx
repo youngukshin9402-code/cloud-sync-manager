@@ -3,7 +3,7 @@
  * - 오늘 기록 기반 AI 평가
  */
 
-import { useState } from "react";
+import { useEffect, useMemo, useRef, useCallback, useState } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Loader2, Sparkles, AlertCircle, CheckCircle, TrendingUp, Utensils } from "lucide-react";
@@ -48,18 +48,59 @@ export function AIDietFeedbackSheet({
   const hasRecords = totals.totalCalories > 0;
   const caloriePercent = calculatePercentage(totals.totalCalories, goals.calorieGoal);
 
-  const generateFeedback = async () => {
+  // 기록/목표가 바뀌면 새로운 분석이 필요하므로 시그니처로 추적
+  const mealSignature = useMemo(() => {
+    const byMeal = (['breakfast', 'lunch', 'dinner', 'snack'] as MealType[]).map((mealType) => {
+      const records = recordsByMealType[mealType] || [];
+      return {
+        mealType,
+        count: records.length,
+        calories: records.reduce((sum, r) => sum + (r.total_calories || 0), 0),
+        foodsCount: records.reduce((sum, r) => sum + (r.foods?.length || 0), 0),
+      };
+    });
+
+    return JSON.stringify({
+      totals: {
+        kcal: totals.totalCalories,
+        carbs: totals.totalCarbs,
+        protein: totals.totalProtein,
+        fat: totals.totalFat,
+      },
+      goals: {
+        kcal: goals.calorieGoal,
+        carbs: goals.carbGoalG,
+        protein: goals.proteinGoalG,
+        fat: goals.fatGoalG,
+      },
+      byMeal,
+    });
+  }, [
+    recordsByMealType,
+    totals.totalCalories,
+    totals.totalCarbs,
+    totals.totalProtein,
+    totals.totalFat,
+    goals.calorieGoal,
+    goals.carbGoalG,
+    goals.proteinGoalG,
+    goals.fatGoalG,
+  ]);
+
+  const lastRequestedSignatureRef = useRef<string | null>(null);
+
+  const generateFeedback = useCallback(async () => {
     if (!hasRecords) return;
 
     setLoading(true);
     setError(null);
 
     try {
-      // 끼니별 데이터 생성
+      // 끼니별 데이터 생성 (한 끼라도 있으면 분석)
       const meals = (["breakfast", "lunch", "dinner", "snack"] as MealType[])
         .map((mealType) => {
           const records = recordsByMealType[mealType];
-          if (records.length === 0) return null;
+          if (!records || records.length === 0) return null;
           return {
             mealType: MEAL_TYPE_LABELS[mealType],
             foods: records.flatMap((r) => r.foods.map((f) => f.name)),
@@ -68,7 +109,7 @@ export function AIDietFeedbackSheet({
         })
         .filter(Boolean);
 
-      const { data, error: fnError } = await supabase.functions.invoke('diet-feedback', {
+      const { data, error: fnError } = await supabase.functions.invoke("diet-feedback", {
         body: {
           nutritionData: {
             meals,
@@ -88,23 +129,44 @@ export function AIDietFeedbackSheet({
     } finally {
       setLoading(false);
     }
-  };
+  }, [hasRecords, recordsByMealType, totals, goals]);
 
-  // 시트 열릴 때마다 새로 피드백 생성
+  // 시트 닫힐 때 상태 초기화
   const handleOpenChange = (isOpen: boolean) => {
     onOpenChange(isOpen);
-    if (isOpen && hasRecords && !loading) {
-      // 시트 열릴 때 항상 새로 분석
-      setFeedback(null);
-      setError(null);
-      generateFeedback();
-    }
     if (!isOpen) {
-      // 닫힐 때 상태 초기화
+      lastRequestedSignatureRef.current = null;
       setFeedback(null);
       setError(null);
+      setLoading(false);
     }
   };
+
+  // ✅ 핵심: open 상태/기록 변경을 감지해서 자동으로 재분석
+  useEffect(() => {
+    if (!open) return;
+
+    // 기록 없으면 안내 화면만
+    if (!hasRecords) {
+      lastRequestedSignatureRef.current = null;
+      setFeedback(null);
+      setError(null);
+      setLoading(false);
+      return;
+    }
+
+    if (loading) return;
+
+    // 동일한 시그니처면 재호출하지 않음
+    if (lastRequestedSignatureRef.current === mealSignature) return;
+    lastRequestedSignatureRef.current = mealSignature;
+
+    const t = window.setTimeout(() => {
+      generateFeedback();
+    }, 150);
+
+    return () => window.clearTimeout(t);
+  }, [open, hasRecords, loading, mealSignature, generateFeedback]);
 
   return (
     <Sheet open={open} onOpenChange={handleOpenChange}>
@@ -116,26 +178,37 @@ export function AIDietFeedbackSheet({
           </SheetTitle>
         </SheetHeader>
 
-        {/* 기록 없음 */}
-        {!hasRecords && (
-          <div className="flex flex-col items-center justify-center h-[60%] text-center px-4">
-            <AlertCircle className="w-16 h-16 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-semibold mb-2">오늘 기록이 없어요</h3>
-            <p className="text-muted-foreground">
-              아침/점심/저녁/간식을 추가하면
-              <br />
-              AI가 맞춤 피드백을 드릴게요!
-            </p>
-          </div>
-        )}
+         {/* 기록 없음 */}
+         {!hasRecords && (
+           <div className="flex flex-col items-center justify-center h-[60%] text-center px-4">
+             <AlertCircle className="w-16 h-16 text-muted-foreground mb-4" />
+             <h3 className="text-lg font-semibold mb-2">피드백을 만들 수 없어요</h3>
+             <p className="text-muted-foreground">
+               오늘 기록이 없어 피드백을 만들 수 없어요.
+               <br />
+               아침/점심/저녁/간식을 추가해 주세요.
+             </p>
+           </div>
+         )}
 
-        {/* 로딩 */}
-        {hasRecords && loading && (
-          <div className="flex flex-col items-center justify-center h-[60%]">
-            <Loader2 className="w-12 h-12 animate-spin text-primary mb-4" />
-            <p className="font-medium">AI가 식단을 분석하고 있어요...</p>
-          </div>
-        )}
+         {/* 자동 분석 대기(빈 화면 방지) */}
+         {hasRecords && !loading && !error && !feedback && (
+           <div className="flex flex-col items-center justify-center h-[60%] text-center px-4">
+             <Sparkles className="w-12 h-12 text-primary mb-4" />
+             <p className="font-medium mb-3">오늘 기록을 바탕으로 피드백을 만들고 있어요…</p>
+             <Button variant="outline" onClick={generateFeedback}>
+               바로 분석하기
+             </Button>
+           </div>
+         )}
+
+         {/* 로딩 */}
+         {hasRecords && loading && (
+           <div className="flex flex-col items-center justify-center h-[60%]">
+             <Loader2 className="w-12 h-12 animate-spin text-primary mb-4" />
+             <p className="font-medium">AI가 식단을 분석하고 있어요...</p>
+           </div>
+         )}
 
         {/* 에러 */}
         {hasRecords && error && !loading && (
