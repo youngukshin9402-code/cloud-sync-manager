@@ -79,6 +79,25 @@ export function useHealthRecords() {
     currentRecordRef.current = currentRecord;
   }, [currentRecord]);
 
+  // records/currentRecord 일관성 유지: currentRecord가 목록에서 사라지면 즉시 null 또는 다음 레코드로 전환
+  useEffect(() => {
+    // 로딩 중이거나 아직 records가 세팅되기 전에는 건드리지 않음
+    if (isLoading) return;
+
+    if (!currentRecord) {
+      // currentRecord가 없는데 records가 생겼으면 첫 항목을 선택
+      if (records.length > 0) {
+        setCurrentRecord(records[0]);
+      }
+      return;
+    }
+
+    const exists = records.some((r) => r.id === currentRecord.id);
+    if (!exists) {
+      setCurrentRecord(records[0] || null);
+    }
+  }, [records, currentRecord, isLoading]);
+
   // Fetch all records for the user
   const fetchRecords = useCallback(async () => {
     if (!user) return;
