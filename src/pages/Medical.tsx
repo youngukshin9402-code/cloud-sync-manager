@@ -1253,7 +1253,16 @@ export default function Medical() {
             <div className="bg-card rounded-3xl border border-border p-6">
               <h3 className="font-semibold text-lg mb-4">검진 기록 목록</h3>
               <div className="space-y-2">
-                {records.map((record) => (
+                {records.map((record) => {
+                  // 현재 records 배열에서 찾은 최신 record 사용
+                  const handleSelectRecord = () => {
+                    const latestRecord = records.find(r => r.id === record.id);
+                    if (latestRecord) {
+                      setCurrentRecord(latestRecord);
+                    }
+                  };
+                  
+                  return (
                   <div
                     key={record.id}
                     className={cn(
@@ -1262,7 +1271,7 @@ export default function Medical() {
                         ? "border-primary bg-primary/5"
                         : "border-border hover:border-primary/50 cursor-pointer"
                     )}
-                    onClick={() => setCurrentRecord(record)}
+                    onClick={handleSelectRecord}
                   >
                     <div>
                       <p className="font-medium">
@@ -1319,7 +1328,9 @@ export default function Medical() {
                       </AlertDialog>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
+
               </div>
             </div>
           )}

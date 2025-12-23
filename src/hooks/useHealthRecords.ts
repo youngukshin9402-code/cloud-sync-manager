@@ -276,32 +276,38 @@ export function useHealthRecords() {
   };
 
   // Delete a health record - optimistic update 적용 + AI 분석/코치 코멘트도 함께 삭제
-  const deleteRecord = async (recordId: string): Promise<boolean> => {
+  const deleteRecord = useCallback(async (recordId: string): Promise<boolean> => {
     if (!user) {
       toast.error("로그인이 필요합니다.");
       return false;
     }
 
-    // 삭제 전 현재 상태 백업
-    const previousRecords = [...records];
-    const previousCurrentRecord = currentRecord;
+    // 삭제 전 현재 상태를 백업하기 위해 refs 사용
+    let previousRecords: HealthRecord[] = [];
+    let previousCurrentRecord: HealthRecord | null = null;
+    let recordToDelete: HealthRecord | undefined;
     
-    // 삭제 후 남은 레코드 계산
-    const remainingRecords = previousRecords.filter((r) => r.id !== recordId);
+    // setRecords의 함수형 업데이트로 최신 상태 확보 + optimistic update
+    setRecords((prev) => {
+      previousRecords = prev;
+      recordToDelete = prev.find((r) => r.id === recordId);
+      const remaining = prev.filter((r) => r.id !== recordId);
+      return remaining;
+    });
     
-    // Optimistic update: 즉시 UI에서 제거
-    setRecords(remainingRecords);
-    
-    // currentRecord가 삭제 대상인 경우 즉시 전환
-    if (currentRecord?.id === recordId) {
-      const nextRecord = remainingRecords[0] || null;
-      setCurrentRecord(nextRecord);
-    }
+    // setCurrentRecord도 함수형 업데이트로 처리
+    setCurrentRecord((prev) => {
+      previousCurrentRecord = prev;
+      if (prev?.id === recordId) {
+        // 삭제된 레코드가 현재 레코드면 다음 레코드로 전환
+        // previousRecords는 이미 위에서 설정됨
+        const remaining = previousRecords.filter((r) => r.id !== recordId);
+        return remaining[0] || null;
+      }
+      return prev;
+    });
 
-    try {
-      // Find the record to get image URLs
-      const record = previousRecords.find((r) => r.id === recordId);
-      
+    try {      
       // 1. AI health reports 삭제 (해당 레코드와 연결된 것들)
       const { error: reportDeleteError } = await supabase
         .from("ai_health_reports")
@@ -313,10 +319,10 @@ export function useHealthRecords() {
       }
 
       // 2. Delete images from storage if exists
-      if (record?.raw_image_urls && record.raw_image_urls.length > 0) {
+      if (recordToDelete?.raw_image_urls && recordToDelete.raw_image_urls.length > 0) {
         const { error: storageError } = await supabase.storage
           .from("health-checkups")
-          .remove(record.raw_image_urls);
+          .remove(recordToDelete.raw_image_urls);
         
         if (storageError) {
           console.error("Storage delete error:", storageError);
@@ -341,7 +347,7 @@ export function useHealthRecords() {
       toast.error("삭제 중 오류가 발생했습니다.");
       return false;
     }
-  };
+  }, [user]);
 
   // Update exam_date of a record - optimistic update + 재정렬
   const updateExamDate = async (recordId: string, examDate: string) => {
