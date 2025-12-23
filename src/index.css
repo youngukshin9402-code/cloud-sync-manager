@@ -150,14 +150,19 @@
   }
 
   /* 동적 뷰포트(dvh) + 스크롤 잘림 방지 */
-  html, body, #root {
+  html {
     height: 100%;
   }
 
-  body, #root {
+  body {
     min-height: 100vh;
     min-height: 100dvh; /* 지원 브라우저에서 dvh가 우선 */
     overflow-x: hidden;
+  }
+
+  #root {
+    min-height: 100vh;
+    min-height: 100dvh;
   }
 
   html {
