@@ -942,11 +942,16 @@ export default function Medical() {
     if (deletingRecordId) return; // 중복 삭제 방지
     
     setDeletingRecordId(id);
+    
+    // 공유 다이얼로그 관련 상태 초기화
+    setShowShareDialog(false);
+    setSignedImageUrls([]);
+    
     try {
-      await deleteRecord(id);
-      toast.success("삭제되었습니다");
-      if (records.length > 1) {
-        setCurrentRecord(records.find(r => r.id !== id) || null);
+      // deleteRecord가 이미 optimistic update와 currentRecord 전환을 처리함
+      const success = await deleteRecord(id);
+      if (!success) {
+        // deleteRecord 내부에서 이미 에러 토스트 출력됨
       }
     } catch (err: any) {
       toast.error("삭제 실패: " + (err?.message || "네트워크 오류"));

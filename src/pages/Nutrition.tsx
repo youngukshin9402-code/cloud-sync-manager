@@ -9,6 +9,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 import { format, addDays, subDays } from "date-fns";
 import { ko } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
@@ -45,17 +46,8 @@ interface AnalyzedFood {
   carbs: number;
   protein: number;
   fat: number;
+  grams?: number;
 }
-
-// Mock AI 분석 (추후 실제 API 연동)
-const mockAnalyzeFood = async (): Promise<AnalyzedFood[]> => {
-  await new Promise((r) => setTimeout(r, 1500));
-  const foods = [
-    { name: "흰쌀밥", portion: "1공기", calories: 300, carbs: 65, protein: 5, fat: 1 },
-    { name: "김치찌개", portion: "1그릇", calories: 150, carbs: 10, protein: 8, fat: 5 },
-  ];
-  return foods.slice(0, Math.floor(Math.random() * 2) + 1);
-};
 
 export default function Nutrition() {
   const { toast } = useToast();
@@ -163,7 +155,7 @@ export default function Nutrition() {
     }
   };
 
-  // AI 분석 시작
+  // AI 분석 시작 - 사진 업로드 후 음식명/인분/g 입력 UI만 표시
   const handleAnalyzeImage = async (file: File) => {
     setUploadedFile(file);
     setAnalyzing(true);
@@ -174,8 +166,11 @@ export default function Nutrition() {
     reader.readAsDataURL(file);
 
     try {
-      const foods = await mockAnalyzeFood();
-      setAnalyzedFoods(foods);
+      // 초기 음식 목록 (사용자가 입력하도록 빈 상태 또는 기본값)
+      const initialFoods: AnalyzedFood[] = [
+        { name: "음식", portion: "1인분", calories: 0, carbs: 0, protein: 0, fat: 0 }
+      ];
+      setAnalyzedFoods(initialFoods);
       setAnalysisSheetOpen(true);
     } catch {
       toast({ title: "분석 실패", description: "다시 시도해주세요", variant: "destructive" });
@@ -184,38 +179,79 @@ export default function Nutrition() {
     }
   };
 
-  // AI 분석 결과 저장
+  // AI 분석 결과 저장 - 저장 시점에 AI 분석 수행
   const handleSaveAnalysis = async () => {
     if (!user || analyzedFoods.length === 0) return;
 
-    const foods: MealFood[] = analyzedFoods.map((f) => ({
-      name: f.name,
-      portion: f.portion,
-      calories: f.calories,
-      carbs: f.carbs,
-      protein: f.protein,
-      fat: f.fat,
-    }));
-    const totalCalories = foods.reduce((sum, f) => sum + f.calories, 0);
-
     setSaving(true);
-    const result = await add({
-      mealType: selectedMealType,
-      foods,
-      totalCalories,
-      imageFile: uploadedFile || undefined,
-    });
-    setSaving(false);
+    
+    try {
+      // 각 음식에 대해 AI 분석 수행
+      const analyzedResults = await Promise.all(
+        analyzedFoods.map(async (food) => {
+          // portion에서 인분 수 추출
+          const portionMatch = food.portion.match(/^(\d+\.?\d*)인분$/);
+          const portionNum = portionMatch ? parseFloat(portionMatch[1]) : null;
+          
+          // AI 분석 호출
+          const { data, error } = await supabase.functions.invoke("analyze-food", {
+            body: {
+              foodName: food.name,
+              grams: food.grams,
+              portion: portionNum,
+            },
+          });
 
-    if (result.success) {
-      toast({ title: "저장 완료!" });
-      setAnalysisSheetOpen(false);
-      setAnalyzedFoods([]);
-      setUploadedImage(null);
-      setUploadedFile(null);
-      if (isTodaySelected) refreshCalories();
-    } else {
-      toast({ title: "저장 실패", description: result.error, variant: "destructive" });
+          if (error) {
+            console.error("AI analysis error:", error);
+            // 실패 시 기본값 사용
+            const baseGrams = food.grams || (portionNum ? portionNum * 200 : 200);
+            return {
+              name: food.name,
+              portion: food.portion,
+              calories: Math.round(baseGrams * 1.5),
+              carbs: Math.round(baseGrams * 0.3),
+              protein: Math.round(baseGrams * 0.1),
+              fat: Math.round(baseGrams * 0.05),
+            };
+          }
+
+          return {
+            name: food.name,
+            portion: food.portion,
+            calories: data?.calories || 200,
+            carbs: data?.carbs || 25,
+            protein: data?.protein || 10,
+            fat: data?.fat || 8,
+          };
+        })
+      );
+
+      const foods: MealFood[] = analyzedResults;
+      const totalCalories = foods.reduce((sum, f) => sum + f.calories, 0);
+
+      const result = await add({
+        mealType: selectedMealType,
+        foods,
+        totalCalories,
+        imageFile: uploadedFile || undefined,
+      });
+
+      if (result.success) {
+        toast({ title: "저장 완료!" });
+        setAnalysisSheetOpen(false);
+        setAnalyzedFoods([]);
+        setUploadedImage(null);
+        setUploadedFile(null);
+        if (isTodaySelected) refreshCalories();
+      } else {
+        toast({ title: "저장 실패", description: result.error, variant: "destructive" });
+      }
+    } catch (err) {
+      console.error("Save analysis error:", err);
+      toast({ title: "저장 실패", description: "다시 시도해주세요", variant: "destructive" });
+    } finally {
+      setSaving(false);
     }
   };
 

@@ -269,16 +269,16 @@ export function AddFoodSheet({
               />
             </div>
 
-            {/* 인분 선택 */}
+            {/* 인분 선택 - 모바일에서 한 줄 4등분 */}
             <div>
               <label className="text-sm font-medium">인분 선택</label>
-              <div className="flex flex-nowrap gap-2 mt-1 overflow-x-auto">
+              <div className="grid grid-cols-4 gap-1 mt-1">
                 {PORTION_OPTIONS.map((opt) => (
                   <Button
                     key={opt.value}
                     variant={selectedPortion === opt.value ? "default" : "outline"}
                     size="sm"
-                    className="h-9 px-4 text-sm shrink-0"
+                    className="h-9 px-2 text-xs"
                     onClick={() => handlePortionSelect(opt.value)}
                     disabled={inputMode === "grams"}
                   >
