@@ -791,6 +791,16 @@ export default function Medical() {
     setCurrentRecord,
   } = useHealthRecords();
 
+  // 모든 모달/다이얼로그/로컬 상태 초기화 유틸
+  const resetAllDialogStates = useCallback(() => {
+    setShowShareDialog(false);
+    setShowUploadDialog(false);
+    setEditingRecordId(null);
+    setEditExamDate(undefined);
+    setSignedImageUrls([]);
+    setIsGeneratingImage(false);
+  }, []);
+
   const handleShareToKakao = () => {
     if (!currentRecord?.parsed_data) return;
 
@@ -943,9 +953,8 @@ export default function Medical() {
     
     setDeletingRecordId(id);
     
-    // 공유 다이얼로그 관련 상태 초기화
-    setShowShareDialog(false);
-    setSignedImageUrls([]);
+    // 모든 관련 모달/다이얼로그 상태 초기화
+    resetAllDialogStates();
     
     try {
       // deleteRecord가 이미 optimistic update와 currentRecord 전환을 처리함
