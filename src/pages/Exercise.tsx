@@ -89,20 +89,22 @@ interface ExerciseRecord {
 
 export default function Exercise() {
   const { toast } = useToast();
-  const { user, profile } = useAuth();
+  const { user } = useAuth();
   const machineInputRef = useRef<HTMLInputElement>(null);
 
-  // 서버 동기화 훅 사용
-  const { data: gymRecords, loading, syncing, add, addOffline, update, refetch } = useGymRecords();
-  const { pendingCount, isSyncing: pendingSyncing, addToPending, syncPending } = usePendingQueue();
-  
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [showCalendar, setShowCalendar] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
+  const monthStr = format(selectedDate, "yyyy-MM");
+
+  // 서버 동기화 훅 사용 (월 단위로만 가져와서 로딩을 빠르게)
+  const { data: gymRecords, loading, syncing, add, addOffline, update, refetch } = useGymRecords(monthStr);
+  const { pendingCount, isSyncing: pendingSyncing, addToPending, syncPending } = usePendingQueue();
+
   // 배치 저장을 위한 장바구니 상태
   const [pendingExercises, setPendingExercises] = useState<ExerciseRecord[]>([]);
-  
+
   // 운동 기록 상태
   const [showAddExercise, setShowAddExercise] = useState(false);
   const [currentExercise, setCurrentExercise] = useState<ExerciseRecord | null>(null);
