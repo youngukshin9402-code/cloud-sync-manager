@@ -4,6 +4,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { Loader2 } from "lucide-react";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { DailyDataProvider } from "@/contexts/DailyDataContext";
 import { useLocalDataMigration } from "@/hooks/useLocalDataMigration";
@@ -72,10 +73,14 @@ const queryClient = new QueryClient();
 
 // 사용자 유형에 따른 리다이렉트 컴포넌트
 function AuthenticatedRedirect() {
-  const { profile, loading } = useAuth();
+  const { profile, loading, isAdmin, isCoach } = useAuth();
 
   if (loading) {
-    return null;
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="w-10 h-10 animate-spin text-primary" />
+      </div>
+    );
   }
 
   if (!profile) {
@@ -83,9 +88,6 @@ function AuthenticatedRedirect() {
   }
 
   // 사용자 유형에 따라 적절한 대시보드로 리다이렉트
-  // admin은 user_roles 테이블에서 확인해야 하므로 isAdmin 사용
-  const { isAdmin, isCoach } = useAuth();
-  
   if (isAdmin) {
     return <Navigate to="/admin/dashboard" replace />;
   }
