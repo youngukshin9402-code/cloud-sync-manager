@@ -766,6 +766,7 @@ function InBodySection() {
 export default function Medical() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const shareCardRef = useRef<HTMLDivElement>(null);
+  const exportCardRef = useRef<HTMLDivElement>(null);
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [showUploadDialog, setShowUploadDialog] = useState(false);
   
@@ -864,9 +865,9 @@ export default function Medical() {
     }
   }, [currentRecord?.raw_image_urls]);
 
-  // 이미지로 저장하기
+  // 이미지로 저장하기 (hidden 캡처용 ref 사용)
   const handleDownloadImage = async () => {
-    if (!currentRecord?.parsed_data || !shareCardRef.current) return;
+    if (!currentRecord?.parsed_data) return;
     
     setIsGeneratingImage(true);
     
@@ -875,14 +876,44 @@ export default function Medical() {
       await fetchSignedImageUrls();
       
       // DOM이 업데이트될 시간을 줌
-      await new Promise(resolve => setTimeout(resolve, 200));
+      await new Promise(resolve => setTimeout(resolve, 300));
       
-      const canvas = await html2canvas(shareCardRef.current, {
+      // 폰트 로딩 대기
+      if (document.fonts?.ready) {
+        await document.fonts.ready;
+      }
+      
+      // exportCardRef가 준비될 때까지 대기
+      if (!exportCardRef.current) {
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
+      
+      if (!exportCardRef.current) {
+        throw new Error("Export card not ready");
+      }
+      
+      const exportEl = exportCardRef.current;
+      
+      // 이미지 로딩 대기
+      const images = exportEl.querySelectorAll('img');
+      await Promise.all(
+        Array.from(images).map(img => {
+          if (img.complete) return Promise.resolve();
+          return new Promise((resolve) => {
+            img.onload = resolve;
+            img.onerror = resolve;
+          });
+        })
+      );
+      
+      const canvas = await html2canvas(exportEl, {
         backgroundColor: "#ffffff",
         scale: 2,
         useCORS: true,
         allowTaint: false,
         logging: false,
+        height: exportEl.scrollHeight,
+        windowHeight: exportEl.scrollHeight,
       });
       
       const link = document.createElement("a");
@@ -1505,6 +1536,17 @@ export default function Medical() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* 캡처용 Hidden HealthShareCard (overflow 없이 전체 높이) */}
+      {showShareDialog && currentRecord && (
+        <div className="fixed left-[-9999px] top-0 bg-white">
+          <HealthShareCard
+            ref={exportCardRef}
+            record={currentRecord}
+            imageUrls={signedImageUrls}
+          />
+        </div>
+      )}
 
     </div>
   );
