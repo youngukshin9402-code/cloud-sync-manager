@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
@@ -66,6 +66,18 @@ export function useHealthRecords() {
   const [currentRecord, setCurrentRecord] = useState<HealthRecord | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
+
+  // 최신 상태를 동기적으로 참조하기 위한 ref (StrictMode에서도 안전)
+  const recordsRef = useRef<HealthRecord[]>([]);
+  const currentRecordRef = useRef<HealthRecord | null>(null);
+
+  useEffect(() => {
+    recordsRef.current = records;
+  }, [records]);
+
+  useEffect(() => {
+    currentRecordRef.current = currentRecord;
+  }, [currentRecord]);
 
   // Fetch all records for the user
   const fetchRecords = useCallback(async () => {
@@ -282,59 +294,42 @@ export function useHealthRecords() {
       return false;
     }
 
-    // 삭제 전 현재 상태를 백업하기 위해 refs 사용
-    let previousRecords: HealthRecord[] = [];
-    let previousCurrentRecord: HealthRecord | null = null;
-    let recordToDelete: HealthRecord | undefined;
-    
-    // setRecords의 함수형 업데이트로 최신 상태 확보 + optimistic update
-    setRecords((prev) => {
-      previousRecords = prev;
-      recordToDelete = prev.find((r) => r.id === recordId);
-      const remaining = prev.filter((r) => r.id !== recordId);
-      return remaining;
-    });
-    
-    // setCurrentRecord도 함수형 업데이트로 처리
-    setCurrentRecord((prev) => {
-      previousCurrentRecord = prev;
-      if (prev?.id === recordId) {
-        // 삭제된 레코드가 현재 레코드면 다음 레코드로 전환
-        // previousRecords는 이미 위에서 설정됨
-        const remaining = previousRecords.filter((r) => r.id !== recordId);
-        return remaining[0] || null;
-      }
-      return prev;
-    });
+    // 최신 상태 스냅샷 (setState 실행 순서/동시성에 의존하지 않기 위함)
+    const prevRecords = recordsRef.current;
+    const prevCurrent = currentRecordRef.current;
+    const recordToDelete = prevRecords.find((r) => r.id === recordId);
 
-    try {      
-      // 1. AI health reports 삭제 (해당 레코드와 연결된 것들)
+    const remaining = prevRecords.filter((r) => r.id !== recordId);
+    const nextCurrent = prevCurrent?.id === recordId ? remaining[0] || null : prevCurrent;
+
+    // Optimistic update: 즉시 UI 반영
+    setRecords(remaining);
+    setCurrentRecord(nextCurrent);
+
+    try {
+      // 1) AI health reports 삭제 (해당 레코드와 연결된 것들)
       const { error: reportDeleteError } = await supabase
         .from("ai_health_reports")
         .delete()
         .eq("source_record_id", recordId);
-      
+
       if (reportDeleteError) {
         console.error("Error deleting AI reports:", reportDeleteError);
       }
 
-      // 2. Delete images from storage if exists
+      // 2) 스토리지 이미지 삭제
       if (recordToDelete?.raw_image_urls && recordToDelete.raw_image_urls.length > 0) {
         const { error: storageError } = await supabase.storage
           .from("health-checkups")
           .remove(recordToDelete.raw_image_urls);
-        
+
         if (storageError) {
           console.error("Storage delete error:", storageError);
         }
       }
 
-      // 3. Delete the record
-      const { error } = await supabase
-        .from("health_records")
-        .delete()
-        .eq("id", recordId);
-
+      // 3) health_records 삭제
+      const { error } = await supabase.from("health_records").delete().eq("id", recordId);
       if (error) throw error;
 
       toast.success("기록이 삭제되었습니다.");
@@ -342,8 +337,8 @@ export function useHealthRecords() {
     } catch (error) {
       console.error("Error deleting health record:", error);
       // 롤백
-      setRecords(previousRecords);
-      setCurrentRecord(previousCurrentRecord);
+      setRecords(prevRecords);
+      setCurrentRecord(prevCurrent);
       toast.error("삭제 중 오류가 발생했습니다.");
       return false;
     }
