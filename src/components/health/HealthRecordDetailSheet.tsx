@@ -243,7 +243,7 @@ export function HealthRecordDetailSheet({ record, open, onOpenChange, userNickna
   return (
     <>
       <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent side="bottom" className="h-[90vh] p-0">
+        <SheetContent side="bottom" className="h-[90vh] h-[90dvh] p-0 pb-[max(1rem,env(safe-area-inset-bottom))]">
           <ScrollArea className="h-full">
             <div className="p-6 space-y-6">
               {/* 헤더 */}
