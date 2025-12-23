@@ -26,8 +26,15 @@ interface NutritionData {
   };
 }
 
+interface UserProfile {
+  age: number | null;
+  heightCm: number | null;
+  currentWeight: number | null;
+  goalWeight: number | null;
+  conditions: string[] | null;
+}
+
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -38,15 +45,29 @@ serve(async (req) => {
       throw new Error('LOVABLE_API_KEY not configured');
     }
 
-    const { nutritionData } = await req.json() as { nutritionData: NutritionData };
+    const { nutritionData, userProfile } = await req.json() as { 
+      nutritionData: NutritionData;
+      userProfile?: UserProfile;
+    };
 
     // 식단 요약 생성
     const mealSummary = nutritionData.meals
       .map(m => `${m.mealType}: ${m.foods.join(", ")} (${m.calories}kcal)`)
       .join("\n");
 
-    const prompt = `당신은 전문 영양사입니다. 다음 하루 식단을 평가해주세요.
+    // 사용자 프로필 정보 구성
+    const profileInfo = userProfile ? `
+사용자 정보:
+- 나이: ${userProfile.age || '미입력'}세
+- 키: ${userProfile.heightCm || '미입력'}cm
+- 현재 체중: ${userProfile.currentWeight || '미입력'}kg
+- 목표 체중: ${userProfile.goalWeight || '미입력'}kg
+- 건강 상태/지병: ${userProfile.conditions?.length ? userProfile.conditions.join(', ') : '없음'}
+` : '';
 
+    const prompt = `당신은 냉정하고 정직한 전문 영양사입니다. 다음 하루 식단을 냉정하게 평가해주세요. 칭찬보다는 실질적인 문제점을 지적하세요.
+
+${profileInfo}
 오늘 식단:
 ${mealSummary}
 
@@ -56,12 +77,17 @@ ${mealSummary}
 - 단백질: ${nutritionData.totals.totalProtein}g (목표: ${nutritionData.goals.proteinGoalG}g)
 - 지방: ${nutritionData.totals.totalFat}g (목표: ${nutritionData.goals.fatGoalG}g)
 
-다음 JSON 형식으로 응답해주세요. 반드시 한국어로 작성하고, 친근하고 격려하는 톤을 사용하세요:
+다음 JSON 형식으로 응답해주세요. 반드시 한국어로 작성하세요:
 {
-  "summary": "한 줄 종합 평가 (20자 내외)",
-  "balanceEvaluation": "탄단지 균형에 대한 평가 (2-3문장, 구체적인 수치 언급)",
-  "improvements": ["개선점 1 (한 줄)", "개선점 2 (한 줄)", "개선점 3 (한 줄)"],
-  "recommendations": ["오늘 추천 1 (구체적인 행동)", "오늘 추천 2 (구체적인 행동)"]
+  "score": 0~100 사이 점수 (숫자만),
+  "summary": "한 줄 종합 평가 (15자 내외)",
+  "harshEvaluation": "냉정한 평가 2~4문장. 문제점을 직설적으로 지적",
+  "balanceEvaluation": "탄단지 균형에 대한 평가 (2-3문장)",
+  "improvements": ["개선점 1", "개선점 2", "개선점 3"],
+  "recommendations": ["추천 행동 1", "추천 행동 2"],
+  "recommendedFoods": ["오늘 먹으면 좋을 음식 1", "음식 2", "음식 3"],
+  "cautionFoods": ["주의해야 할 음식/피해야 할 음식 1", "음식 2"],
+  "notes": ["건강 상태 기반 주의사항 1", "주의사항 2"]
 }`;
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
@@ -73,7 +99,7 @@ ${mealSummary}
       body: JSON.stringify({
         model: 'google/gemini-2.5-flash',
         messages: [
-          { role: 'system', content: '당신은 친절하고 실용적인 조언을 주는 영양사입니다. 항상 JSON 형식으로 응답합니다. 한국어로 응답합니다.' },
+          { role: 'system', content: '당신은 냉정하고 정직한 전문 영양사입니다. 사용자의 건강 상태와 목표를 고려하여 실질적인 피드백을 제공합니다. 항상 JSON 형식으로 응답합니다. 한국어로 응답합니다.' },
           { role: 'user', content: prompt }
         ],
       }),

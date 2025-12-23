@@ -1,16 +1,19 @@
 /**
  * AI 식단 피드백 시트 컴포넌트
  * - 오늘 기록 기반 AI 평가
+ * - 점수, 냉정 평가, 권장/주의 음식, 주의사항 포함
  */
 
 import { useEffect, useMemo, useRef, useCallback, useState } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { Loader2, Sparkles, AlertCircle, CheckCircle, TrendingUp, Utensils } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Loader2, Sparkles, AlertCircle, CheckCircle, TrendingUp, Utensils, AlertTriangle, ThumbsUp, Ban } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { NutritionTotals, NutritionGoals, calculatePercentage } from "@/lib/nutritionUtils";
 import { MealType, MealRecordServer } from "@/hooks/useServerSync";
 import { supabase } from "@/integrations/supabase/client";
+import { useNutritionSettings } from "@/hooks/useNutritionSettings";
 
 interface AIDietFeedbackSheetProps {
   open: boolean;
@@ -21,10 +24,15 @@ interface AIDietFeedbackSheetProps {
 }
 
 interface AIFeedback {
+  score: number;
   summary: string;
+  harshEvaluation: string;
   balanceEvaluation: string;
   improvements: string[];
   recommendations: string[];
+  recommendedFoods: string[];
+  cautionFoods: string[];
+  notes: string[];
 }
 
 const MEAL_TYPE_LABELS: Record<MealType, string> = {
@@ -33,6 +41,21 @@ const MEAL_TYPE_LABELS: Record<MealType, string> = {
   dinner: "저녁",
   snack: "간식",
 };
+
+function getScoreColor(score: number): string {
+  if (score >= 80) return "text-green-500";
+  if (score >= 60) return "text-amber-500";
+  return "text-red-500";
+}
+
+function getScoreGrade(score: number): string {
+  if (score >= 90) return "A+";
+  if (score >= 80) return "A";
+  if (score >= 70) return "B+";
+  if (score >= 60) return "B";
+  if (score >= 50) return "C";
+  return "D";
+}
 
 export function AIDietFeedbackSheet({
   open,
@@ -44,6 +67,7 @@ export function AIDietFeedbackSheet({
   const [loading, setLoading] = useState(false);
   const [feedback, setFeedback] = useState<AIFeedback | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const { settings } = useNutritionSettings();
 
   const hasRecords = totals.totalCalories > 0;
   const caloriePercent = calculatePercentage(totals.totalCalories, goals.calorieGoal);
@@ -109,6 +133,15 @@ export function AIDietFeedbackSheet({
         })
         .filter(Boolean);
 
+      // 사용자 프로필 데이터 구성
+      const userProfile = settings ? {
+        age: settings.age,
+        heightCm: settings.heightCm,
+        currentWeight: settings.currentWeight,
+        goalWeight: settings.goalWeight,
+        conditions: settings.conditions,
+      } : undefined;
+
       const { data, error: fnError } = await supabase.functions.invoke("diet-feedback", {
         body: {
           nutritionData: {
@@ -116,6 +149,7 @@ export function AIDietFeedbackSheet({
             totals,
             goals,
           },
+          userProfile,
         },
       });
 
@@ -129,7 +163,7 @@ export function AIDietFeedbackSheet({
     } finally {
       setLoading(false);
     }
-  }, [hasRecords, recordsByMealType, totals, goals]);
+  }, [hasRecords, recordsByMealType, totals, goals, settings]);
 
   // 시트 닫힐 때 상태 초기화
   const handleOpenChange = (isOpen: boolean) => {
@@ -219,6 +253,23 @@ export function AIDietFeedbackSheet({
         {/* 피드백 결과 */}
         {hasRecords && feedback && !loading && (
           <div className="space-y-5 pb-8 overflow-y-auto max-h-[calc(85vh-100px)]">
+            {/* 점수 카드 */}
+            <div className="bg-gradient-to-r from-primary/10 to-primary/5 border border-primary/20 rounded-2xl p-5 text-center">
+              <p className="text-sm text-muted-foreground mb-2">오늘의 식단 점수</p>
+              <div className="flex items-center justify-center gap-3">
+                <span className={`text-5xl font-bold ${getScoreColor(feedback.score)}`}>
+                  {feedback.score}
+                </span>
+                <span className={`text-2xl font-semibold ${getScoreColor(feedback.score)}`}>
+                  / 100
+                </span>
+                <Badge variant="outline" className={`text-lg px-3 py-1 ${getScoreColor(feedback.score)}`}>
+                  {getScoreGrade(feedback.score)}
+                </Badge>
+              </div>
+              <p className="text-muted-foreground mt-2">{feedback.summary}</p>
+            </div>
+
             {/* 칼로리 요약 */}
             <div className="bg-gradient-to-r from-orange-500 to-amber-500 rounded-2xl p-4 text-white">
               <div className="flex items-center justify-between mb-2">
@@ -231,13 +282,13 @@ export function AIDietFeedbackSheet({
               <p className="text-sm text-white/80 mt-2">{caloriePercent}% 달성</p>
             </div>
 
-            {/* 종합 평가 */}
+            {/* 냉정한 평가 */}
             <div className="bg-card border border-border rounded-2xl p-4">
               <div className="flex items-center gap-2 mb-2">
-                <CheckCircle className="w-5 h-5 text-primary" />
-                <span className="font-semibold">종합 평가</span>
+                <AlertTriangle className="w-5 h-5 text-amber-500" />
+                <span className="font-semibold">냉정한 평가</span>
               </div>
-              <p className="text-muted-foreground">{feedback.summary}</p>
+              <p className="text-muted-foreground">{feedback.harshEvaluation}</p>
             </div>
 
             {/* 탄단지 균형 */}
@@ -262,6 +313,58 @@ export function AIDietFeedbackSheet({
                 </div>
               </div>
             </div>
+
+            {/* 권장 음식 */}
+            {feedback.recommendedFoods && feedback.recommendedFoods.length > 0 && (
+              <div className="bg-green-500/10 border border-green-500/20 rounded-2xl p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <ThumbsUp className="w-5 h-5 text-green-500" />
+                  <span className="font-semibold text-green-700 dark:text-green-400">권장 음식</span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {feedback.recommendedFoods.map((food, idx) => (
+                    <Badge key={idx} variant="outline" className="bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/30">
+                      {food}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 주의 음식 */}
+            {feedback.cautionFoods && feedback.cautionFoods.length > 0 && (
+              <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Ban className="w-5 h-5 text-red-500" />
+                  <span className="font-semibold text-red-700 dark:text-red-400">주의 음식</span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {feedback.cautionFoods.map((food, idx) => (
+                    <Badge key={idx} variant="outline" className="bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/30">
+                      {food}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 주의사항 */}
+            {feedback.notes && feedback.notes.length > 0 && (
+              <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <AlertTriangle className="w-5 h-5 text-amber-500" />
+                  <span className="font-semibold text-amber-700 dark:text-amber-400">건강 상태 기반 주의사항</span>
+                </div>
+                <ul className="space-y-2">
+                  {feedback.notes.map((note, idx) => (
+                    <li key={idx} className="flex items-start gap-2 text-sm">
+                      <span className="text-amber-500 mt-0.5">⚠️</span>
+                      <span className="text-muted-foreground">{note}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
             {/* 개선점 */}
             <div className="bg-card border border-border rounded-2xl p-4">
