@@ -48,7 +48,7 @@ serve(async (req) => {
       return btoa(binary);
     };
 
-    // Download images and convert to base64
+    // Download images and convert to base64 with correct MIME type
     const imageContents = await Promise.all(
       imageUrls.map(async (url: string) => {
         const { data, error } = await supabase.storage
@@ -62,7 +62,9 @@ serve(async (req) => {
         
         const arrayBuffer = await data.arrayBuffer();
         const base64 = arrayBufferToBase64(arrayBuffer);
-        return `data:image/jpeg;base64,${base64}`;
+        // Blob의 실제 type을 사용, 없으면 파일 확장자로 추정
+        const mimeType = data.type || (url.toLowerCase().endsWith('.png') ? 'image/png' : 'image/jpeg');
+        return `data:${mimeType};base64,${base64}`;
       })
     );
 
@@ -72,38 +74,39 @@ serve(async (req) => {
       throw new Error("No valid images to analyze");
     }
 
-    // Prepare messages for AI analysis - 간소화된 프롬프트
+    // Prepare messages for AI analysis - is_health_checkup 필드 강제 + JSON only
     const userContent: any[] = [
       {
         type: "text",
         text: `당신은 건강검진 결과를 쉬운 말로 설명해주는 AI입니다.
 
-다음 건강검진 결과 이미지를 분석해서 **할머니, 할아버지도 이해할 수 있게 쉽게** 설명해주세요.
+다음 이미지를 분석해주세요.
 
-응답 형식 (JSON):
+**중요: 반드시 아래 JSON 형식만 출력하세요. 설명, 마크다운, 코드블럭 없이 순수 JSON만 출력해야 합니다.**
+
 {
-  "health_age": 숫자 (건강 나이 추정, 모르면 null),
-  "summary": "2~3줄로 짧게 핵심만 요약. 예: '혈압이 조금 높아요. 짠 음식을 줄이시면 좋겠어요.'",
+  "is_health_checkup": true 또는 false (이 이미지가 건강검진/혈액검사/건강검진결과지인지 여부),
+  "health_age": 숫자 또는 null,
+  "summary": "2~3줄 핵심 요약",
   "items": [
     {
-      "name": "검사 항목 (예: 혈압)",
+      "name": "검사 항목명",
       "value": "측정값",
       "unit": "단위",
-      "status": "normal" | "warning" | "danger",
-      "description": "한 줄로 쉽게 설명 (예: '정상이에요. 잘 관리하고 계세요!')"
+      "status": "normal" 또는 "warning" 또는 "danger",
+      "description": "한 줄 설명"
     }
   ],
-  "health_tags": ["high_bp", "diabetes" 등 해당되는 것만],
-  "recommendations": ["1줄짜리 생활 조언 2~3개"]
+  "health_tags": ["해당 태그들"],
+  "recommendations": ["생활 조언 2~3개"]
 }
 
-중요 규칙:
-1. items는 **이상이 있는 항목 우선**, 최대 8개만
-2. description은 **한 줄**, 어려운 의학 용어 금지
-3. summary는 **2~3줄** 이내, 가장 중요한 것만
-4. recommendations는 **실천 가능한 생활 조언** 2~3개
-
-만약 건강검진 결과지가 아니면 빈 items와 "건강검진 결과 이미지가 아닙니다"라고 summary에 적어주세요.`,
+**규칙:**
+1. is_health_checkup: 건강검진 결과지가 아니면 false, 맞으면 true
+2. 건강검진 결과지가 아닐 경우: is_health_checkup=false, items=[], summary="이 이미지는 건강검진 결과지가 아닙니다"
+3. 건강검진 결과지일 경우: 이상 있는 항목 우선, 최대 8개
+4. description은 한 줄, 쉬운 말로
+5. 마크다운 코드블럭(\`\`\`) 사용 금지, 순수 JSON만 출력`,
       },
     ];
 
@@ -152,31 +155,39 @@ serve(async (req) => {
 
     console.log("AI Response received:", content);
 
-    // Parse the JSON response from AI
+    // Parse the JSON response from AI - 더 안전한 파싱
     let parsedData;
     let isInvalidImage = false;
     try {
-      // Extract JSON from the response (it might be wrapped in markdown code blocks)
-      const jsonMatch = content.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        parsedData = JSON.parse(jsonMatch[0]);
-        
-        // Check if the AI indicates this is not a health checkup image
-        const isNotHealthCheckup = 
-          (parsedData.items && parsedData.items.length === 0 && parsedData.health_age === null) ||
-          (parsedData.summary && (
-            parsedData.summary.includes("건강검진 결과가 아닌") ||
-            parsedData.summary.includes("건강검진 결과 이미지가 아닙니다") ||
-            parsedData.summary.includes("식단") ||
-            parsedData.summary.includes("물 섭취")
-          ));
-        
-        if (isNotHealthCheckup) {
-          isInvalidImage = true;
-        }
+      let jsonStr = content.trim();
+      
+      // 1. 마크다운 코드블럭 제거 (```json ... ``` 또는 ``` ... ```)
+      const codeBlockMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
+      if (codeBlockMatch) {
+        jsonStr = codeBlockMatch[1].trim();
+      }
+      
+      // 2. 전체가 {...}로 시작하고 끝나면 그대로 파싱
+      if (jsonStr.startsWith('{') && jsonStr.endsWith('}')) {
+        parsedData = JSON.parse(jsonStr);
       } else {
+        // 3. 마지막 fallback: {} 정규식으로 추출
+        const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          parsedData = JSON.parse(jsonMatch[0]);
+        } else {
+          throw new Error("No JSON found in response");
+        }
+      }
+      
+      // is_health_checkup 필드로 판단 (가장 단순한 방식)
+      if (parsedData.is_health_checkup === false) {
         isInvalidImage = true;
-        console.log("No JSON found in AI response - likely not a health checkup image");
+        console.log("AI determined this is not a health checkup image");
+      } else if (!parsedData.items || !Array.isArray(parsedData.items)) {
+        // items 필드가 없거나 배열이 아니면 파싱 실패로 간주
+        isInvalidImage = true;
+        console.log("Missing or invalid items field");
       }
     } catch (parseError) {
       console.error("Failed to parse AI response:", parseError);
@@ -227,14 +238,16 @@ serve(async (req) => {
       );
     }
 
-    // Update health record with parsed data
+    // Update health record with parsed data (is_health_checkup 필드는 저장하지 않음)
+    const { is_health_checkup, ...dataToStore } = parsedData;
+    
     const { error: updateError } = await supabase
       .from("health_records")
       .update({
         status: "pending_review",
-        parsed_data: parsedData,
-        health_age: parsedData.health_age,
-        health_tags: parsedData.health_tags || [],
+        parsed_data: dataToStore,
+        health_age: dataToStore.health_age,
+        health_tags: dataToStore.health_tags || [],
       })
       .eq("id", recordId);
 
@@ -251,7 +264,7 @@ serve(async (req) => {
         source_type: "health_checkup",
         source_record_id: recordId,
         status: "completed",
-        ai_result: parsedData,
+        ai_result: dataToStore,
         input_snapshot: { imageUrls },
       }, {
         onConflict: "source_record_id",
@@ -267,7 +280,7 @@ serve(async (req) => {
       JSON.stringify({ 
         success: true, 
         message: "분석이 완료되었습니다.",
-        data: parsedData 
+        data: dataToStore 
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

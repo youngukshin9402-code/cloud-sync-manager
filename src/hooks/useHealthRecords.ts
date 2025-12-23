@@ -36,6 +36,25 @@ export interface HealthRecord {
   exam_date: string | null;
 }
 
+// 정렬 함수: exam_date 우선, 없으면 created_at 기준 내림차순
+const sortRecords = (records: HealthRecord[]): HealthRecord[] => {
+  return [...records].sort((a, b) => {
+    const dateA = a.exam_date || a.created_at;
+    const dateB = b.exam_date || b.created_at;
+    return new Date(dateB).getTime() - new Date(dateA).getTime();
+  });
+};
+
+// 중복 제거 함수
+const dedupeRecords = (records: HealthRecord[]): HealthRecord[] => {
+  const seen = new Set<string>();
+  return records.filter((r) => {
+    if (seen.has(r.id)) return false;
+    seen.add(r.id);
+    return true;
+  });
+};
+
 export function useHealthRecords() {
   const { user } = useAuth();
   const [records, setRecords] = useState<HealthRecord[]>([]);
@@ -62,13 +81,15 @@ export function useHealthRecords() {
         parsed_data: record.parsed_data as unknown as ParsedHealthData | null,
       }));
 
-      setRecords(typedRecords);
+      // 중복 제거 후 정렬
+      const processedRecords = sortRecords(dedupeRecords(typedRecords));
+      setRecords(processedRecords);
       
       // Set the most recent non-completed record as current, or the most recent completed one
-      const activeRecord = typedRecords.find(
+      const activeRecord = processedRecords.find(
         (r) => r.status !== "completed"
       );
-      setCurrentRecord(activeRecord || typedRecords[0] || null);
+      setCurrentRecord(activeRecord || processedRecords[0] || null);
     } catch (error) {
       console.error("Error fetching health records:", error);
     } finally {
@@ -101,16 +122,25 @@ export function useHealthRecords() {
               status: payload.new.status as HealthRecordStatus,
               parsed_data: payload.new.parsed_data as unknown as ParsedHealthData | null,
             } as HealthRecord;
-            setRecords((prev) => [newRecord, ...prev]);
-            setCurrentRecord(newRecord);
+            
+            // 중복 방지: 이미 같은 id가 있으면 무시
+            setRecords((prev) => {
+              if (prev.some((r) => r.id === newRecord.id)) {
+                return prev;
+              }
+              return sortRecords([newRecord, ...prev]);
+            });
+            setCurrentRecord((prev) => prev || newRecord);
           } else if (payload.eventType === "UPDATE") {
             const updatedRecord = {
               ...payload.new,
               status: payload.new.status as HealthRecordStatus,
               parsed_data: payload.new.parsed_data as unknown as ParsedHealthData | null,
             } as HealthRecord;
+            
+            // 업데이트 후 재정렬
             setRecords((prev) =>
-              prev.map((r) => (r.id === updatedRecord.id ? updatedRecord : r))
+              sortRecords(prev.map((r) => (r.id === updatedRecord.id ? updatedRecord : r)))
             );
             // 함수형 업데이트로 stale closure 문제 해결
             setCurrentRecord((prev) => 
@@ -178,13 +208,18 @@ export function useHealthRecords() {
         throw new Error("기록 생성에 실패했습니다.");
       }
 
-      // 즉시 로컬 상태에 새 레코드 추가 (optimistic update)
+      // 즉시 로컬 상태에 새 레코드 추가 (optimistic update) - 중복 방지 포함
       const newRecord: HealthRecord = {
         ...record,
         status: record.status as HealthRecordStatus,
         parsed_data: null,
       };
-      setRecords((prev) => [newRecord, ...prev]);
+      setRecords((prev) => {
+        if (prev.some((r) => r.id === newRecord.id)) {
+          return prev;
+        }
+        return sortRecords([newRecord, ...prev]);
+      });
       setCurrentRecord(newRecord);
 
       toast.success("업로드 완료! AI가 분석을 시작합니다.");
@@ -235,16 +270,30 @@ export function useHealthRecords() {
     }
   };
 
-  // Delete a health record
+  // Delete a health record - optimistic update 적용
   const deleteRecord = async (recordId: string) => {
     if (!user) {
       toast.error("로그인이 필요합니다.");
       return false;
     }
 
+    // Optimistic update: 즉시 UI에서 제거
+    const previousRecords = records;
+    const previousCurrentRecord = currentRecord;
+    
+    setRecords((prev) => prev.filter((r) => r.id !== recordId));
+    setCurrentRecord((prev) => {
+      if (prev?.id === recordId) {
+        // 삭제된 레코드가 현재 레코드면 다음 레코드로 이동
+        const remaining = previousRecords.filter((r) => r.id !== recordId);
+        return remaining[0] || null;
+      }
+      return prev;
+    });
+
     try {
       // Find the record to get image URLs
-      const record = records.find((r) => r.id === recordId);
+      const record = previousRecords.find((r) => r.id === recordId);
       
       // Delete images from storage if exists
       if (record?.raw_image_urls && record.raw_image_urls.length > 0) {
@@ -269,17 +318,31 @@ export function useHealthRecords() {
       return true;
     } catch (error) {
       console.error("Error deleting health record:", error);
+      // 롤백
+      setRecords(previousRecords);
+      setCurrentRecord(previousCurrentRecord);
       toast.error("삭제 중 오류가 발생했습니다.");
       return false;
     }
   };
 
-  // Update exam_date of a record
+  // Update exam_date of a record - optimistic update + 재정렬
   const updateExamDate = async (recordId: string, examDate: string) => {
     if (!user) {
       toast.error("로그인이 필요합니다.");
       return false;
     }
+
+    // Optimistic update: 즉시 UI 반영 + 재정렬
+    const previousRecords = records;
+    const previousCurrentRecord = currentRecord;
+    
+    setRecords((prev) =>
+      sortRecords(prev.map((r) => (r.id === recordId ? { ...r, exam_date: examDate } : r)))
+    );
+    setCurrentRecord((prev) => 
+      prev?.id === recordId ? { ...prev, exam_date: examDate } : prev
+    );
 
     try {
       const { error } = await supabase
@@ -289,18 +352,13 @@ export function useHealthRecords() {
 
       if (error) throw error;
 
-      // Update local state
-      setRecords((prev) =>
-        prev.map((r) => (r.id === recordId ? { ...r, exam_date: examDate } : r))
-      );
-      setCurrentRecord((prev) => 
-        prev?.id === recordId ? { ...prev, exam_date: examDate } : prev
-      );
-
       toast.success("검진일이 수정되었습니다.");
       return true;
     } catch (error) {
       console.error("Error updating exam date:", error);
+      // 롤백
+      setRecords(previousRecords);
+      setCurrentRecord(previousCurrentRecord);
       toast.error("수정 중 오류가 발생했습니다.");
       return false;
     }
