@@ -58,7 +58,7 @@ export function CheckinSheet({ trigger }: CheckinSheetProps) {
         {trigger || (
           <Button className="w-full gap-2" variant="outline" size="lg">
             <ClipboardCheck className="w-5 h-5" />
-            오늘 체크인 보내기
+            오늘의 활동 보내기
           </Button>
         )}
       </SheetTrigger>

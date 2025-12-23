@@ -182,11 +182,8 @@ export function AIDietFeedbackSheet({
          {!hasRecords && (
            <div className="flex flex-col items-center justify-center h-[60%] text-center px-4">
              <AlertCircle className="w-16 h-16 text-muted-foreground mb-4" />
-             <h3 className="text-lg font-semibold mb-2">피드백을 만들 수 없어요</h3>
-             <p className="text-muted-foreground">
-               오늘 기록이 없어 피드백을 만들 수 없어요.
-               <br />
-               아침/점심/저녁/간식을 추가해 주세요.
+             <p className="text-lg font-semibold mb-2 whitespace-pre-line">
+               {"피드백을 만들 수 없어요\n오늘 기록이 없어 피드백을 만들 수 없어요.\n아침/점심/저녁/간식을 추가해 주세요."}
              </p>
            </div>
          )}

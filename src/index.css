@@ -188,20 +188,20 @@
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 
-  /* 하단 탭바 fixed 위치 - Android 3버튼 내비 대응 (최소 12px 확보) */
+  /* 하단 탭바 fixed 위치 - 맨 아래 고정, safe area는 nav 내부 padding으로 처리 */
   .fixed-safe-bottom {
     position: fixed;
-    bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+    bottom: 0;
   }
 
-  /* 하단 탭 높이(64px) + safe area + Android 여백(12px)을 고려한 콘텐츠 패딩 */
+  /* 하단 탭 높이(64px) + safe area를 고려한 콘텐츠 패딩 */
   .pb-safe-bottom {
     padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px));
   }
 
-  /* 하단 네비게이션 있을 때 콘텐츠 하단 패딩 (탭 64px + safe 12px + 여유 60px) */
+  /* 하단 네비게이션 있을 때 콘텐츠 하단 패딩 (탭 64px + safe area + 여유 16px) */
   .pb-safe-bottom-with-nav {
-    padding-bottom: calc(140px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px));
   }
 
   /* 양갱 블록 스타일 버튼 */

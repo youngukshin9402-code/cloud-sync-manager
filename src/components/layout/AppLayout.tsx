@@ -88,7 +88,7 @@ export function AppLayout() {
       {/* 하단 네비게이션 (일반 사용자/보호자용, 채팅에서는 숨김) */}
       {showBottomNav && (
         <nav className="fixed-safe-bottom left-0 right-0 bg-card/95 backdrop-blur-md border-t border-border z-50">
-          <div className="container mx-auto px-2 safe-area-bottom">
+          <div className="container mx-auto px-2">
             <div className="flex justify-around items-center h-16">
               {navItems.map((item) => {
                 const isActive = location.pathname === item.path || 
@@ -113,6 +113,8 @@ export function AppLayout() {
                 );
               })}
             </div>
+            {/* Safe area는 nav 내부 하단 패딩으로 처리 */}
+            <div className="safe-area-bottom" />
           </div>
         </nav>
       )}

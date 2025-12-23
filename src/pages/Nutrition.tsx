@@ -21,6 +21,7 @@ import {
   CalendarIcon,
   Loader2,
   Sparkles,
+  TrendingUp,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useMealRecordsQuery } from "@/hooks/useMealRecordsQuery";
@@ -35,9 +36,7 @@ import { MealCardsGrid } from "@/components/nutrition/MealCardsGrid";
 import { AddFoodSheet } from "@/components/nutrition/AddFoodSheet";
 import { FoodAnalysisSheet } from "@/components/nutrition/FoodAnalysisSheet";
 import { AIDietFeedbackSheet } from "@/components/nutrition/AIDietFeedbackSheet";
-import { NutritionRecommendations } from "@/components/nutrition/NutritionRecommendations";
-import { WeeklyReportCard } from "@/components/nutrition/WeeklyReportCard";
-import { useWeeklyReport } from "@/hooks/useWeeklyReport";
+import { WeeklyNutritionReportSheet } from "@/components/nutrition/WeeklyNutritionReportSheet";
 
 interface AnalyzedFood {
   name: string;
@@ -97,8 +96,8 @@ export default function Nutrition() {
   const [localGoals, setLocalGoals] = useState<NutritionGoals | null>(null);
   const goals = localGoals || getGoals();
   
-  // 주간 리포트
-  const { report: weeklyReport, loading: reportLoading } = useWeeklyReport(goals);
+  // 주간 리포트 시트 상태
+  const [weeklyReportOpen, setWeeklyReportOpen] = useState(false);
   
   const loading = settingsLoading || recordsLoading;
   const isTodaySelected = isToday(dateStr);
@@ -334,13 +333,15 @@ export default function Nutrition() {
         onUpdateRecord={handleUpdateRecord}
       />
 
-      {/* 맞춤 추천 */}
-      {isTodaySelected && hasSettings && (
-        <NutritionRecommendations totals={totals} goals={goals} conditions={settings?.conditions} />
-      )}
-
-      {/* 주간 리포트 */}
-      <WeeklyReportCard report={weeklyReport} loading={reportLoading} />
+      {/* 주간 영양 리포트 버튼 */}
+      <Button
+        variant="outline"
+        className="w-full h-12"
+        onClick={() => setWeeklyReportOpen(true)}
+      >
+        <TrendingUp className="w-4 h-4 mr-2" />
+        주간 영양 리포트
+      </Button>
 
       {/* 분석 중 오버레이 */}
       {analyzing && (
@@ -381,6 +382,12 @@ export default function Nutrition() {
         totals={totals}
         goals={goals}
         recordsByMealType={recordsByMealType}
+      />
+
+      {/* 주간 영양 리포트 시트 */}
+      <WeeklyNutritionReportSheet
+        open={weeklyReportOpen}
+        onOpenChange={setWeeklyReportOpen}
       />
     </div>
   );

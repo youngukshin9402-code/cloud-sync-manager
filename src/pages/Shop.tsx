@@ -207,8 +207,8 @@ export default function Shop() {
                 </div>
               </div>
               
-              <p className="text-amber-800 dark:text-amber-200">
-                의사, 트레이너, 영양사 전문가가 직접 관리하는 맞춤 건강 프로그램입니다.
+              <p className="text-amber-800 dark:text-amber-200 whitespace-pre-line">
+                {"의사, 트레이너, 영양사가\n직접 관리하는\n맞춤 건강 프로그램입니다."}
               </p>
             </div>
 
@@ -245,8 +245,8 @@ export default function Shop() {
                     <Shield className="w-5 h-5 text-purple-600 dark:text-purple-400" />
                   </div>
                   <div>
-                    <p className="font-medium">건강검진 분석</p>
-                    <p className="text-sm text-muted-foreground">전문가의 상세 건강검진 결과 해석</p>
+                    <p className="font-medium whitespace-nowrap">건강검진 분석</p>
+                    <p className="text-sm text-muted-foreground whitespace-nowrap">전문가의 상세 건강검진 결과 해석</p>
                   </div>
                 </div>
                 
@@ -256,7 +256,7 @@ export default function Shop() {
                   </div>
                   <div>
                     <p className="font-medium">무제한 질문</p>
-                    <p className="text-sm text-muted-foreground">카카오톡으로 언제든 질문 가능</p>
+                    <p className="text-sm text-muted-foreground whitespace-pre-line">{"코치 가능 시간 (10:00-20:00)에\n언제든 질문 가능"}</p>
                   </div>
                 </div>
               </div>
