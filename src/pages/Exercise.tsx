@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, memo } from "react";
 import { format, isSameDay } from "date-fns";
 import { ko } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import {
   Calendar as CalendarIcon,
@@ -36,8 +37,8 @@ import {
   Save,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useGymRecords, GymRecordServer, GymExercise, GymSet } from "@/hooks/useServerSync";
-import { usePendingQueue } from "@/hooks/usePendingQueue";
+import { useGymMonthHeaders, useGymDayRecord, GymExercise, GymSet } from "@/hooks/useGymRecordsOptimized";
+import { usePendingQueueOptimized } from "@/hooks/usePendingQueueOptimized";
 import { useAuth } from "@/contexts/AuthContext";
 
 // 운동 종목 목록
@@ -87,6 +88,83 @@ interface ExerciseRecord {
   imageUrl?: string;
 }
 
+// Memoized exercise card to prevent re-renders
+const ExerciseCard = memo(function ExerciseCard({
+  exercise,
+  onEdit,
+  onDelete,
+}: {
+  exercise: GymExercise;
+  onEdit: (exercise: GymExercise) => void;
+  onDelete: (id: string) => void;
+}) {
+  return (
+    <div className="bg-card rounded-2xl border border-border p-4">
+      <div className="flex items-start justify-between mb-3">
+        <div className="flex items-center gap-3">
+          {exercise.imageUrl && (
+            <img
+              src={exercise.imageUrl}
+              alt={exercise.name}
+              className="w-12 h-12 rounded-xl object-cover"
+            />
+          )}
+          <span className="font-semibold text-lg">{exercise.name}</span>
+        </div>
+        <div className="flex gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => onEdit(exercise)}
+          >
+            <Pencil className="w-4 h-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-destructive"
+            onClick={() => onDelete(exercise.id)}
+          >
+            <Trash2 className="w-4 h-4" />
+          </Button>
+        </div>
+      </div>
+      {exercise.sets && exercise.sets.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {exercise.sets.map((set, i) => (
+            <span
+              key={i}
+              className="text-sm bg-muted px-3 py-1 rounded-full"
+            >
+              {i + 1}세트: {set.weight}kg × {set.reps}회
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+});
+
+// Skeleton for loading state
+function ExerciseSkeleton() {
+  return (
+    <div className="space-y-3">
+      <Skeleton className="h-6 w-24" />
+      <div className="bg-card rounded-2xl border border-border p-4 space-y-3">
+        <div className="flex items-center gap-3">
+          <Skeleton className="w-12 h-12 rounded-xl" />
+          <Skeleton className="h-5 w-32" />
+        </div>
+        <div className="flex gap-2">
+          <Skeleton className="h-7 w-24 rounded-full" />
+          <Skeleton className="h-7 w-24 rounded-full" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Exercise() {
   const { toast } = useToast();
   const { user } = useAuth();
@@ -97,10 +175,13 @@ export default function Exercise() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
   const monthStr = format(selectedDate, "yyyy-MM");
+  const dateStr = format(selectedDate, "yyyy-MM-dd");
+  const isToday = isSameDay(selectedDate, new Date());
 
-  // 서버 동기화 훅 사용 (월 단위로만 가져와서 로딩을 빠르게)
-  const { data: gymRecords, loading, syncing, add, addOffline, update, refetch } = useGymRecords(monthStr);
-  const { pendingCount, isSyncing: pendingSyncing, addToPending, syncPending } = usePendingQueue();
+  // Optimized hooks - headers for calendar, full record for selected day only
+  const { headers, loading: headersLoading, refetch: refetchHeaders } = useGymMonthHeaders(monthStr);
+  const { record: todayGymRecord, loading: recordLoading, syncing, add, update, addOffline, refetch: refetchRecord } = useGymDayRecord(dateStr);
+  const { pendingCount, isSyncing: pendingSyncing, addToPending, syncPending } = usePendingQueueOptimized();
 
   // 배치 저장을 위한 장바구니 상태
   const [pendingExercises, setPendingExercises] = useState<ExerciseRecord[]>([]);
@@ -112,9 +193,6 @@ export default function Exercise() {
   const [showMachineSuggestions, setShowMachineSuggestions] = useState(false);
   const [editingExerciseId, setEditingExerciseId] = useState<string | null>(null);
   const [editingPendingIndex, setEditingPendingIndex] = useState<number | null>(null);
-
-  const dateStr = format(selectedDate, "yyyy-MM-dd");
-  const isToday = isSameDay(selectedDate, new Date());
 
   // 날짜 표시 포맷: M월 d일 (요일 한 글자)
   const formatDateDisplay = (date: Date) => {
@@ -128,13 +206,13 @@ export default function Exercise() {
     const handleOnline = async () => {
       setIsOnline(true);
       toast({ title: "온라인 복귀", description: "데이터를 동기화합니다." });
-      
+
       const result = await syncPending();
       if (result.success > 0) {
         toast({ title: "동기화 완료", description: `${result.success}개 기록이 서버에 업로드되었습니다.` });
+        refetchHeaders();
+        refetchRecord();
       }
-      
-      refetch();
     };
     const handleOffline = () => {
       setIsOnline(false);
@@ -147,20 +225,17 @@ export default function Exercise() {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
-  }, [refetch, toast, syncPending]);
+  }, [refetchHeaders, refetchRecord, toast, syncPending]);
 
   // 날짜 변경 시 장바구니 초기화
   useEffect(() => {
     setPendingExercises([]);
   }, [dateStr]);
 
-  // 오늘 운동 기록
-  const todayGymRecord = gymRecords.find((r) => r.date === dateStr);
-
-  // 날짜별 기록 여부
+  // 날짜별 기록 여부 (from headers - lightweight)
   const hasRecordOnDate = (date: Date) => {
     const d = format(date, "yyyy-MM-dd");
-    return gymRecords.some((r) => r.date === d);
+    return headers.some((h) => h.date === d);
   };
 
   // 머신 이미지 선택
@@ -224,20 +299,19 @@ export default function Exercise() {
   // 장바구니에 운동 추가 (임시 저장) - 모달 유지, 운동명만 초기화
   const addToPendingExercises = (keepModalOpen: boolean = false) => {
     if (!currentExercise) return;
-    
+
     const sportLabel = SPORT_TYPES.find(s => s.value === currentExercise.sportType)?.label || currentExercise.sportType;
-    const displayName = currentExercise.name?.trim() 
-      ? `[${sportLabel}] ${currentExercise.name}` 
+    const displayName = currentExercise.name?.trim()
+      ? `[${sportLabel}] ${currentExercise.name}`
       : `[${sportLabel}]`;
-    
+
     const exerciseToAdd: ExerciseRecord = {
       ...currentExercise,
       name: displayName,
     };
 
     if (editingPendingIndex !== null) {
-      // 장바구니 내 수정
-      setPendingExercises(prev => prev.map((ex, idx) => 
+      setPendingExercises(prev => prev.map((ex, idx) =>
         idx === editingPendingIndex ? exerciseToAdd : ex
       ));
       setEditingPendingIndex(null);
@@ -245,11 +319,9 @@ export default function Exercise() {
       setShowAddExercise(false);
       toast({ title: "운동이 수정되었습니다" });
     } else {
-      // 새로 추가
       setPendingExercises(prev => [...prev, exerciseToAdd]);
-      
+
       if (keepModalOpen) {
-        // 모달 유지 + 운동명만 초기화 (종목 유지)
         const currentSportType = currentExercise.sportType;
         setCurrentExercise({
           id: crypto.randomUUID(),
@@ -275,11 +347,10 @@ export default function Exercise() {
   // 장바구니 운동 수정
   const editPendingExercise = (index: number) => {
     const exercise = pendingExercises[index];
-    // Parse sport type from name
     const match = exercise.name.match(/^\[(.+?)\] ?(.*)$/);
     let sportType = "health";
     let name = exercise.name;
-    
+
     if (match) {
       const sportLabel = match[1];
       const sport = SPORT_TYPES.find(s => s.label === sportLabel);
@@ -288,7 +359,7 @@ export default function Exercise() {
       }
       name = match[2] || "";
     }
-    
+
     setCurrentExercise({
       ...exercise,
       sportType,
@@ -307,8 +378,6 @@ export default function Exercise() {
     }
 
     try {
-      const existingRecord = gymRecords.find((r) => r.date === dateStr);
-      
       // Convert to GymExercise format
       const exercisesToSave: GymExercise[] = pendingExercises.map(ex => ({
         id: ex.id,
@@ -318,35 +387,33 @@ export default function Exercise() {
       }));
 
       if (isOnline) {
-        if (existingRecord) {
-          const newExercises = [...existingRecord.exercises, ...exercisesToSave];
-          await update(existingRecord.id, newExercises);
+        if (todayGymRecord) {
+          const newExercises = [...todayGymRecord.exercises, ...exercisesToSave];
+          await update(todayGymRecord.id, newExercises);
         } else {
-          await add({
-            date: dateStr,
-            exercises: exercisesToSave,
-          });
+          await add(exercisesToSave);
         }
         toast({ title: `${exercisesToSave.length}개 운동 기록 저장 완료!` });
+        refetchHeaders();
       } else {
-        const localId = addToPending('gym_record', {
+        const localId = await addToPending('gym_record', {
           user_id: user.id,
           date: dateStr,
-          exercises: existingRecord 
-            ? [...existingRecord.exercises, ...exercisesToSave]
+          exercises: todayGymRecord
+            ? [...todayGymRecord.exercises, ...exercisesToSave]
             : exercisesToSave,
         });
-        
-        addOffline({
-          date: dateStr,
-          exercises: existingRecord 
-            ? [...existingRecord.exercises, ...exercisesToSave]
+
+        addOffline(
+          todayGymRecord
+            ? [...todayGymRecord.exercises, ...exercisesToSave]
             : exercisesToSave,
-        }, localId);
-        
-        toast({ 
-          title: "로컬에 저장됨", 
-          description: "온라인 복귀 시 자동으로 서버에 업로드됩니다." 
+          localId
+        );
+
+        toast({
+          title: "로컬에 저장됨",
+          description: "온라인 복귀 시 자동으로 서버에 업로드됩니다."
         });
       }
 
@@ -359,17 +426,14 @@ export default function Exercise() {
 
   // 기존 운동 수정 저장 (서버에 있는 기록)
   const saveExistingExercise = async () => {
-    if (!user || !currentExercise || !editingExerciseId) return;
+    if (!user || !currentExercise || !editingExerciseId || !todayGymRecord) return;
 
     try {
-      const existingRecord = gymRecords.find((r) => r.date === dateStr);
-      if (!existingRecord) return;
-
       const sportLabel = SPORT_TYPES.find(s => s.value === currentExercise.sportType)?.label || currentExercise.sportType;
-      const displayName = currentExercise.name?.trim() 
-        ? `[${sportLabel}] ${currentExercise.name}` 
+      const displayName = currentExercise.name?.trim()
+        ? `[${sportLabel}] ${currentExercise.name}`
         : `[${sportLabel}]`;
-      
+
       const exerciseToSave: GymExercise = {
         id: currentExercise.id,
         name: displayName,
@@ -377,11 +441,11 @@ export default function Exercise() {
         imageUrl: currentExercise.imageUrl,
       };
 
-      const newExercises = existingRecord.exercises.map((ex) =>
+      const newExercises = todayGymRecord.exercises.map((ex) =>
         ex.id === editingExerciseId ? exerciseToSave : ex
       );
-      
-      await update(existingRecord.id, newExercises);
+
+      await update(todayGymRecord.id, newExercises);
       toast({ title: "운동 기록 수정 완료!" });
 
       setCurrentExercise(null);
@@ -395,12 +459,11 @@ export default function Exercise() {
 
   // 운동 삭제
   const deleteExercise = async (exerciseId: string) => {
-    const record = gymRecords.find((r) => r.date === dateStr);
-    if (!record) return;
+    if (!todayGymRecord) return;
 
     try {
-      const newExercises = record.exercises.filter((ex) => ex.id !== exerciseId);
-      await update(record.id, newExercises);
+      const newExercises = todayGymRecord.exercises.filter((ex) => ex.id !== exerciseId);
+      await update(todayGymRecord.id, newExercises);
       toast({ title: "삭제 완료" });
     } catch (error) {
       toast({ title: "삭제 실패", variant: "destructive" });
@@ -412,7 +475,7 @@ export default function Exercise() {
     const match = exercise.name.match(/^\[(.+?)\] ?(.*)$/);
     let sportType = "health";
     let name = exercise.name;
-    
+
     if (match) {
       const sportLabel = match[1];
       const sport = SPORT_TYPES.find(s => s.label === sportLabel);
@@ -421,7 +484,7 @@ export default function Exercise() {
       }
       name = match[2] || "";
     }
-    
+
     setCurrentExercise({
       id: exercise.id,
       sportType,
@@ -465,7 +528,7 @@ export default function Exercise() {
   // 종목 변경 시 세트 초기화 여부 결정
   const handleSportTypeChange = (value: string) => {
     if (!currentExercise) return;
-    
+
     if (value === "health") {
       setCurrentExercise({
         ...currentExercise,
@@ -482,14 +545,6 @@ export default function Exercise() {
       });
     }
   };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6 pb-8">
@@ -661,8 +716,8 @@ export default function Exercise() {
             {/* 종목 선택 */}
             <div>
               <label className="text-sm font-medium text-muted-foreground">종목</label>
-              <Select 
-                value={currentExercise.sportType} 
+              <Select
+                value={currentExercise.sportType}
                 onValueChange={handleSportTypeChange}
               >
                 <SelectTrigger className="mt-1">
@@ -691,8 +746,8 @@ export default function Exercise() {
                   className="flex-1"
                 />
                 {!editingExerciseId && editingPendingIndex === null && (
-                  <Button 
-                    variant="secondary" 
+                  <Button
+                    variant="secondary"
                     size="icon"
                     className="shrink-0 h-10 w-10"
                     onClick={() => addToPendingExercises(true)}
@@ -720,7 +775,6 @@ export default function Exercise() {
 
                 {currentExercise.sets.map((set, index) => (
                   <div key={index} className="bg-muted/50 rounded-xl p-3 space-y-2">
-                    {/* 세트 번호 + 삭제 버튼 */}
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-semibold text-muted-foreground">{index + 1}세트</span>
                       {currentExercise.sets && currentExercise.sets.length > 1 && (
@@ -734,10 +788,8 @@ export default function Exercise() {
                         </Button>
                       )}
                     </div>
-                    
-                    {/* 무게 + 횟수 입력 - 세로 정렬 */}
+
                     <div className="flex flex-col gap-2">
-                      {/* 무게 줄 */}
                       <div className="flex items-center gap-2">
                         <span className="text-xs text-muted-foreground w-10 shrink-0">무게</span>
                         <div className="flex items-center gap-1 flex-1 justify-start">
@@ -761,7 +813,6 @@ export default function Exercise() {
                         </div>
                       </div>
 
-                      {/* 횟수 줄 */}
                       <div className="flex items-center gap-2">
                         <span className="text-xs text-muted-foreground w-10 shrink-0">횟수</span>
                         <div className="flex items-center gap-1 flex-1 justify-start">
@@ -798,9 +849,9 @@ export default function Exercise() {
                   <Button
                     variant="outline"
                     size="icon"
-                    onClick={() => setCurrentExercise({ 
-                      ...currentExercise, 
-                      duration: Math.max(0, (currentExercise.duration || 30) - 10) 
+                    onClick={() => setCurrentExercise({
+                      ...currentExercise,
+                      duration: Math.max(0, (currentExercise.duration || 30) - 10)
                     })}
                   >
                     <Minus className="w-4 h-4" />
@@ -811,9 +862,9 @@ export default function Exercise() {
                   <Button
                     variant="outline"
                     size="icon"
-                    onClick={() => setCurrentExercise({ 
-                      ...currentExercise, 
-                      duration: (currentExercise.duration || 30) + 10 
+                    onClick={() => setCurrentExercise({
+                      ...currentExercise,
+                      duration: (currentExercise.duration || 30) + 10
                     })}
                   >
                     <Plus className="w-4 h-4" />
@@ -913,60 +964,21 @@ export default function Exercise() {
           </DialogContent>
         </Dialog>
 
-        {/* 오늘 운동 기록 */}
-        {todayGymRecord && todayGymRecord.exercises.length > 0 ? (
+        {/* 오늘 운동 기록 - Show skeleton while loading */}
+        {recordLoading ? (
+          <ExerciseSkeleton />
+        ) : todayGymRecord && todayGymRecord.exercises.length > 0 ? (
           <div className="space-y-3">
             <h3 className="font-medium text-muted-foreground">
               {format(selectedDate, "M월 d일", { locale: ko })} 기록
             </h3>
             {todayGymRecord.exercises.map((exercise) => (
-              <div
+              <ExerciseCard
                 key={exercise.id}
-                className="bg-card rounded-2xl border border-border p-4"
-              >
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center gap-3">
-                    {exercise.imageUrl && (
-                      <img
-                        src={exercise.imageUrl}
-                        alt={exercise.name}
-                        className="w-12 h-12 rounded-xl object-cover"
-                      />
-                    )}
-                    <span className="font-semibold text-lg">{exercise.name}</span>
-                  </div>
-                  <div className="flex gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => editExercise(exercise)}
-                    >
-                      <Pencil className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-destructive"
-                      onClick={() => deleteExercise(exercise.id)}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-                {exercise.sets && exercise.sets.length > 0 && (
-                  <div className="flex flex-wrap gap-2">
-                    {exercise.sets.map((set, i) => (
-                      <span
-                        key={i}
-                        className="text-sm bg-muted px-3 py-1 rounded-full"
-                      >
-                        {i + 1}세트: {set.weight}kg × {set.reps}회
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
+                exercise={exercise}
+                onEdit={editExercise}
+                onDelete={deleteExercise}
+              />
             ))}
           </div>
         ) : (
