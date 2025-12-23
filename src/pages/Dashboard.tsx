@@ -333,7 +333,7 @@ export default function Dashboard() {
                 onCheckedChange={() => handleMissionToggle(mission.id)}
                 className="w-6 h-6"
               />
-              <span className={cn("flex-1", mission.completed && 'line-through text-muted-foreground')}>
+              <span className={cn("flex-1 min-w-0 truncate", mission.completed && 'line-through text-muted-foreground')}>
                 {mission.content}
               </span>
             </div>

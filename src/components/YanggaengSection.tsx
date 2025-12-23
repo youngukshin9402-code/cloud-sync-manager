@@ -44,7 +44,13 @@ export function YanggaengSection() {
         <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
           <YanggaengCard
             title="건강양갱"
-            description="건강검진 결과를 사진으로 찍으면 AI가 쉬운 말로 설명해드려요."
+            description={
+              <>
+                건강검진 결과를 사진으로<br className="md:hidden" />
+                {" "}찍으면 AI가 쉬운 말로<br className="md:hidden" />
+                {" "}설명해드려요
+              </>
+            }
             icon={Stethoscope}
             color="health"
             to="/medical"
@@ -58,7 +64,12 @@ export function YanggaengSection() {
 
           <YanggaengCard
             title="영양양갱"
-            description="식사 사진을 찍으면 바로 영양 피드백을 받을 수 있어요."
+            description={
+              <>
+                식사 사진을 찍으면 바로<br className="md:hidden" />
+                {" "}영양 피드백을 받을 수 있어요
+              </>
+            }
             icon={Utensils}
             color="nutrition"
             to="/nutrition"
@@ -71,11 +82,11 @@ export function YanggaengSection() {
 
           <YanggaengCard
             title="운동양갱"
-            description="매일 3가지 미션을 완료하고 포인트를 모아보세요."
+            description="매일 운동을 쉽게 기록하고 1:1 코치를 받아보세요"
             icon={Dumbbell}
             color="exercise"
             to="/exercise"
-            features={["운동 기록", "주간 리포트"]}
+            features={["운동 기록", "1:1 코치"]}
             delay={200}
           />
         </div>
