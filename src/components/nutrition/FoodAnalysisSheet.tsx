@@ -77,7 +77,7 @@ export function FoodAnalysisSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="h-[90vh] rounded-t-3xl w-full max-w-[420px] mx-auto inset-x-0 overflow-y-auto">
+      <SheetContent side="bottom" className="h-[85vh] rounded-t-3xl w-full max-w-[420px] mx-auto left-1/2 -translate-x-1/2 overflow-y-auto">
         <SheetHeader className="pb-4">
           <SheetTitle>음식 정보 확인</SheetTitle>
         </SheetHeader>

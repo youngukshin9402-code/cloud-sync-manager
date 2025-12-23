@@ -77,7 +77,7 @@ export function QuickAddPanel({ mealType, onAddFood, onAddFoods }: QuickAddPanel
 
         {/* 최근 기록 */}
         <TabsContent value="recent" className="mt-3 flex-1 overflow-hidden">
-          <ScrollArea className="h-[300px]">
+          <ScrollArea className="h-[50vh] max-h-[400px]">
             {recentLoading ? (
               <div className="flex justify-center py-8">
                 <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
@@ -133,7 +133,7 @@ export function QuickAddPanel({ mealType, onAddFood, onAddFoods }: QuickAddPanel
 
         {/* 즐겨찾기 */}
         <TabsContent value="favorite" className="mt-3 flex-1 overflow-hidden">
-          <ScrollArea className="h-[300px]">
+          <ScrollArea className="h-[50vh] max-h-[400px]">
             {favLoading ? (
               <div className="flex justify-center py-8">
                 <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />

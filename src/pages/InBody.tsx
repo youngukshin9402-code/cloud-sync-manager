@@ -471,24 +471,10 @@ export default function InBody() {
       }}>
         <DialogContent className="max-w-sm max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editingId ? "인바디 수정" : "인바디 기록"}</DialogTitle>
+            <DialogTitle>{editingId ? "인바디 수정" : "인바디 수기 입력"}</DialogTitle>
           </DialogHeader>
           
-          {/* 입력 모드 탭 (새 기록일 때만) */}
-          {!editingId && !isAnalyzing && (
-            <Tabs value={inputMode} onValueChange={(v) => setInputMode(v as 'manual' | 'photo')} className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="manual" className="text-xs">
-                  <Keyboard className="w-3 h-3 mr-1" />
-                  수기 입력
-                </TabsTrigger>
-                <TabsTrigger value="photo" className="text-xs">
-                  <Camera className="w-3 h-3 mr-1" />
-                  사진 AI
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
-          )}
+          {/* 수기 입력 모드에서는 탭 없이 바로 폼 표시 - 사진 AI는 외부 카드에서 진입 */}
           
           {/* 분석 중 상태 */}
           {isAnalyzing && (
@@ -499,39 +485,16 @@ export default function InBody() {
             </div>
           )}
 
-          {/* 사진 모드 - 업로드 영역 */}
-          {inputMode === 'photo' && !uploadedImage && !isAnalyzing && (
-            <div className="py-6">
-              <div 
-                onClick={() => fileInputRef.current?.click()}
-                className="border-2 border-dashed border-border rounded-xl p-8 text-center cursor-pointer hover:border-primary/50 hover:bg-accent/30 transition-colors"
-              >
-                <ImageIcon className="w-12 h-12 mx-auto mb-3 text-muted-foreground" />
-                <p className="font-medium text-foreground">인바디 결과지 업로드</p>
-                <p className="text-sm text-muted-foreground mt-1">클릭하여 사진 선택</p>
-              </div>
-              <div className="flex gap-2 mt-3">
-                <Button 
-                  variant="outline" 
-                  className="flex-1"
-                  onClick={() => cameraInputRef.current?.click()}
-                >
-                  <Camera className="w-4 h-4 mr-1" />
-                  카메라
-                </Button>
-                <Button 
-                  variant="outline" 
-                  className="flex-1"
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  <ImageIcon className="w-4 h-4 mr-1" />
-                  갤러리
-                </Button>
-              </div>
+          {/* 분석 중 상태 - 외부에서 사진 AI로 진입한 경우만 */}
+          {isAnalyzing && (
+            <div className="py-8 text-center">
+              <Loader2 className="w-10 h-10 animate-spin text-primary mx-auto mb-4" />
+              <p className="text-muted-foreground">AI가 인바디 결과를 분석 중입니다...</p>
+              <p className="text-xs text-muted-foreground mt-2">잠시만 기다려주세요</p>
             </div>
           )}
 
-          {/* 업로드된 이미지 미리보기 + AI 결과 표시 */}
+          {/* 업로드된 이미지 미리보기 + AI 결과 표시 (외부에서 사진 AI로 진입한 경우) */}
           {uploadedImage && !isAnalyzing && (
             <div className="space-y-3">
               <img 
@@ -550,8 +513,8 @@ export default function InBody() {
             </div>
           )}
 
-          {/* 폼 필드들 */}
-          {!isAnalyzing && (inputMode === 'manual' || uploadedImage) && (
+          {/* 폼 필드들 - 수기 입력 또는 AI 분석 후 */}
+          {!isAnalyzing && (
             <>
               <div className="space-y-4 py-2">
                 <div className="space-y-2">

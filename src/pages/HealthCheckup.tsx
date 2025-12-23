@@ -138,9 +138,10 @@ export default function HealthCheckup() {
     }
   };
 
-  // AI 분석 또는 코치 코멘트가 있으면 이미지 저장 버튼 표시
+  // AI 분석이 완료되면 이미지 저장 버튼 표시 (코치 코멘트는 선택)
   const canSaveAsImage = (record: HealthRecord) => {
-    return record.parsed_data || record.coach_comment;
+    // parsed_data가 있으면 AI 분석 완료된 것으로 판단
+    return !!record.parsed_data;
   };
 
   // Count statuses from parsed_data

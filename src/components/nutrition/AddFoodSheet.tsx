@@ -139,7 +139,7 @@ export function AddFoodSheet({
 
   return (
     <Sheet open={open} onOpenChange={handleClose}>
-      <SheetContent side="bottom" className="h-[85vh] rounded-t-3xl w-full max-w-[420px] mx-auto inset-x-0 flex flex-col">
+      <SheetContent side="bottom" className="h-[80vh] rounded-t-3xl w-full max-w-[420px] mx-auto left-1/2 -translate-x-1/2 flex flex-col">
         <SheetHeader className="pb-4 flex-shrink-0">
           <SheetTitle className="flex items-center gap-2">
             {MEAL_TYPE_LABELS[mealType]} 추가하기
