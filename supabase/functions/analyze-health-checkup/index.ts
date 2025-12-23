@@ -74,20 +74,25 @@ serve(async (req) => {
       throw new Error("No valid images to analyze");
     }
 
-    // Prepare messages for AI analysis - is_health_checkup 필드 강제 + JSON only
+    // Prepare messages for AI analysis - 가독성 개선된 냉철한 분석
     const userContent: any[] = [
       {
         type: "text",
-        text: `당신은 건강검진 결과를 쉬운 말로 설명해주는 AI입니다.
+        text: `당신은 냉철하고 솔직한 건강검진 분석 AI입니다. 후하게 점수를 주지 마세요.
 
 다음 이미지를 분석해주세요.
 
 **중요: 반드시 아래 JSON 형식만 출력하세요. 설명, 마크다운, 코드블럭 없이 순수 JSON만 출력해야 합니다.**
 
 {
-  "is_health_checkup": true 또는 false (이 이미지가 건강검진/혈액검사/건강검진결과지인지 여부),
+  "is_health_checkup": true 또는 false,
+  "health_score": 0~100 점수 (냉철하게, 정상이어도 80점 이상 어려움),
   "health_age": 숫자 또는 null,
-  "summary": "2~3줄 핵심 요약",
+  "summary": "핵심 1줄 총평 (예: 간 수치 주의 필요, 전반적으로 양호)",
+  "score_reason": "점수 산정 이유 2~3줄 (구체적으로)",
+  "key_issues": ["핵심 문제/주의 항목 최대 3개"],
+  "action_items": ["오늘부터 실천할 것 3가지"],
+  "warnings": ["주의 경고 (있을 경우만, '의학적 진단이 아님' 포함)"],
   "items": [
     {
       "name": "검사 항목명",
@@ -102,11 +107,13 @@ serve(async (req) => {
 }
 
 **규칙:**
-1. is_health_checkup: 건강검진 결과지가 아니면 false, 맞으면 true
-2. 건강검진 결과지가 아닐 경우: is_health_checkup=false, items=[], summary="이 이미지는 건강검진 결과지가 아닙니다"
-3. 건강검진 결과지일 경우: 이상 있는 항목 우선, 최대 8개
-4. description은 한 줄, 쉬운 말로
-5. 마크다운 코드블럭(\`\`\`) 사용 금지, 순수 JSON만 출력`,
+1. is_health_checkup: 건강검진 결과지가 아니면 false
+2. 건강검진 결과지가 아닐 경우: is_health_checkup=false, items=[], summary="건강검진 결과지가 아닙니다"
+3. health_score: 냉철하게 매기기. 정상 범위여도 경계치면 감점. 70점대가 평균
+4. key_issues: 가장 중요한 문제 TOP 3 (없으면 빈 배열)
+5. action_items: 구체적이고 바로 실천 가능한 것
+6. 모든 설명은 짧고 가독성 있게
+7. 마크다운 코드블럭 사용 금지`,
       },
     ];
 
