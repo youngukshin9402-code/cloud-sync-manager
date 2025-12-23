@@ -394,8 +394,6 @@ export default function Auth() {
               <Button type="submit" disabled={loading} className="w-full" size="lg">
                 {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : "회원가입"}
               </Button>
-
-              <SocialLoginButtons />
             </form>
           )}
         </div>

@@ -40,7 +40,7 @@ export function HeroSection() {
             style={{ animationDelay: "100ms" }}
           >
             복잡한 건강 데이터를 쉽게 이해하고,
-            <br className="hidden md:block" />
+            <br />
             매일 작은 습관으로 건강을 관리하세요.
           </p>
 
@@ -57,22 +57,22 @@ export function HeroSection() {
             </Button>
           </div>
 
-          {/* 신뢰 지표 - 모바일 세로 중앙 정렬 */}
+          {/* 신뢰 지표 - 모바일 그리드 3열 중앙 정렬 */}
           <div
-            className="mt-16 flex flex-col md:flex-row items-center justify-center gap-4 md:gap-16 animate-fade-in w-full"
+            className="mt-16 mx-auto w-full max-w-sm grid grid-cols-3 gap-3 place-items-center md:flex md:max-w-none md:gap-16 md:justify-center animate-fade-in"
             style={{ animationDelay: "400ms" }}
           >
-            <div className="flex items-center gap-3 text-muted-foreground">
-              <Shield className="w-6 h-6 text-accent" />
-              <span className="text-lg">개인정보 안전 보호</span>
+            <div className="flex flex-col items-center text-center text-muted-foreground md:flex-row md:gap-3 md:text-left">
+              <Shield className="w-6 h-6 text-accent mb-1 md:mb-0" />
+              <span className="text-xs md:text-lg">개인정보<br className="md:hidden" />안전 보호</span>
             </div>
-            <div className="flex items-center gap-3 text-muted-foreground">
-              <Users className="w-6 h-6 text-accent" />
-              <span className="text-lg">전문 코치 상담</span>
+            <div className="flex flex-col items-center text-center text-muted-foreground md:flex-row md:gap-3 md:text-left">
+              <Users className="w-6 h-6 text-accent mb-1 md:mb-0" />
+              <span className="text-xs md:text-lg">전문 코치<br className="md:hidden" />상담</span>
             </div>
-            <div className="flex items-center gap-3 text-muted-foreground">
-              <Sparkles className="w-6 h-6 text-accent" />
-              <span className="text-lg">AI 맞춤 분석</span>
+            <div className="flex flex-col items-center text-center text-muted-foreground md:flex-row md:gap-3 md:text-left">
+              <Sparkles className="w-6 h-6 text-accent mb-1 md:mb-0" />
+              <span className="text-xs md:text-lg">AI 맞춤<br className="md:hidden" />분석</span>
             </div>
           </div>
         </div>
