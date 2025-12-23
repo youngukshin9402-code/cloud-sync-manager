@@ -2,10 +2,11 @@ import { cn } from "@/lib/utils";
 import { LucideIcon } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useDailyData } from "@/contexts/DailyDataContext";
+import { ReactNode } from "react";
 
 interface YanggaengCardProps {
   title: string;
-  description: string;
+  description: ReactNode;
   icon: LucideIcon;
   color: "health" | "nutrition" | "exercise";
   features: string[];

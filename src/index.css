@@ -199,9 +199,9 @@
     padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px));
   }
 
-  /* 하단 네비게이션 있을 때 콘텐츠 하단 패딩 (탭 64px + safe 12px + 여유 24px) */
+  /* 하단 네비게이션 있을 때 콘텐츠 하단 패딩 (탭 64px + safe 12px + 여유 60px) */
   .pb-safe-bottom-with-nav {
-    padding-bottom: calc(100px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(140px + env(safe-area-inset-bottom, 0px));
   }
 
   /* 양갱 블록 스타일 버튼 */

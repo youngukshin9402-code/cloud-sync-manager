@@ -11,8 +11,13 @@ export function BenefitsSection() {
     {
       icon: Eye,
       title: "큰 글씨, 쉬운 화면",
-      description:
-        "눈이 편한 큰 글씨와 단순한 화면 구성으로 어르신도 쉽게 사용할 수 있어요.",
+      description: (
+        <>
+          눈이 편한 큰 글씨와 단순한<br className="md:hidden" />
+          {" "}화면 구성으로 어르신도<br className="md:hidden" />
+          {" "}쉽게 사용할 수 있어요.
+        </>
+      ),
     },
     {
       icon: MessageCircle,
@@ -29,8 +34,13 @@ export function BenefitsSection() {
     {
       icon: Clock,
       title: "매일 조금씩",
-      description:
-        "하루 3가지 미션만 완료하면 OK! 부담 없이 꾸준히 건강을 관리하세요.",
+      description: (
+        <>
+          하루 3가지 미션만 완료하면<br className="md:hidden" />
+          {" "}OK! 부담 없이 꾸준히<br className="md:hidden" />
+          {" "}건강을 관리하세요.
+        </>
+      ),
     },
   ];
 
@@ -47,7 +57,8 @@ export function BenefitsSection() {
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
             복잡한 앱은 이제 그만!
             <br />
-            누구나 쉽게 사용할 수 있도록 설계했어요.
+            누구나 쉽게 사용할 수 있도록<br className="md:hidden" />
+            {" "}설계했어요.
           </p>
         </div>
 

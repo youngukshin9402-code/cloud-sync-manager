@@ -1,10 +1,11 @@
 import { cn } from "@/lib/utils";
 import { LucideIcon } from "lucide-react";
+import { ReactNode } from "react";
 
 interface FeatureItemProps {
   icon: LucideIcon;
   title: string;
-  description: string;
+  description: ReactNode;
   delay?: number;
 }
 

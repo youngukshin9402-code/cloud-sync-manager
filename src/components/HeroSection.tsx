@@ -57,9 +57,9 @@ export function HeroSection() {
             </Button>
           </div>
 
-          {/* 신뢰 지표 */}
+          {/* 신뢰 지표 - 모바일 세로 중앙 정렬 */}
           <div
-            className="mt-16 flex flex-wrap justify-center gap-8 md:gap-16 animate-fade-in"
+            className="mt-16 flex flex-col md:flex-row items-center justify-center gap-4 md:gap-16 animate-fade-in w-full"
             style={{ animationDelay: "400ms" }}
           >
             <div className="flex items-center gap-3 text-muted-foreground">
