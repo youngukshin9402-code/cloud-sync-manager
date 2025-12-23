@@ -1,4 +1,4 @@
-import { useRef, useState, useMemo, useEffect } from "react";
+import { useRef, useState, useMemo, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -21,11 +21,14 @@ import {
   ImageIcon,
   TrendingUp,
   Brain,
+  Download,
 } from "lucide-react";
 import { useHealthRecords, HealthRecord, HealthRecordItem } from "@/hooks/useHealthRecords";
 import { useInBodyRecords } from "@/hooks/useServerSync";
 import { useHealthAgeStorage } from "@/hooks/useHealthAgeStorage";
 import { supabase } from "@/integrations/supabase/client";
+import html2canvas from "html2canvas";
+import HealthShareCard from "@/components/health/HealthShareCard";
 
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
@@ -776,6 +779,7 @@ function InBodySection() {
 
 export default function Medical() {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const shareCardRef = useRef<HTMLDivElement>(null);
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [showUploadDialog, setShowUploadDialog] = useState(false);
   
@@ -787,6 +791,8 @@ export default function Medical() {
   const [deletingRecordId, setDeletingRecordId] = useState<string | null>(null);
   const [isUpdatingDate, setIsUpdatingDate] = useState(false);
   const [localUploading, setLocalUploading] = useState(false);
+  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+  const [signedImageUrls, setSignedImageUrls] = useState<string[]>([]);
   
   const {
     records,
@@ -838,20 +844,72 @@ export default function Medical() {
     setShowShareDialog(false);
   };
 
-  const handleShareCopy = () => {
-    if (!currentRecord?.parsed_data) return;
+  // 이미지 서명 URL 가져오기
+  const fetchSignedImageUrls = useCallback(async () => {
+    if (!currentRecord?.raw_image_urls || currentRecord.raw_image_urls.length === 0) {
+      setSignedImageUrls([]);
+      return;
+    }
 
-    const healthAge = currentRecord.health_age;
-    const summary = currentRecord.parsed_data.summary || "";
+    try {
+      const urls = await Promise.all(
+        currentRecord.raw_image_urls.slice(0, 1).map(async (url) => {
+          const path = url.replace(/^.*health-checkups\//, "");
+          const { data } = await supabase.storage
+            .from("health-checkups")
+            .createSignedUrl(path, 60 * 10); // 10분
+          return data?.signedUrl || "";
+        })
+      );
+      setSignedImageUrls(urls.filter(Boolean));
+    } catch (error) {
+      console.error("Error fetching signed URLs:", error);
+      setSignedImageUrls([]);
+    }
+  }, [currentRecord?.raw_image_urls]);
 
-    const shareText = healthAge
-      ? `[건강양갱] 건강검진 결과\n건강나이: ${healthAge}세\n${summary}`
-      : `[건강양갱] 건강검진 결과\n${summary}`;
-
-    navigator.clipboard.writeText(shareText);
-    toast.success("공유 내용이 복사되었어요!");
-    setShowShareDialog(false);
+  // 이미지로 저장하기
+  const handleDownloadImage = async () => {
+    if (!currentRecord?.parsed_data || !shareCardRef.current) return;
+    
+    setIsGeneratingImage(true);
+    
+    try {
+      // 먼저 서명된 URL 가져오기
+      await fetchSignedImageUrls();
+      
+      // DOM이 업데이트될 시간을 줌
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
+      const canvas = await html2canvas(shareCardRef.current, {
+        backgroundColor: "#ffffff",
+        scale: 2,
+        useCORS: true,
+        allowTaint: false,
+        logging: false,
+      });
+      
+      const link = document.createElement("a");
+      link.download = `건강검진결과_${format(new Date(), "yyyyMMdd")}.png`;
+      link.href = canvas.toDataURL("image/png");
+      link.click();
+      
+      toast.success("이미지가 저장되었습니다!");
+      setShowShareDialog(false);
+    } catch (error) {
+      console.error("Image generation error:", error);
+      toast.error("이미지 생성에 실패했습니다");
+    } finally {
+      setIsGeneratingImage(false);
+    }
   };
+
+  // 다이얼로그 열릴 때 서명된 이미지 URL 가져오기
+  useEffect(() => {
+    if (showShareDialog && currentRecord) {
+      fetchSignedImageUrls();
+    }
+  }, [showShareDialog, currentRecord, fetchSignedImageUrls]);
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
@@ -1321,21 +1379,43 @@ export default function Medical() {
 
       {/* 이미지 저장 다이얼로그 */}
       <Dialog open={showShareDialog} onOpenChange={setShowShareDialog}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>건강검진 결과 저장</DialogTitle>
           </DialogHeader>
-          <div className="space-y-3 mt-4">
+          <div className="space-y-4 mt-4">
             <p className="text-sm text-muted-foreground">
-              건강검진 결과를 이미지로 저장하여 가족에게 공유할 수 있습니다.
+              아래 미리보기를 확인하고 이미지로 저장하세요.
             </p>
+            
+            {/* 공유 카드 미리보기 (숨김 - html2canvas용) */}
+            <div className="max-h-[400px] overflow-y-auto border rounded-lg">
+              {currentRecord && (
+                <HealthShareCard 
+                  ref={shareCardRef} 
+                  record={currentRecord} 
+                  imageUrls={signedImageUrls}
+                />
+              )}
+            </div>
+            
             <Button
               size="lg"
               className="w-full h-14"
-              onClick={handleShareCopy}
+              onClick={handleDownloadImage}
+              disabled={isGeneratingImage}
             >
-              <Share2 className="w-5 h-5 mr-3" />
-              이미지로 저장하기
+              {isGeneratingImage ? (
+                <>
+                  <Loader2 className="w-5 h-5 mr-3 animate-spin" />
+                  이미지 생성 중...
+                </>
+              ) : (
+                <>
+                  <Download className="w-5 h-5 mr-3" />
+                  이미지로 저장하기
+                </>
+              )}
             </Button>
           </div>
         </DialogContent>
