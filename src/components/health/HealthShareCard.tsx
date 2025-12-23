@@ -102,19 +102,23 @@ const HealthShareCard = forwardRef<HTMLDivElement, HealthShareCardProps>(
     const analysis = aiAnalysis || parsedData;
     const hasAiAnalysis = !!(analysis?.summary || parsedData?.items?.length);
     const hasCoachComment = !!record.coach_comment;
-    const healthScore = (analysis as any)?.health_score;
+    const healthScore = (analysis as any)?.health_score || parsedData?.health_score;
+    const scoreReason = (analysis as any)?.score_reason || parsedData?.score_reason;
+    const keyIssues = (analysis as any)?.key_issues || parsedData?.key_issues;
+    const actionItems = (analysis as any)?.action_items || parsedData?.action_items;
 
     return (
       <div
         ref={ref}
         style={{
-          width: "360px",
-          maxWidth: "100%",
+          width: "100%",
+          maxWidth: "360px",
           padding: "16px",
           backgroundColor: "#ffffff",
           fontFamily: "system-ui, -apple-system, sans-serif",
           color: "#1f2937",
           margin: "0 auto",
+          boxSizing: "border-box",
         }}
       >
         {/* 헤더 */}
@@ -160,10 +164,15 @@ const HealthShareCard = forwardRef<HTMLDivElement, HealthShareCardProps>(
               {healthScore}
               <span style={{ fontSize: "24px", fontWeight: 600 }}>/100</span>
             </p>
+            {scoreReason && (
+              <p style={{ fontSize: "12px", color: "#374151", marginTop: "8px", lineHeight: 1.4 }}>
+                {scoreReason}
+              </p>
+            )}
           </div>
         )}
 
-        {/* 건강 나이 */}
+        {/* 건강 나이 (점수 없을 때만) */}
         {healthAge && !healthScore && (
           <div
             style={{
@@ -216,23 +225,13 @@ const HealthShareCard = forwardRef<HTMLDivElement, HealthShareCardProps>(
               {analysis?.summary || "AI 분석이 완료되었습니다."}
             </p>
             
-            {/* 점수 산정 이유 */}
-            {(analysis as any)?.score_reason && (
-              <div style={{ marginTop: "8px", paddingTop: "8px", borderTop: "1px dashed #bae6fd" }}>
-                <p style={{ fontSize: "11px", fontWeight: 600, color: "#0369a1", marginBottom: "3px" }}>📊 점수 이유</p>
-                <p style={{ fontSize: "12px", color: "#374151", margin: 0, lineHeight: 1.4 }}>
-                  {(analysis as any).score_reason}
-                </p>
-              </div>
-            )}
-            
             {/* 핵심 문제 */}
-            {(analysis as any)?.key_issues && (analysis as any).key_issues.length > 0 && (
-              <div style={{ marginTop: "8px" }}>
-                <p style={{ fontSize: "11px", fontWeight: 600, color: "#dc2626", marginBottom: "3px" }}>⚠️ 주의 항목</p>
-                <ul style={{ margin: 0, paddingLeft: "14px" }}>
-                  {(analysis as any).key_issues.slice(0, 3).map((issue: string, idx: number) => (
-                    <li key={idx} style={{ fontSize: "11px", color: "#374151", marginBottom: "1px" }}>
+            {keyIssues && keyIssues.length > 0 && (
+              <div style={{ marginTop: "10px", paddingTop: "8px", borderTop: "1px dashed #bae6fd" }}>
+                <p style={{ fontSize: "11px", fontWeight: 600, color: "#dc2626", marginBottom: "4px" }}>⚠️ 주의 항목</p>
+                <ul style={{ margin: 0, paddingLeft: "16px" }}>
+                  {keyIssues.slice(0, 3).map((issue: string, idx: number) => (
+                    <li key={idx} style={{ fontSize: "11px", color: "#374151", marginBottom: "2px" }}>
                       {issue}
                     </li>
                   ))}
@@ -241,12 +240,12 @@ const HealthShareCard = forwardRef<HTMLDivElement, HealthShareCardProps>(
             )}
             
             {/* 실천 항목 */}
-            {(analysis as any)?.action_items && (analysis as any).action_items.length > 0 && (
+            {actionItems && actionItems.length > 0 && (
               <div style={{ marginTop: "8px" }}>
-                <p style={{ fontSize: "11px", fontWeight: 600, color: "#059669", marginBottom: "3px" }}>✅ 오늘부터 실천</p>
-                <ul style={{ margin: 0, paddingLeft: "14px" }}>
-                  {(analysis as any).action_items.slice(0, 3).map((item: string, idx: number) => (
-                    <li key={idx} style={{ fontSize: "11px", color: "#374151", marginBottom: "1px" }}>
+                <p style={{ fontSize: "11px", fontWeight: 600, color: "#059669", marginBottom: "4px" }}>✅ 오늘부터 실천</p>
+                <ul style={{ margin: 0, paddingLeft: "16px" }}>
+                  {actionItems.slice(0, 3).map((item: string, idx: number) => (
+                    <li key={idx} style={{ fontSize: "11px", color: "#374151", marginBottom: "2px" }}>
                       {item}
                     </li>
                   ))}

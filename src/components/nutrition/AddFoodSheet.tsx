@@ -1,11 +1,11 @@
 /**
  * 음식 추가 바텀시트
  * - 3갈래: 빠른 추가 / 사진 AI 분석 / 직접 등록
- * - 검색 탭 제거 (AI 검색만 사용)
- * - 세트 버튼 제거
+ * - 직접 입력: 음식명(필수) + 인분 OR g 선택 (둘 중 하나만)
+ * - AI가 영양정보 계산
  */
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -27,6 +27,14 @@ const MEAL_TYPE_LABELS: Record<MealType, string> = {
   dinner: "저녁",
   snack: "간식",
 };
+
+// 인분 옵션
+const PORTION_OPTIONS = [
+  { label: "0.5인분", value: 0.5 },
+  { label: "1인분", value: 1 },
+  { label: "1.5인분", value: 1.5 },
+  { label: "2인분", value: 2 },
+];
 
 interface AddFoodSheetProps {
   open: boolean;
@@ -50,16 +58,38 @@ export function AddFoodSheet({
   // 직접 입력 상태
   const [manualName, setManualName] = useState("");
   const [manualGrams, setManualGrams] = useState("");
+  const [selectedPortion, setSelectedPortion] = useState<number | null>(null);
+  const [inputMode, setInputMode] = useState<"portion" | "grams" | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   const resetForm = () => {
     setManualName("");
     setManualGrams("");
+    setSelectedPortion(null);
+    setInputMode(null);
   };
 
   const handleClose = () => {
     resetForm();
     onOpenChange(false);
+  };
+
+  // 인분 선택 시 g 입력 비활성화
+  const handlePortionSelect = (value: number) => {
+    setSelectedPortion(value);
+    setManualGrams("");
+    setInputMode("portion");
+  };
+
+  // g 입력 시 인분 선택 해제
+  const handleGramsChange = (value: string) => {
+    setManualGrams(value);
+    if (value) {
+      setSelectedPortion(null);
+      setInputMode("grams");
+    } else {
+      setInputMode(null);
+    }
   };
 
   // 이미지 선택 처리
@@ -79,41 +109,51 @@ export function AddFoodSheet({
       return;
     }
 
-    const grams = parseInt(manualGrams) || 100;
-    
+    if (!selectedPortion && !manualGrams) {
+      toast({ title: "인분 또는 중량(g)을 입력해주세요", variant: "destructive" });
+      return;
+    }
+
     setIsAnalyzing(true);
     try {
       // AI로 영양정보 추정
       const { data, error } = await supabase.functions.invoke("analyze-food", {
         body: {
           foodName: manualName.trim(),
-          grams,
+          grams: manualGrams ? parseInt(manualGrams) : null,
+          portion: selectedPortion,
         },
       });
 
       if (error) throw error;
 
+      const portionLabel = selectedPortion 
+        ? `${selectedPortion}인분` 
+        : `${manualGrams}g`;
+
       const food: MealFood = {
         name: manualName.trim(),
-        calories: data?.calories || Math.round(grams * 1.5),
-        carbs: data?.carbs || Math.round(grams * 0.3),
-        protein: data?.protein || Math.round(grams * 0.1),
-        fat: data?.fat || Math.round(grams * 0.05),
-        portion: `${grams}g`,
+        calories: data?.calories || 200,
+        carbs: data?.carbs || 25,
+        protein: data?.protein || 10,
+        fat: data?.fat || 8,
+        portion: portionLabel,
       };
 
       onFoodsSelected([food]);
       handleClose();
+      toast({ title: `${food.name} 추가됨 (${food.calories}kcal)` });
     } catch (err) {
       console.error("AI analysis error:", err);
       // 실패 시 기본 추정값으로 저장
+      const grams = manualGrams ? parseInt(manualGrams) : (selectedPortion ? selectedPortion * 200 : 200);
       const food: MealFood = {
         name: manualName.trim(),
         calories: Math.round(grams * 1.5),
         carbs: Math.round(grams * 0.3),
         protein: Math.round(grams * 0.1),
         fat: Math.round(grams * 0.05),
-        portion: `${grams}g`,
+        portion: selectedPortion ? `${selectedPortion}인분` : `${manualGrams}g`,
       };
       onFoodsSelected([food]);
       handleClose();
@@ -130,7 +170,7 @@ export function AddFoodSheet({
     handleClose();
   };
 
-  // 빠른 추가에서 여러 음식 추가 (세트)
+  // 빠른 추가에서 여러 음식 추가
   const handleQuickAddFoods = (foods: MealFood[]) => {
     onFoodsSelected(foods);
     toast({ title: `${foods.length}개 음식 추가됨` });
@@ -139,7 +179,10 @@ export function AddFoodSheet({
 
   return (
     <Sheet open={open} onOpenChange={handleClose}>
-      <SheetContent side="bottom" className="h-[80vh] rounded-t-3xl w-full max-w-[420px] mx-auto left-1/2 -translate-x-1/2 flex flex-col">
+      <SheetContent 
+        side="bottom" 
+        className="h-[80vh] rounded-t-3xl w-full max-w-[420px] mx-auto left-1/2 -translate-x-1/2 flex flex-col"
+      >
         <SheetHeader className="pb-4 flex-shrink-0">
           <SheetTitle className="flex items-center gap-2">
             {MEAL_TYPE_LABELS[mealType]} 추가하기
@@ -213,8 +256,9 @@ export function AddFoodSheet({
             </div>
           </TabsContent>
 
-          {/* 직접 입력 탭 - 음식명 + g만 입력, AI가 영양정보 계산 */}
+          {/* 직접 입력 탭 */}
           <TabsContent value="manual" className="flex-1 overflow-y-auto space-y-4">
+            {/* 음식명 (필수) */}
             <div>
               <label className="text-sm font-medium">음식명 *</label>
               <Input
@@ -224,28 +268,59 @@ export function AddFoodSheet({
                 className="mt-1"
               />
             </div>
+
+            {/* 인분 선택 */}
+            <div>
+              <label className="text-sm font-medium">인분 선택</label>
+              <div className="flex flex-nowrap gap-2 mt-1 overflow-x-auto">
+                {PORTION_OPTIONS.map((opt) => (
+                  <Button
+                    key={opt.value}
+                    variant={selectedPortion === opt.value ? "default" : "outline"}
+                    size="sm"
+                    className="h-9 px-4 text-sm shrink-0"
+                    onClick={() => handlePortionSelect(opt.value)}
+                    disabled={inputMode === "grams"}
+                  >
+                    {opt.label}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            {/* 또는 구분선 */}
+            <div className="flex items-center gap-3">
+              <div className="flex-1 h-px bg-border" />
+              <span className="text-xs text-muted-foreground">또는</span>
+              <div className="flex-1 h-px bg-border" />
+            </div>
+
+            {/* g 입력 */}
             <div>
               <label className="text-sm font-medium">중량 (g)</label>
               <Input
                 type="number"
                 placeholder="예: 300"
                 value={manualGrams}
-                onChange={(e) => setManualGrams(e.target.value)}
+                onChange={(e) => handleGramsChange(e.target.value)}
                 className="mt-1"
+                disabled={inputMode === "portion"}
               />
-              <p className="text-xs text-muted-foreground mt-1">
-                음식명과 중량을 입력하면 AI가 칼로리/탄단지를 계산해요
-              </p>
             </div>
+
+            <p className="text-xs text-muted-foreground">
+              음식명과 양을 입력하면 AI가 칼로리/탄단지를 계산해요
+            </p>
+
             <Button 
               className="w-full h-12" 
               onClick={handleManualSave}
-              disabled={isAnalyzing}
+              disabled={isAnalyzing || !manualName.trim()}
             >
               {isAnalyzing ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  분석 중...
+                  AI 분석 중...
                 </>
               ) : (
                 <>

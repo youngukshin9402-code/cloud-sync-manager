@@ -9,14 +9,13 @@ const corsHeaders = {
 interface FoodAnalysisResult {
   name: string;
   calories: number;
-  nutrition_score: number;
-  feedback: string;
-  nutrients: {
-    name: string;
-    amount: string;
-    unit: string;
-  }[];
-  recommendations: string[];
+  carbs: number;
+  protein: number;
+  fat: number;
+  nutrition_score?: number;
+  feedback?: string;
+  nutrients?: { name: string; amount: string; unit: string }[];
+  recommendations?: string[];
 }
 
 serve(async (req) => {
@@ -25,15 +24,117 @@ serve(async (req) => {
   }
 
   try {
-    const { imageUrl, userId, healthTags } = await req.json();
+    const body = await req.json();
+    const { imageUrl, userId, healthTags, foodName, grams, portion } = body;
     
-    console.log("Analyzing food image for user:", userId);
-    console.log("Health tags:", healthTags);
+    console.log("Analyze food request:", { imageUrl, foodName, grams, portion });
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
+
+    // === 텍스트 기반 분석 (직접 입력) ===
+    if (foodName && !imageUrl) {
+      console.log("Text-based food analysis for:", foodName);
+      
+      // 양 결정 (인분 또는 그램)
+      let quantityText = "";
+      if (grams) {
+        quantityText = `${grams}g`;
+      } else if (portion) {
+        quantityText = `${portion}인분 (약 ${Math.round(portion * 200)}g 추정)`;
+      } else {
+        quantityText = "1인분 (약 200g 추정)";
+      }
+
+      const textPrompt = `당신은 영양 분석 전문가입니다. 다음 음식의 영양정보를 냉철하게 분석해주세요.
+
+음식: ${foodName}
+양: ${quantityText}
+
+다음 JSON 형식으로 정확한 영양정보를 응답해주세요:
+{
+  "name": "${foodName}",
+  "calories": 숫자 (kcal),
+  "carbs": 숫자 (g),
+  "protein": 숫자 (g),
+  "fat": 숫자 (g)
+}
+
+주의사항:
+- 한국 음식 기준으로 현실적인 수치를 제공하세요
+- 과대평가하지 말고 냉철하게 계산하세요
+- JSON만 응답하고 다른 텍스트는 포함하지 마세요`;
+
+      const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash",
+          messages: [{ role: "user", content: textPrompt }],
+        }),
+      });
+
+      if (!aiResponse.ok) {
+        if (aiResponse.status === 429) {
+          return new Response(
+            JSON.stringify({ error: "요청이 너무 많습니다. 잠시 후 다시 시도해주세요." }),
+            { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        if (aiResponse.status === 402) {
+          return new Response(
+            JSON.stringify({ error: "서비스 이용 한도에 도달했습니다." }),
+            { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        throw new Error(`AI API error: ${aiResponse.status}`);
+      }
+
+      const aiData = await aiResponse.json();
+      const content = aiData.choices?.[0]?.message?.content;
+
+      if (!content) {
+        throw new Error("No content in AI response");
+      }
+
+      console.log("AI text response:", content);
+
+      let result: FoodAnalysisResult;
+      try {
+        const jsonMatch = content.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) throw new Error("No JSON found");
+        result = JSON.parse(jsonMatch[0]);
+      } catch {
+        // 기본값 제공
+        const baseGrams = grams || (portion ? portion * 200 : 200);
+        result = {
+          name: foodName,
+          calories: Math.round(baseGrams * 1.5),
+          carbs: Math.round(baseGrams * 0.3),
+          protein: Math.round(baseGrams * 0.1),
+          fat: Math.round(baseGrams * 0.08),
+        };
+      }
+
+      return new Response(JSON.stringify(result), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // === 이미지 기반 분석 ===
+    if (!imageUrl) {
+      return new Response(
+        JSON.stringify({ error: "imageUrl or foodName is required" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    console.log("Image-based food analysis");
 
     // Create Supabase client
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -51,7 +152,7 @@ serve(async (req) => {
       throw new Error("Failed to download image");
     }
 
-    // Convert to base64 using chunked approach to avoid stack overflow
+    // Convert to base64 using chunked approach
     const imageBytes = await imageData.arrayBuffer();
     const uint8Array = new Uint8Array(imageBytes);
     let binaryString = "";
@@ -63,7 +164,7 @@ serve(async (req) => {
     const base64Image = btoa(binaryString);
     const mimeType = imageData.type || "image/jpeg";
 
-    // Build health context for personalized feedback
+    // Build health context
     const healthContext = healthTags && healthTags.length > 0
       ? `사용자의 건강 상태: ${healthTags.join(", ")}. 이를 고려해 맞춤 피드백을 제공해주세요.`
       : "";
@@ -96,7 +197,7 @@ ${healthContext}
 
 JSON만 응답하고 다른 텍스트는 포함하지 마세요.`;
 
-    console.log("Calling Lovable AI for food analysis...");
+    console.log("Calling Lovable AI for food image analysis...");
 
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -146,7 +247,7 @@ JSON만 응답하고 다른 텍스트는 포함하지 마세요.`;
       throw new Error("No content in AI response");
     }
 
-    console.log("AI response:", content);
+    console.log("AI image response:", content);
 
     // Parse JSON from response
     let analysisResult: FoodAnalysisResult;
@@ -155,13 +256,28 @@ JSON만 응답하고 다른 텍스트는 포함하지 마세요.`;
       if (!jsonMatch) {
         throw new Error("No JSON found in response");
       }
-      analysisResult = JSON.parse(jsonMatch[0]);
+      const parsed = JSON.parse(jsonMatch[0]);
+      
+      // nutrients에서 carbs, protein, fat 추출
+      const nutrients = parsed.nutrients || [];
+      const carbsNutrient = nutrients.find((n: any) => n.name === "탄수화물");
+      const proteinNutrient = nutrients.find((n: any) => n.name === "단백질");
+      const fatNutrient = nutrients.find((n: any) => n.name === "지방");
+
+      analysisResult = {
+        ...parsed,
+        carbs: carbsNutrient ? parseInt(carbsNutrient.amount.replace(/[^0-9]/g, "")) || 30 : 30,
+        protein: proteinNutrient ? parseInt(proteinNutrient.amount.replace(/[^0-9]/g, "")) || 15 : 15,
+        fat: fatNutrient ? parseInt(fatNutrient.amount.replace(/[^0-9]/g, "")) || 10 : 10,
+      };
     } catch (parseError) {
       console.error("Failed to parse AI response:", parseError);
-      // Provide default values if parsing fails
       analysisResult = {
         name: "음식",
         calories: 300,
+        carbs: 30,
+        protein: 15,
+        fat: 10,
         nutrition_score: 70,
         feedback: "맛있게 드세요! 🍽️",
         nutrients: [

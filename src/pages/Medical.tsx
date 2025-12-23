@@ -673,21 +673,7 @@ function InBodySection() {
             <DialogTitle>{editingId ? "인바디 수정" : "인바디 기록"}</DialogTitle>
           </DialogHeader>
 
-          {/* 입력 모드 탭 (새 기록일 때만) */}
-          {!editingId && !isAnalyzing && (
-            <Tabs value={inputMode} onValueChange={(v) => setInputMode(v as 'manual' | 'photo')} className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="manual" className="text-xs">
-                  <Keyboard className="w-3 h-3 mr-1" />
-                  수기 입력
-                </TabsTrigger>
-                <TabsTrigger value="photo" className="text-xs">
-                  <Camera className="w-3 h-3 mr-1" />
-                  사진 AI
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
-          )}
+          {/* 수기 입력 모드에서는 탭 제거 - 사진 AI는 외부 버튼으로 진입 */}
 
           {/* 분석 중 로딩 */}
           {isAnalyzing && (
@@ -1047,29 +1033,103 @@ export default function Medical() {
     }
 
     if (currentRecord.status === "pending_review") {
+      const parsedData = currentRecord.parsed_data;
+      const healthScore = parsedData?.health_score;
+      const scoreReason = parsedData?.score_reason;
+      const keyIssues = parsedData?.key_issues || [];
+      const actionItems = parsedData?.action_items || [];
+      
       return (
-        <div className="text-center py-12">
-          <div className="w-24 h-24 mx-auto mb-6 rounded-3xl bg-amber-100 flex items-center justify-center">
-            <AlertCircle className="w-12 h-12 text-amber-600" />
+        <div className="space-y-6">
+          <div className="text-center">
+            <div className="w-20 h-20 mx-auto mb-4 rounded-3xl bg-amber-100 flex items-center justify-center">
+              <AlertCircle className="w-10 h-10 text-amber-600" />
+            </div>
+            <h2 className="text-xl font-semibold text-foreground mb-1">
+              코치님이 검토 중이에요
+            </h2>
+            <p className="text-muted-foreground">AI 분석이 완료되었어요</p>
           </div>
-          <h2 className="text-2xl font-semibold text-foreground mb-2">
-            코치님이 검토 중이에요
-          </h2>
-          <p className="text-lg text-muted-foreground mb-4">
-            AI 분석이 완료되었어요.
-          </p>
 
-          {currentRecord.parsed_data && (
-            <div className="mt-6 text-left bg-card rounded-2xl p-5 border border-border">
-              <h3 className="font-semibold mb-3">AI 분석 결과 (검토 전)</h3>
-              <p className="text-muted-foreground mb-4">{currentRecord.parsed_data.summary}</p>
-              <div className="space-y-2">
-                {currentRecord.parsed_data.items.slice(0, 3).map((item, idx) => (
-                  <HealthItemCard key={idx} item={item} />
-                ))}
-              </div>
+          {parsedData && (
+            <div className="bg-card rounded-2xl p-5 border border-border space-y-4">
+              {/* 건강 점수 */}
+              {healthScore && (
+                <div className="text-center py-4 bg-emerald-50 rounded-xl">
+                  <p className="text-sm text-emerald-600 font-medium mb-1">건강 점수</p>
+                  <p className="text-4xl font-bold text-emerald-600">
+                    {healthScore}<span className="text-xl">/100</span>
+                  </p>
+                  {scoreReason && (
+                    <p className="text-sm text-muted-foreground mt-2 px-4">{scoreReason}</p>
+                  )}
+                </div>
+              )}
+
+              {/* AI 요약 */}
+              {parsedData.summary && (
+                <div>
+                  <h4 className="font-medium text-sm mb-2">📝 핵심 요약</h4>
+                  <p className="text-muted-foreground text-sm">{parsedData.summary}</p>
+                </div>
+              )}
+
+              {/* 주의 항목 */}
+              {keyIssues.length > 0 && (
+                <div>
+                  <h4 className="font-medium text-sm text-red-600 mb-2">⚠️ 주요 문제</h4>
+                  <ul className="space-y-1">
+                    {keyIssues.slice(0, 3).map((issue, idx) => (
+                      <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
+                        <span className="text-red-500">•</span>
+                        {issue}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* 권장 행동 */}
+              {actionItems.length > 0 && (
+                <div>
+                  <h4 className="font-medium text-sm text-emerald-600 mb-2">✅ 권장 행동</h4>
+                  <ul className="space-y-1">
+                    {actionItems.slice(0, 3).map((item, idx) => (
+                      <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
+                        <span className="text-emerald-500">•</span>
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* 검사 항목 (접기 가능하도록 최대 3개만) */}
+              {parsedData.items && parsedData.items.length > 0 && (
+                <div>
+                  <h4 className="font-medium text-sm mb-2">📋 주요 수치</h4>
+                  <div className="space-y-2">
+                    {parsedData.items.slice(0, 3).map((item, idx) => (
+                      <HealthItemCard key={idx} item={item} />
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
+
+          {/* parsed_data가 있으면 이미지 저장 버튼 노출 */}
+          {parsedData && (
+            <Button size="lg" className="w-full h-12" onClick={() => setShowShareDialog(true)}>
+              <Share2 className="w-5 h-5 mr-2" />
+              이미지로 저장하기
+            </Button>
+          )}
+
+          <Button variant="outline" size="lg" className="w-full h-12" onClick={openUploadDialog} disabled={isUploading}>
+            <Upload className="w-5 h-5 mr-2" />
+            새 검진 결과 업로드
+          </Button>
         </div>
       );
     }
@@ -1377,19 +1437,19 @@ export default function Medical() {
         </DialogContent>
       </Dialog>
 
-      {/* 이미지 저장 다이얼로그 */}
+      {/* 이미지 저장 다이얼로그 - 모바일 중앙 정렬 */}
       <Dialog open={showShareDialog} onOpenChange={setShowShareDialog}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="w-[92vw] max-w-md mx-auto">
           <DialogHeader>
             <DialogTitle>건강검진 결과 저장</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 mt-4">
-            <p className="text-sm text-muted-foreground">
-              아래 미리보기를 확인하고 이미지로 저장하세요.
+            <p className="text-sm text-muted-foreground text-center">
+              미리보기를 확인하고 이미지로 저장하세요
             </p>
             
-            {/* 공유 카드 미리보기 (숨김 - html2canvas용) */}
-            <div className="max-h-[400px] overflow-y-auto border rounded-lg">
+            {/* 공유 카드 미리보기 - 중앙 정렬 + 스크롤 */}
+            <div className="max-h-[50vh] overflow-y-auto border rounded-lg flex justify-center p-2">
               {currentRecord && (
                 <HealthShareCard 
                   ref={shareCardRef} 
