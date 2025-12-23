@@ -64,15 +64,15 @@ export function HeroSection() {
           >
             <div className="flex flex-col items-center text-center text-muted-foreground md:flex-row md:gap-3 md:text-left">
               <Shield className="w-6 h-6 text-accent mb-1 md:mb-0" />
-              <span className="text-xs md:text-lg">개인정보<br className="md:hidden" />안전 보호</span>
+              <span className="text-sm md:text-lg">개인정보<br className="md:hidden" />안전 보호</span>
             </div>
             <div className="flex flex-col items-center text-center text-muted-foreground md:flex-row md:gap-3 md:text-left">
               <Users className="w-6 h-6 text-accent mb-1 md:mb-0" />
-              <span className="text-xs md:text-lg">전문 코치<br className="md:hidden" />상담</span>
+              <span className="text-sm md:text-lg">전문 코치<br className="md:hidden" />상담</span>
             </div>
             <div className="flex flex-col items-center text-center text-muted-foreground md:flex-row md:gap-3 md:text-left">
               <Sparkles className="w-6 h-6 text-accent mb-1 md:mb-0" />
-              <span className="text-xs md:text-lg">AI 맞춤<br className="md:hidden" />분석</span>
+              <span className="text-sm md:text-lg">AI 맞춤<br className="md:hidden" />분석</span>
             </div>
           </div>
         </div>
