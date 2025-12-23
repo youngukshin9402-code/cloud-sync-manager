@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { endOfMonth, format, startOfMonth } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Json } from '@/integrations/supabase/types';
@@ -542,8 +543,35 @@ function parseGymRecord(row: {
   };
 }
 
-export function useGymRecords() {
+const GYM_RECORDS_CACHE_PREFIX = "yanggaeng_gym_records:";
+
+function getGymRecordsCacheKey(month: string) {
+  return `${GYM_RECORDS_CACHE_PREFIX}${month}`;
+}
+
+function safeLocalStorageSet(key: string, value: string) {
+  try {
+    localStorage.setItem(key, value);
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.warn(`[localStorage] setItem failed for ${key}`, err);
+  }
+}
+
+function safeLocalStorageGetParsed<T>(key: string, fallback: T): T {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return fallback;
+    return JSON.parse(raw) as T;
+  } catch {
+    return fallback;
+  }
+}
+
+export function useGymRecords(month?: string) {
   const { user } = useAuth();
+  const activeMonth = month ?? format(new Date(), "yyyy-MM");
+
   const [data, setData] = useState<GymRecordServer[]>([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
@@ -555,51 +583,78 @@ export function useGymRecords() {
       return;
     }
 
+    const cacheKey = getGymRecordsCacheKey(activeMonth);
+
+    // Legacy cache cleanup (this key can become huge and block the app with quota errors)
+    try {
+      localStorage.removeItem("yanggaeng_gym_records");
+    } catch {
+      // ignore
+    }
+
+    const monthStartDate = new Date(`${activeMonth}-01T00:00:00`);
+    const rangeStart = format(startOfMonth(monthStartDate), "yyyy-MM-dd");
+    const rangeEnd = format(endOfMonth(monthStartDate), "yyyy-MM-dd");
+
     try {
       const { data: serverData, error } = await supabase
-        .from('gym_records')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('date', { ascending: false });
+        .from("gym_records")
+        .select("id,date,exercises,created_at")
+        .eq("user_id", user.id)
+        .gte("date", rangeStart)
+        .lte("date", rangeEnd)
+        .order("date", { ascending: false });
 
       if (error) throw error;
-      
+
       const parsed = (serverData || []).map(parseGymRecord);
       setData(parsed);
-      localStorage.setItem('yanggaeng_gym_records', JSON.stringify(parsed));
+      safeLocalStorageSet(cacheKey, JSON.stringify(parsed));
     } catch (error) {
-      console.error('Error fetching gym records:', error);
-      const cached = localStorage.getItem('yanggaeng_gym_records');
-      if (cached) setData(JSON.parse(cached));
+      console.error("Error fetching gym records:", error);
+      const cached = safeLocalStorageGetParsed<GymRecordServer[]>(cacheKey, []);
+      if (cached.length) setData(cached);
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, activeMonth]);
 
   useEffect(() => {
+    setLoading(true);
     fetchFromServer();
   }, [fetchFromServer]);
 
   const add = async (item: { date: string; exercises: GymExercise[] }) => {
-    if (!user) return { error: 'Not authenticated' };
+    if (!user) return { error: "Not authenticated" };
     setSyncing(true);
+
+    const cacheKey = getGymRecordsCacheKey(activeMonth);
+
     try {
       const { data: newItem, error } = await supabase
-        .from('gym_records')
-        .insert({ 
+        .from("gym_records")
+        .insert({
           date: item.date,
           user_id: user.id,
-          exercises: item.exercises as unknown as Json
+          exercises: item.exercises as unknown as Json,
         })
         .select()
         .single();
 
       if (error) throw error;
-      
+
       const parsed = parseGymRecord(newItem);
-      setData(prev => [parsed, ...prev].sort((a, b) => 
-        new Date(b.date).getTime() - new Date(a.date).getTime()
-      ));
+
+      setData((prev) => {
+        const next = [parsed, ...prev].sort(
+          (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+        );
+        if (parsed.date.slice(0, 7) === activeMonth) {
+          safeLocalStorageSet(cacheKey, JSON.stringify(next));
+        }
+        return next;
+      });
+
       return { data: parsed, error: null };
     } catch (error) {
       return { data: null, error };
@@ -616,36 +671,50 @@ export function useGymRecords() {
       ...item,
       created_at: new Date().toISOString(),
     };
-    
-    setData(prev => [newRecord, ...prev].sort((a, b) => 
-      new Date(b.date).getTime() - new Date(a.date).getTime()
-    ));
-    
-    // Save to cache
-    const cached = localStorage.getItem('yanggaeng_gym_records') || '[]';
-    const cachedData = JSON.parse(cached);
+
+    setData((prev) =>
+      [newRecord, ...prev].sort(
+        (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+      )
+    );
+
+    // Save to month-scoped cache (prevents quota issues)
+    const recordMonth = item.date.slice(0, 7);
+    const cacheKey = getGymRecordsCacheKey(recordMonth);
+    const cachedData = safeLocalStorageGetParsed<GymRecordServer[]>(cacheKey, []);
     cachedData.unshift(newRecord);
-    localStorage.setItem('yanggaeng_gym_records', JSON.stringify(cachedData));
-    
+    safeLocalStorageSet(cacheKey, JSON.stringify(cachedData));
+
     return newRecord;
   };
 
   const update = async (id: string, exercises: GymExercise[]) => {
-    if (!user) return { error: 'Not authenticated' };
+    if (!user) return { error: "Not authenticated" };
     setSyncing(true);
+
+    const cacheKey = getGymRecordsCacheKey(activeMonth);
+
     try {
       const { data: updated, error } = await supabase
-        .from('gym_records')
+        .from("gym_records")
         .update({ exercises: exercises as unknown as Json })
-        .eq('id', id)
-        .eq('user_id', user.id)
+        .eq("id", id)
+        .eq("user_id", user.id)
         .select()
         .single();
 
       if (error) throw error;
-      
+
       const parsed = parseGymRecord(updated);
-      setData(prev => prev.map(item => item.id === id ? parsed : item));
+
+      setData((prev) => {
+        const next = prev.map((item) => (item.id === id ? parsed : item));
+        if (parsed.date.slice(0, 7) === activeMonth) {
+          safeLocalStorageSet(cacheKey, JSON.stringify(next));
+        }
+        return next;
+      });
+
       return { data: parsed, error: null };
     } catch (error) {
       return { data: null, error };

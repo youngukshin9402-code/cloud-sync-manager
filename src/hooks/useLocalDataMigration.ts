@@ -64,6 +64,14 @@ export function useLocalDataMigration() {
   const migrateData = useCallback(async () => {
     if (!user || migrationInProgress.current) return;
     if (getMigrationFlag()) {
+      // cleanup legacy large caches to prevent localStorage quota issues
+      try {
+        localStorage.removeItem(OLD_MEAL_RECORDS_KEY);
+        localStorage.removeItem(OLD_GYM_RECORDS_KEY);
+      } catch {
+        // ignore
+      }
+
       console.log("Migration already completed for this user");
       return;
     }
