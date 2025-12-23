@@ -15,6 +15,11 @@ export interface HealthRecordItem {
 
 export interface ParsedHealthData {
   health_age: number | null;
+  health_score?: number | null;
+  score_reason?: string;
+  key_issues?: string[];
+  action_items?: string[];
+  warnings?: string[];
   summary: string;
   items: HealthRecordItem[];
   health_tags: string[];

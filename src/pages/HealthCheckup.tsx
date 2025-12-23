@@ -90,6 +90,9 @@ export default function HealthCheckup() {
     await deleteRecord(recordId);
   };
 
+  // AI 분석 데이터 가져오기
+  const [aiAnalysisData, setAiAnalysisData] = useState<any>(null);
+
   // 이미지로 저장하기
   const handleSaveAsImage = async (record: HealthRecord) => {
     if (!record) return;
@@ -108,11 +111,24 @@ export default function HealthCheckup() {
         );
         setShareImageUrls(urls.filter(Boolean));
       }
+
+      // AI 분석 데이터 가져오기 (ai_health_reports에서)
+      const { data: aiReport } = await supabase
+        .from('ai_health_reports')
+        .select('ai_result')
+        .eq('source_record_id', record.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      // ai_result 또는 parsed_data 사용
+      const analysisData = aiReport?.ai_result || record.parsed_data;
+      setAiAnalysisData(analysisData);
       
       setShowShareCard(true);
       
-      // 약간의 딜레이 후 이미지 캡처
-      await new Promise(resolve => setTimeout(resolve, 300));
+      // 이미지 로딩 및 렌더링 대기
+      await new Promise(resolve => setTimeout(resolve, 500));
       
       if (shareCardRef.current) {
         const canvas = await html2canvas(shareCardRef.current, {
@@ -120,6 +136,7 @@ export default function HealthCheckup() {
           backgroundColor: '#ffffff',
           useCORS: true,
           allowTaint: true,
+          logging: false,
         });
         
         const link = document.createElement('a');
@@ -140,8 +157,9 @@ export default function HealthCheckup() {
 
   // AI 분석이 완료되면 이미지 저장 버튼 표시 (코치 코멘트는 선택)
   const canSaveAsImage = (record: HealthRecord) => {
-    // parsed_data가 있으면 AI 분석 완료된 것으로 판단
-    return !!record.parsed_data;
+    // parsed_data가 있거나 status가 completed면 AI 분석 완료된 것으로 판단
+    // 코치 코멘트가 없어도 AI 분석만 있으면 저장 가능
+    return !!record.parsed_data || record.status === 'completed' || !!record.coach_comment;
   };
 
   // Count statuses from parsed_data
@@ -215,7 +233,7 @@ export default function HealthCheckup() {
         </div>
 
         {/* Latest Record Summary */}
-        {latestRecord && latestRecord.status === 'completed' && latestParsedData ? (
+        {latestRecord && latestParsedData ? (
           <div className="bg-card rounded-3xl border border-border p-5 space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="font-semibold">최근 AI 분석 결과</h2>
@@ -254,6 +272,14 @@ export default function HealthCheckup() {
             {/* Summary Text */}
             {latestParsedData.summary && (
               <p className="text-sm text-muted-foreground">{latestParsedData.summary}</p>
+            )}
+
+            {/* Health Score */}
+            {latestParsedData.health_score && (
+              <div className="text-center p-4 bg-primary/5 rounded-2xl">
+                <p className="text-sm text-muted-foreground mb-1">건강 점수</p>
+                <p className="text-4xl font-bold text-primary">{latestParsedData.health_score}<span className="text-lg">/100</span></p>
+              </div>
             )}
 
             {/* Health Age */}
@@ -297,11 +323,32 @@ export default function HealthCheckup() {
               </div>
             )}
 
-            {/* 이미지로 저장하기 버튼 - AI 분석 또는 코치 코멘트가 있으면 표시 */}
-            {canSaveAsImage(latestRecord) && (
+            {/* 이미지로 저장하기 버튼 - AI 분석이 있으면 표시 (코치 코멘트 불필요) */}
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => handleSaveAsImage(latestRecord)}
+              disabled={isSavingImage}
+            >
+              {isSavingImage ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Download className="w-4 h-4 mr-2" />
+              )}
+              이미지로 저장하기
+            </Button>
+          </div>
+        ) : latestRecord && !latestParsedData ? (
+          <div className="bg-card rounded-3xl border border-border p-8 text-center">
+            <Loader2 className="w-12 h-12 mx-auto mb-3 text-primary animate-spin" />
+            <p className="font-medium">AI가 분석 중입니다...</p>
+            <p className="text-sm text-muted-foreground">잠시 후 결과가 표시됩니다</p>
+            
+            {/* 분석 중이어도 코치 코멘트가 있으면 이미지 저장 가능 */}
+            {latestRecord.coach_comment && (
               <Button
                 variant="outline"
-                className="w-full"
+                className="mt-4"
                 onClick={() => handleSaveAsImage(latestRecord)}
                 disabled={isSavingImage}
               >
@@ -314,19 +361,13 @@ export default function HealthCheckup() {
               </Button>
             )}
           </div>
-        ) : latestRecord && latestRecord.status !== 'completed' ? (
-          <div className="bg-card rounded-3xl border border-border p-8 text-center">
-            <Loader2 className="w-12 h-12 mx-auto mb-3 text-primary animate-spin" />
-            <p className="font-medium">AI가 분석 중입니다...</p>
-            <p className="text-sm text-muted-foreground">잠시 후 결과가 표시됩니다</p>
-          </div>
         ) : (
           <div className="bg-card rounded-3xl border border-border p-8 text-center">
             <FileText className="w-12 h-12 mx-auto mb-3 text-muted-foreground/30" />
             <p className="text-muted-foreground">건강검진 기록이 없습니다</p>
-          <Button className="mt-4" onClick={() => fileInputRef.current?.click()}>
-            <Camera className="w-4 h-4 mr-2" />
-            검진 결과 사진 업로드
+            <Button className="mt-4" onClick={() => fileInputRef.current?.click()}>
+              <Camera className="w-4 h-4 mr-2" />
+              검진 결과 사진 업로드
             </Button>
           </div>
         )}
@@ -462,6 +503,7 @@ export default function HealthCheckup() {
             ref={shareCardRef}
             record={latestRecord}
             imageUrls={shareImageUrls}
+            aiAnalysis={aiAnalysisData}
           />
         </div>
       )}
