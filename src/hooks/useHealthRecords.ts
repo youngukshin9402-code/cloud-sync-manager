@@ -276,25 +276,27 @@ export function useHealthRecords() {
   };
 
   // Delete a health record - optimistic update 적용 + AI 분석/코치 코멘트도 함께 삭제
-  const deleteRecord = async (recordId: string) => {
+  const deleteRecord = async (recordId: string): Promise<boolean> => {
     if (!user) {
       toast.error("로그인이 필요합니다.");
       return false;
     }
 
-    // Optimistic update: 즉시 UI에서 제거
-    const previousRecords = records;
+    // 삭제 전 현재 상태 백업
+    const previousRecords = [...records];
     const previousCurrentRecord = currentRecord;
     
-    setRecords((prev) => prev.filter((r) => r.id !== recordId));
-    setCurrentRecord((prev) => {
-      if (prev?.id === recordId) {
-        // 삭제된 레코드가 현재 레코드면 다음 레코드로 이동
-        const remaining = previousRecords.filter((r) => r.id !== recordId);
-        return remaining[0] || null;
-      }
-      return prev;
-    });
+    // 삭제 후 남은 레코드 계산
+    const remainingRecords = previousRecords.filter((r) => r.id !== recordId);
+    
+    // Optimistic update: 즉시 UI에서 제거
+    setRecords(remainingRecords);
+    
+    // currentRecord가 삭제 대상인 경우 즉시 전환
+    if (currentRecord?.id === recordId) {
+      const nextRecord = remainingRecords[0] || null;
+      setCurrentRecord(nextRecord);
+    }
 
     try {
       // Find the record to get image URLs

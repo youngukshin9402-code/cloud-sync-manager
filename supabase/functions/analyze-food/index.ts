@@ -48,24 +48,31 @@ serve(async (req) => {
         quantityText = "1인분 (약 200g 추정)";
       }
 
-      const textPrompt = `당신은 영양 분석 전문가입니다. 다음 음식의 영양정보를 냉철하게 분석해주세요.
+      const textPrompt = `당신은 한국 음식과 전 세계 음식에 대한 전문적인 영양 분석가입니다. 
+다음 음식의 영양정보를 정확하고 냉철하게 분석해주세요.
 
 음식: ${foodName}
 양: ${quantityText}
 
-다음 JSON 형식으로 정확한 영양정보를 응답해주세요:
+## 분석 지침:
+1. 브랜드명이 포함된 경우 (예: 스타벅스 카페라떼, 맥도날드 빅맥, CU 삼각김밥 등), 해당 브랜드의 실제 영양정보를 기준으로 하세요.
+2. 프랜차이즈 메뉴 (예: 교촌치킨, 굽네치킨, 파파이스 등)는 실제 메뉴 영양정보를 참고하세요.
+3. 편의점 음식 (CU, GS25, 세븐일레븐 등)도 실제 제품 영양정보를 기준으로 분석하세요.
+4. 한국 음식 (김치찌개, 된장찌개, 불고기, 삼겹살 등)은 한국 일반적인 1인분 기준으로 분석하세요.
+5. 인스턴트 음식 (라면, 컵라면, 불닭볶음면 등)은 제품 표기 영양정보를 참고하세요.
+6. 영문명이나 줄임말도 최대한 인식하세요 (예: fried chicken = 치킨, americano = 아메리카노)
+7. 모르는 음식이면 비슷한 종류의 음식으로 합리적으로 추정하세요.
+
+## 응답 형식 (JSON만 출력):
 {
   "name": "${foodName}",
-  "calories": 숫자 (kcal),
-  "carbs": 숫자 (g),
-  "protein": 숫자 (g),
-  "fat": 숫자 (g)
+  "calories": 숫자 (kcal, 정수),
+  "carbs": 숫자 (g, 정수),
+  "protein": 숫자 (g, 정수),
+  "fat": 숫자 (g, 정수)
 }
 
-주의사항:
-- 한국 음식 기준으로 현실적인 수치를 제공하세요
-- 과대평가하지 말고 냉철하게 계산하세요
-- JSON만 응답하고 다른 텍스트는 포함하지 마세요`;
+주의: JSON만 출력하고 다른 설명은 포함하지 마세요.`;
 
       const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
@@ -76,6 +83,7 @@ serve(async (req) => {
         body: JSON.stringify({
           model: "google/gemini-2.5-flash",
           messages: [{ role: "user", content: textPrompt }],
+          temperature: 0.1, // 낮은 temperature로 일관성 확보
         }),
       });
 
@@ -108,8 +116,18 @@ serve(async (req) => {
       try {
         const jsonMatch = content.match(/\{[\s\S]*\}/);
         if (!jsonMatch) throw new Error("No JSON found");
-        result = JSON.parse(jsonMatch[0]);
-      } catch {
+        const parsed = JSON.parse(jsonMatch[0]);
+        
+        // 숫자 변환 및 검증
+        result = {
+          name: parsed.name || foodName,
+          calories: Math.round(Number(parsed.calories) || 200),
+          carbs: Math.round(Number(parsed.carbs) || 25),
+          protein: Math.round(Number(parsed.protein) || 10),
+          fat: Math.round(Number(parsed.fat) || 8),
+        };
+      } catch (parseErr) {
+        console.error("JSON parse error:", parseErr);
         // 기본값 제공
         const baseGrams = grams || (portion ? portion * 200 : 200);
         result = {
@@ -120,6 +138,8 @@ serve(async (req) => {
           fat: Math.round(baseGrams * 0.08),
         };
       }
+
+      console.log("Final text result:", result);
 
       return new Response(JSON.stringify(result), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -219,6 +239,7 @@ JSON만 응답하고 다른 텍스트는 포함하지 마세요.`;
             ],
           },
         ],
+        temperature: 0.1,
       }),
     });
 
