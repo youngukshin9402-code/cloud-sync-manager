@@ -97,7 +97,7 @@ export function MealDetailSheet({
   return (
     <>
       <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent side="bottom" className="h-[80vh] rounded-t-3xl">
+        <SheetContent side="bottom" className="h-[80vh] h-[80dvh] rounded-t-3xl pb-[max(1rem,env(safe-area-inset-bottom))]">
           <SheetHeader className="pb-4">
             <SheetTitle className="flex items-center justify-between">
               <span>{MEAL_TYPE_LABELS[mealType]} 기록</span>

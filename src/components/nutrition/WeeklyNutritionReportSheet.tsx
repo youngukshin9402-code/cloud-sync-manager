@@ -128,7 +128,7 @@ export function WeeklyNutritionReportSheet({
 
   return (
     <Sheet open={open} onOpenChange={handleOpenChange}>
-      <SheetContent side="bottom" className="h-[85vh] rounded-t-3xl w-full max-w-[420px] mx-auto left-1/2 -translate-x-1/2">
+      <SheetContent side="bottom" className="h-[85vh] h-[85dvh] rounded-t-3xl w-full max-w-[420px] mx-auto left-1/2 -translate-x-1/2 pb-[max(1rem,env(safe-area-inset-bottom))]">
         <SheetHeader className="pb-4">
           <SheetTitle className="flex items-center gap-2">
             <TrendingUp className="w-5 h-5 text-primary" />

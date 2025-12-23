@@ -62,7 +62,7 @@ export function CheckinSheet({ trigger }: CheckinSheetProps) {
           </Button>
         )}
       </SheetTrigger>
-      <SheetContent side="bottom" className="h-[85vh] rounded-t-3xl">
+      <SheetContent side="bottom" className="h-[85vh] h-[85dvh] rounded-t-3xl pb-[max(1rem,env(safe-area-inset-bottom))]">
         <SheetHeader className="pb-4">
           <SheetTitle>오늘 체크인</SheetTitle>
         </SheetHeader>

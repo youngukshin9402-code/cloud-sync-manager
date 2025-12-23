@@ -181,7 +181,7 @@ export function AddFoodSheet({
     <Sheet open={open} onOpenChange={handleClose}>
       <SheetContent 
         side="bottom" 
-        className="h-[80vh] rounded-t-3xl w-full max-w-[420px] mx-auto left-1/2 -translate-x-1/2 flex flex-col"
+        className="h-[80vh] h-[80dvh] rounded-t-3xl w-full max-w-[420px] mx-auto left-1/2 -translate-x-1/2 flex flex-col pb-[max(1rem,env(safe-area-inset-bottom))]"
       >
         <SheetHeader className="pb-4 flex-shrink-0">
           <SheetTitle className="flex items-center gap-2">

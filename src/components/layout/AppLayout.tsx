@@ -41,9 +41,9 @@ export function AppLayout() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen min-h-[100dvh] bg-background flex flex-col">
       {/* 상단 헤더 */}
-      <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-md border-b border-border safe-area-top">
+      <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-md border-b border-border safe-area-top flex-shrink-0">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           <Link to="/dashboard" className="flex items-center gap-2">
             <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
@@ -79,15 +79,15 @@ export function AppLayout() {
 
       {/* 메인 콘텐츠 - 하단 탭 높이 + safe area 만큼 padding */}
       <main className={cn(
-        "container mx-auto px-4 py-6",
-        showBottomNav && "pb-safe-bottom-with-nav"
+        "container mx-auto px-4 py-6 flex-1",
+        showBottomNav && "pb-[calc(80px+env(safe-area-inset-bottom,0px))]"
       )}>
         <Outlet />
       </main>
 
       {/* 하단 네비게이션 (일반 사용자/보호자용, 채팅에서는 숨김) */}
       {showBottomNav && (
-        <nav className="fixed-safe-bottom left-0 right-0 bg-card/95 backdrop-blur-md border-t border-border z-50">
+        <nav className="fixed bottom-0 left-0 right-0 bg-card/95 backdrop-blur-md border-t border-border z-50 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
           <div className="container mx-auto px-2">
             <div className="flex justify-around items-center h-16">
               {navItems.map((item) => {
@@ -113,8 +113,6 @@ export function AppLayout() {
                 );
               })}
             </div>
-            {/* Safe area는 nav 내부 하단 패딩으로 처리 */}
-            <div className="safe-area-bottom" />
           </div>
         </nav>
       )}
