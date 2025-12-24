@@ -50,6 +50,7 @@
     --health-green: 145 50% 45%;
     --nutrition-orange: 25 95% 55%;
     --exercise-blue: 200 70% 50%;
+    --health-purple: 270 60% 55%;
 
     /* 그라디언트 */
     --gradient-yanggaeng: linear-gradient(135deg, hsl(35, 90%, 55%) 0%, hsl(30, 85%, 45%) 100%);

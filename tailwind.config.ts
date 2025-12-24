@@ -62,11 +62,12 @@ export default {
   				amber: 'hsl(var(--yanggaeng-amber))',
   				cream: 'hsl(var(--yanggaeng-cream))'
   			},
-  			health: {
-  				green: 'hsl(var(--health-green))',
-  				orange: 'hsl(var(--nutrition-orange))',
-  				blue: 'hsl(var(--exercise-blue))'
-  			}
+			health: {
+				green: 'hsl(var(--health-green))',
+				orange: 'hsl(var(--nutrition-orange))',
+				blue: 'hsl(var(--exercise-blue))',
+				purple: 'hsl(var(--health-purple))'
+			}
   		},
   		borderRadius: {
   			lg: 'var(--radius)',

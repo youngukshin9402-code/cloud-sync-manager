@@ -1,20 +1,12 @@
-import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDailyData } from "@/contexts/DailyDataContext";
 import { useNutritionSettings } from "@/hooks/useNutritionSettings";
 import { useTodayMealRecords } from "@/hooks/useMealRecordsQuery";
 import { useGoalAchievement } from "@/hooks/useGoalAchievement";
-import { Button } from "@/components/ui/button";
+import { useHealthAgeStorage } from "@/hooks/useHealthAgeStorage";
 import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Flame,
   Droplets,
@@ -22,62 +14,21 @@ import {
   ChevronRight,
   Target,
   TrendingUp,
-  CheckCircle,
-  RefreshCw,
-  Sparkles,
+  Heart,
 } from "lucide-react";
 import { getTodayString } from "@/lib/localStorage";
-import { cn } from "@/lib/utils";
-import { useToast } from "@/hooks/use-toast";
-
-// 10가지 생활습관 Pool
-const HABIT_POOL = [
-  "물 6잔(1.2L) 마시기",
-  "10분 이상 걷기",
-  "아침 식사 기록하기",
-  "계단으로 3층 이상 오르기",
-  "30분 이상 걷기",
-  "스트레칭 10분 하기",
-  "과일/채소 2회 이상 섭취하기",
-  "저녁 8시 이후 음식 안 먹기",
-  "점심 식사 후 10분 산책하기",
-  "잠자기 전 스마트폰 1시간 안 보기",
-];
-
-// 오늘 날짜 기반으로 3개 랜덤 선택
-function selectRandomHabits(seed: string, count: number = 3): string[] {
-  let hash = 0;
-  for (let i = 0; i < seed.length; i++) {
-    const char = seed.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash;
-  }
-  
-  const shuffled = [...HABIT_POOL];
-  for (let i = shuffled.length - 1; i > 0; i--) {
-    hash = Math.abs((hash * 16807) % 2147483647);
-    const j = hash % (i + 1);
-    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-  }
-  
-  return shuffled.slice(0, count);
-}
 
 export default function Dashboard() {
   const { profile } = useAuth();
-  const { toast } = useToast();
+  const navigate = useNavigate();
   const {
     todayWater,
     waterGoal,
-    todayMissions,
-    toggleMission,
-    reshuffleMissions,
     refreshWater,
     refreshPoints,
   } = useDailyData();
 
-  // 단일 소스: nutrition_settings에서 목표, meal_records에서 섭취량
-  const { getGoals, hasSettings, loading: settingsLoading, refetch: refetchSettings } = useNutritionSettings();
+  const { getGoals, loading: settingsLoading, refetch: refetchSettings } = useNutritionSettings();
   const {
     totals,
     records: todayMealRecords,
@@ -85,22 +36,18 @@ export default function Dashboard() {
     refetch: refetchMeals,
   } = useTodayMealRecords();
   const { checkAndNotify } = useGoalAchievement();
+  const { result: healthAgeResult } = useHealthAgeStorage();
 
   const goals = getGoals();
-  // Dashboard 칼로리는 무조건 오늘 meal_records 합계 사용 (DailyData 컨텍스트 대신)
   const todayCalories = totals.totalCalories;
-  // goals가 null이면 로딩 중 (기본값 사용하지 않음)
   const calorieGoal = goals?.calorieGoal ?? 0;
   const goalsReady = goals !== null;
   const caloriesReady = goalsReady && (todayMealRecords.length > 0 || !mealsLoading);
   const caloriesMet = caloriesReady && calorieGoal > 0 && todayCalories >= calorieGoal;
 
-  const [showAIDialog, setShowAIDialog] = useState(false);
-  const [aiQuestion, setAIQuestion] = useState("");
-
   const today = getTodayString();
 
-  // Refresh data on mount and focus (meal_records만 호출, DailyData calories는 사용 안함)
+  // Refresh data on mount and focus
   useEffect(() => {
     refreshWater();
     refreshPoints();
@@ -119,72 +66,27 @@ export default function Dashboard() {
     return () => window.removeEventListener('focus', handleFocus);
   }, [refreshWater, refreshPoints, refetchMeals, refetchSettings]);
 
-  // Initialize missions if not exists
+  // 목표 달성 체크 및 알림
   useEffect(() => {
-    if (!todayMissions) {
-      const todayHabits = selectRandomHabits(today);
-      reshuffleMissions(todayHabits);
-    }
-  }, [today, todayMissions, reshuffleMissions]);
-
-  // 목표 달성 체크 및 알림 (false→true 전환 시에만) - 칼로리/물은 목표 이상일 때만 달성
-  useEffect(() => {
-    const completedMissionsCount = todayMissions?.missions.filter(m => m.completed).length || 0;
-    const totalMissionsCount = todayMissions?.missions.length || 3;
-    
-    // 수정: 칼로리는 로딩 완료(또는 캐시 존재) 이후에만 목표 판정, 물은 목표 이상일 때 달성
     const caloriesMet = caloriesReady && calorieGoal > 0 && todayCalories >= calorieGoal;
     const waterMet = todayWater >= waterGoal;
-    const missionsMet = completedMissionsCount === totalMissionsCount && totalMissionsCount > 0;
     
-    checkAndNotify(caloriesMet, waterMet, missionsMet);
-  }, [caloriesReady, todayCalories, calorieGoal, todayWater, waterGoal, todayMissions, checkAndNotify]);
-
-  const handleMissionToggle = async (missionId: string) => {
-    const allCompletedBefore = todayMissions?.missions.every(m => m.completed) || false;
-    const willComplete = todayMissions?.missions.filter(m => m.id !== missionId).every(m => m.completed) 
-      && !todayMissions?.missions.find(m => m.id === missionId)?.completed;
-    
-    const wasAwarded = await toggleMission(missionId);
-    
-    if (willComplete && wasAwarded && !allCompletedBefore) {
-      toast({ title: "🎉 축하합니다!", description: "모든 할 일 완료로 100포인트 획득!" });
-      refreshPoints();
-    }
-  };
-
-  const handleReshuffle = () => {
-    const newSeed = `${today}_${Date.now()}`;
-    const newHabits = selectRandomHabits(newSeed);
-    reshuffleMissions(newHabits);
-    toast({ title: "새로운 할 일을 추천했어요!", description: "오늘 지킬 3가지가 변경되었습니다." });
-  };
-
-  const handleAISubmit = () => {
-    if (!aiQuestion.trim()) {
-      toast({ title: "질문을 입력해주세요", variant: "destructive" });
-      return;
-    }
-    
-    toast({ 
-      title: "AI 응답", 
-      description: "아직 AI 기능이 연동되지 않았습니다. 추후 업데이트 예정입니다!" 
-    });
-    setAIQuestion("");
-    setShowAIDialog(false);
-  };
+    checkAndNotify(caloriesMet, waterMet, false);
+  }, [caloriesReady, todayCalories, calorieGoal, todayWater, waterGoal, checkAndNotify]);
 
   if (!profile) return null;
 
-  const completedMissions = todayMissions?.missions.filter(m => m.completed).length || 0;
-  const totalMissions = todayMissions?.missions.length || 3;
-
   const isGuardian = profile?.user_type === "guardian";
 
+  // 건강나이 데이터 존재 여부
+  const hasHealthAge = healthAgeResult !== null;
+  const actualAge = healthAgeResult?.actualAge;
+  const healthAge = healthAgeResult?.healthAge;
+
   return (
-    <div className="space-y-6 pb-8">
+    <div className="flex flex-col h-full pb-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between mb-4">
         <div>
           <h1 className="text-2xl font-bold text-foreground">
             안녕하세요, {profile?.nickname || "회원"}님!
@@ -194,16 +96,16 @@ export default function Dashboard() {
       </div>
 
       {/* Today's Summary KPIs */}
-      <div className="space-y-3">
-        <h2 className="text-lg font-semibold flex items-center gap-2">
+      <div className="flex-1 flex flex-col">
+        <h2 className="text-lg font-semibold flex items-center gap-2 mb-3">
           <Target className="w-5 h-5 text-primary" />
           오늘 요약
         </h2>
         
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-3 flex-1">
           {/* Calories */}
           <Link to="/nutrition" className="block">
-            <div className="bg-card rounded-2xl border border-border p-3 hover:shadow-md transition-shadow">
+            <div className="bg-card rounded-2xl border border-border p-3 h-full hover:shadow-md transition-shadow">
               <div className="flex items-center justify-between mb-1.5 gap-1">
                 <div className="flex items-center gap-1.5 min-w-0">
                   <div className="w-6 h-6 rounded-full bg-health-orange/10 flex items-center justify-center shrink-0">
@@ -240,7 +142,7 @@ export default function Dashboard() {
 
           {/* Water */}
           <Link to="/water" className="block">
-            <div className="bg-card rounded-2xl border border-border p-3 hover:shadow-md transition-shadow">
+            <div className="bg-card rounded-2xl border border-border p-3 h-full hover:shadow-md transition-shadow">
               <div className="flex items-center justify-between mb-1.5 gap-1">
                 <div className="flex items-center gap-1.5 min-w-0">
                   <div className="w-6 h-6 rounded-full bg-health-blue/10 flex items-center justify-center shrink-0">
@@ -265,34 +167,9 @@ export default function Dashboard() {
             </div>
           </Link>
 
-          {/* 오늘 할 일 카드 */}
-          <div className="bg-card rounded-2xl border border-border p-3">
-            <div className="flex items-center justify-between mb-1.5 gap-1">
-              <div className="flex items-center gap-1.5 min-w-0">
-                <div className="w-6 h-6 rounded-full bg-health-green/10 flex items-center justify-center shrink-0">
-                  <CheckCircle className="w-3 h-3 text-health-green" />
-                </div>
-                <span className="text-xs text-muted-foreground whitespace-nowrap truncate">오늘 할 일</span>
-              </div>
-              {completedMissions === totalMissions && totalMissions > 0 && (
-                <Badge className="bg-health-green text-white text-[9px] px-1 py-0 shrink-0">
-                  달성
-                </Badge>
-              )}
-            </div>
-            <p className="text-lg font-bold">{completedMissions}/{totalMissions}</p>
-            <p className="text-[10px] text-muted-foreground">완료</p>
-            <div className="mt-1.5 h-1 bg-muted rounded-full overflow-hidden">
-              <div
-                className="h-full bg-health-green transition-all"
-                style={{ width: `${totalMissions > 0 ? (completedMissions / totalMissions) * 100 : 0}%` }}
-              />
-            </div>
-          </div>
-
           {/* 걸음수 카드 */}
           <Link to="/exercise" className="block">
-            <div className="bg-card rounded-2xl border border-border p-3 hover:shadow-md transition-shadow">
+            <div className="bg-card rounded-2xl border border-border p-3 h-full hover:shadow-md transition-shadow">
               <div className="flex items-center gap-1.5 mb-1.5">
                 <div className="w-6 h-6 rounded-full bg-health-green/10 flex items-center justify-center shrink-0">
                   <Dumbbell className="w-3 h-3 text-health-green" />
@@ -306,90 +183,46 @@ export default function Dashboard() {
               </div>
             </div>
           </Link>
-        </div>
-      </div>
 
-      {/* Today's Missions Checklist */}
-      <div className="bg-card rounded-3xl border border-border p-5 space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold flex items-center gap-2">
-            <CheckCircle className="w-5 h-5 text-primary" />
-            오늘 할 일
-          </h2>
-          {/* 포인트 적립 완료 배지는 숨김 - 이미 받은 경우 혼란 방지 */}
-        </div>
-
-        <div className="space-y-3">
-          {todayMissions?.missions.map(mission => (
-            <div
-              key={mission.id}
-              className={cn(
-                "flex items-center gap-3 p-3 rounded-xl transition-colors",
-                mission.completed ? 'bg-health-green/5' : 'bg-muted/50'
-              )}
-            >
-              <Checkbox
-                checked={mission.completed}
-                onCheckedChange={() => handleMissionToggle(mission.id)}
-                className="w-6 h-6"
-              />
-              <span className={cn("flex-1 min-w-0 truncate", mission.completed && 'line-through text-muted-foreground')}>
-                {mission.content}
-              </span>
-            </div>
-          ))}
-        </div>
-
-        {/* Action Buttons */}
-        <div className="flex gap-2 pt-2">
-          <Button 
-            variant="outline" 
-            size="sm" 
-            className="flex-1 min-h-[40px] whitespace-normal text-sm"
-            onClick={handleReshuffle}
-            disabled={completedMissions > 0}
+          {/* 건강나이 카드 */}
+          <div 
+            className="bg-card rounded-2xl border border-border p-3 h-full hover:shadow-md transition-shadow cursor-pointer"
+            onClick={() => navigate('/medical')}
           >
-            <RefreshCw className="w-4 h-4 mr-2 shrink-0" />
-            <span>다른 제안 받기</span>
-          </Button>
-        </div>
-
-        {completedMissions === totalMissions && !todayMissions?.pointsAwarded && (
-          <p className="text-center text-sm text-muted-foreground">
-            모든 할 일을 완료하면 100포인트가 적립됩니다!
-          </p>
-        )}
-      </div>
-
-      {/* AI Dialog */}
-      <Dialog open={showAIDialog} onOpenChange={setShowAIDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-primary" />
-              AI에게 물어보기
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              오늘의 할 일에 대해 궁금한 점이나 대안을 요청해보세요.
+            <div className="flex items-center justify-between mb-1.5 gap-1">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <div className="w-6 h-6 rounded-full bg-health-purple/10 flex items-center justify-center shrink-0">
+                  <Heart className="w-3 h-3 text-health-purple" />
+                </div>
+                <span className="text-xs text-muted-foreground whitespace-nowrap truncate">건강나이</span>
+              </div>
+              {hasHealthAge && healthAge !== undefined && actualAge !== undefined && healthAge < actualAge && (
+                <Badge className="bg-health-green text-white text-[9px] px-1 py-0 shrink-0">
+                  달성
+                </Badge>
+              )}
+            </div>
+            <p className="text-lg font-bold">
+              {hasHealthAge ? `${actualAge}세 / ${healthAge}세` : "- / -"}
             </p>
-            <Textarea
-              placeholder="예: 걷기 대신 실내에서 할 수 있는 운동을 추천해줘"
-              value={aiQuestion}
-              onChange={(e) => setAIQuestion(e.target.value)}
-              rows={3}
-            />
-            <Button className="w-full" onClick={handleAISubmit}>
-              질문하기
-            </Button>
+            <p className="text-[10px] text-muted-foreground">실제나이 / 건강나이</p>
+            <div className="mt-1.5 h-1 bg-muted rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-health-purple transition-all" 
+                style={{ 
+                  width: hasHealthAge && actualAge && healthAge
+                    ? `${Math.min(100, Math.max(0, (1 - (healthAge - actualAge) / 10) * 100))}%`
+                    : '0%' 
+                }} 
+              />
+            </div>
           </div>
-        </DialogContent>
-      </Dialog>
+        </div>
+      </div>
 
       {/* Guardian Family Section - 보호자만 표시 */}
       {isGuardian && (
-        <Link to="/guardian" className="block">
+        <Link to="/guardian" className="block mt-4">
           <div className="bg-gradient-to-r from-primary/10 to-primary/5 rounded-2xl border border-primary/20 p-4 flex items-center justify-between hover:shadow-md transition-shadow">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center">
