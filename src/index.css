@@ -308,6 +308,113 @@
   }
 }
 
+/* ========================= */
+/* 거북이 캐릭터 애니메이션  */
+/* ========================= */
+
+/* 0/4 졸린 상태 - 느린 눈 깜빡임 */
+@keyframes turtle-blink-slow {
+  0%, 85%, 100% { transform: scaleY(1); }
+  90%, 95% { transform: scaleY(0.1); }
+}
+
+/* 0/4 졸린 상태 - 천천히 고개 끄덕 */
+@keyframes turtle-nod-slow {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(3deg); }
+}
+
+/* 1/4 상태 - 좌우 미세 이동 */
+@keyframes turtle-sway {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(3px); }
+}
+
+/* 2/4 상태 - 부드러운 바운스 */
+@keyframes turtle-bounce-soft {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+/* 3/4 상태 - 꼬리 흔들기 */
+@keyframes turtle-tail-wag {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(8deg); }
+  75% { transform: rotate(-8deg); }
+}
+
+/* 3/4 상태 - 더 큰 바운스 */
+@keyframes turtle-bounce-big {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+/* 4/4 상태 - 제자리 걷기 */
+@keyframes turtle-walk {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  25% { transform: translateY(-3px) rotate(-2deg); }
+  50% { transform: translateY(0) rotate(0deg); }
+  75% { transform: translateY(-3px) rotate(2deg); }
+}
+
+/* 반짝이 효과 */
+@keyframes sparkle {
+  0%, 100% { opacity: 0; transform: scale(0); }
+  50% { opacity: 1; transform: scale(1); }
+}
+
+/* 하트 떠오르기 */
+@keyframes heart-float {
+  0% { opacity: 1; transform: translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateY(-20px) scale(0.5); }
+}
+
+/* 일반 눈 깜빡임 */
+@keyframes turtle-blink {
+  0%, 90%, 100% { transform: scaleY(1); }
+  95% { transform: scaleY(0.1); }
+}
+
+.animate-turtle-blink-slow {
+  animation: turtle-blink-slow 4s ease-in-out infinite;
+}
+
+.animate-turtle-nod-slow {
+  animation: turtle-nod-slow 3s ease-in-out infinite;
+}
+
+.animate-turtle-sway {
+  animation: turtle-sway 2s ease-in-out infinite;
+}
+
+.animate-turtle-bounce-soft {
+  animation: turtle-bounce-soft 1.5s ease-in-out infinite;
+}
+
+.animate-turtle-bounce-big {
+  animation: turtle-bounce-big 1s ease-in-out infinite;
+}
+
+.animate-turtle-tail-wag {
+  animation: turtle-tail-wag 0.5s ease-in-out infinite;
+}
+
+.animate-turtle-walk {
+  animation: turtle-walk 0.6s ease-in-out infinite;
+}
+
+.animate-turtle-blink {
+  animation: turtle-blink 3s ease-in-out infinite;
+}
+
+.animate-sparkle {
+  animation: sparkle 1.5s ease-in-out infinite;
+}
+
+.animate-heart-float {
+  animation: heart-float 2s ease-out infinite;
+}
+
 /* 스크롤바 스타일링 */
 ::-webkit-scrollbar {
   width: 8px;
