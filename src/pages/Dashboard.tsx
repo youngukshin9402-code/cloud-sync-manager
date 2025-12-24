@@ -79,18 +79,25 @@ export default function Dashboard() {
   const isGuardian = profile?.user_type === "guardian";
   const achievementCount = calculateAchievements();
 
+  const nickname = profile?.nickname || "회원";
+
   return (
-    <div className="flex flex-col gap-4 pb-4 min-h-[calc(100dvh-180px)]">
-      {/* 마이자라 타이틀 */}
-      <h1 className="text-3xl font-cute text-center text-primary pt-2">
-        마이자라
-      </h1>
+    <div className="flex flex-col gap-2 pb-2">
+      {/* 인사 문구 */}
+      <div className="text-center pt-1">
+        <p className="text-lg font-semibold text-foreground">
+          안녕하세요, {nickname}님!
+        </p>
+        <p className="text-sm text-muted-foreground">
+          오늘도 건강한 하루 보내세요!
+        </p>
+      </div>
 
       {/* 거북이 캐릭터 카드 */}
       <TurtleCharacter achievementCount={achievementCount} />
 
       {/* 오늘 요약 2×2 그리드 */}
-      <div className="grid grid-cols-2 gap-3 flex-1">
+      <div className="grid grid-cols-2 gap-2">
         {/* 1열 1행 - 인바디 & 신체 나이 */}
         <SummaryCard
           type="inbody"

@@ -39,20 +39,20 @@ export function TurtleCharacter({ achievementCount }: TurtleCharacterProps) {
   const isHeartEyes = count === 4;
 
   return (
-    <div className="bg-card rounded-3xl border border-border p-4 flex flex-col items-center gap-3">
-      {/* 거북이 SVG */}
-      <div className="relative w-28 h-28">
+    <div className="bg-card rounded-2xl border border-border p-3 flex items-center gap-3">
+      {/* 거북이 SVG - 서있는 포즈 */}
+      <div className="relative w-20 h-20 shrink-0">
         {/* 반짝이/하트 이펙트 */}
         {count >= 3 && (
           <>
             <div 
-              className="absolute top-1 right-4 w-3 h-3 text-yellow-400 animate-sparkle"
+              className="absolute top-0 right-2 w-2 h-2 text-yellow-400 animate-sparkle text-xs"
               style={{ animationDelay: "0s" }}
             >
               ✦
             </div>
             <div 
-              className="absolute top-4 left-3 w-2 h-2 text-yellow-400 animate-sparkle"
+              className="absolute top-2 left-1 w-2 h-2 text-yellow-400 animate-sparkle text-xs"
               style={{ animationDelay: "0.5s" }}
             >
               ✦
@@ -62,13 +62,13 @@ export function TurtleCharacter({ achievementCount }: TurtleCharacterProps) {
         {count === 4 && (
           <>
             <div 
-              className="absolute top-0 right-8 text-pink-400 text-sm animate-heart-float"
+              className="absolute -top-1 right-4 text-pink-400 text-xs animate-heart-float"
               style={{ animationDelay: "0.3s" }}
             >
               ♥
             </div>
             <div 
-              className="absolute top-2 left-6 text-pink-300 text-xs animate-heart-float"
+              className="absolute top-1 left-3 text-pink-300 text-[10px] animate-heart-float"
               style={{ animationDelay: "1s" }}
             >
               ♥
@@ -76,72 +76,82 @@ export function TurtleCharacter({ achievementCount }: TurtleCharacterProps) {
           </>
         )}
 
-        {/* 거북이 본체 */}
+        {/* 거북이 본체 - 서있는 포즈 */}
         <svg
           viewBox="0 0 100 100"
           className={cn("w-full h-full", bodyAnimation)}
         >
-          {/* 등딱지 */}
+          {/* 다리 (뒤쪽) */}
+          <ellipse cx="30" cy="78" rx="10" ry="8" fill="hsl(95, 45%, 65%)" />
+          <ellipse cx="70" cy="78" rx="10" ry="8" fill="hsl(95, 45%, 65%)" />
+          
+          {/* 꼬리 */}
+          <ellipse
+            cx="85"
+            cy="60"
+            rx="6"
+            ry="4"
+            fill="hsl(95, 45%, 65%)"
+            className={count === 3 ? "animate-turtle-tail-wag origin-center" : ""}
+          />
+
+          {/* 등딱지 (메인) - 옆모습 */}
           <ellipse
             cx="50"
-            cy="55"
-            rx="32"
+            cy="50"
+            rx="35"
             ry="28"
-            fill="hsl(145, 45%, 55%)"
-            stroke="hsl(145, 40%, 40%)"
+            fill="hsl(145, 50%, 55%)"
+            stroke="hsl(145, 45%, 40%)"
             strokeWidth="2"
           />
+          
           {/* 등딱지 무늬 */}
-          <ellipse cx="50" cy="50" rx="18" ry="14" fill="hsl(145, 50%, 65%)" />
-          <ellipse cx="40" cy="62" rx="8" ry="6" fill="hsl(145, 50%, 65%)" />
-          <ellipse cx="60" cy="62" rx="8" ry="6" fill="hsl(145, 50%, 65%)" />
-          <ellipse cx="50" cy="70" rx="10" ry="6" fill="hsl(145, 50%, 65%)" />
+          <ellipse cx="50" cy="45" rx="20" ry="15" fill="hsl(145, 55%, 65%)" />
+          <ellipse cx="35" cy="55" rx="10" ry="8" fill="hsl(145, 55%, 65%)" />
+          <ellipse cx="65" cy="55" rx="10" ry="8" fill="hsl(145, 55%, 65%)" />
+          <ellipse cx="50" cy="62" rx="12" ry="7" fill="hsl(145, 55%, 65%)" />
+
+          {/* 다리 (앞쪽) */}
+          <ellipse cx="25" cy="70" rx="9" ry="7" fill="hsl(95, 45%, 65%)" stroke="hsl(95, 40%, 50%)" strokeWidth="1" />
+          <ellipse cx="75" cy="70" rx="9" ry="7" fill="hsl(95, 45%, 65%)" stroke="hsl(95, 40%, 50%)" strokeWidth="1" />
 
           {/* 머리 */}
           <ellipse
-            cx="50"
-            cy="24"
+            cx="15"
+            cy="45"
             rx="14"
-            ry="12"
-            fill="hsl(85, 40%, 70%)"
-            stroke="hsl(85, 35%, 55%)"
+            ry="13"
+            fill="hsl(95, 45%, 68%)"
+            stroke="hsl(95, 40%, 52%)"
             strokeWidth="1.5"
           />
 
           {/* 볼터치 */}
-          <ellipse cx="40" cy="26" rx="4" ry="2.5" fill="hsl(350, 80%, 85%)" opacity="0.6" />
-          <ellipse cx="60" cy="26" rx="4" ry="2.5" fill="hsl(350, 80%, 85%)" opacity="0.6" />
+          <ellipse cx="10" cy="50" rx="4" ry="2.5" fill="hsl(350, 80%, 85%)" opacity="0.7" />
 
           {/* 눈 */}
           <g className={eyeAnimation}>
             {isHeartEyes ? (
               <>
                 {/* 하트 눈 */}
-                <text x="43" y="24" fontSize="8" fill="hsl(350, 80%, 60%)">♥</text>
-                <text x="53" y="24" fontSize="8" fill="hsl(350, 80%, 60%)">♥</text>
+                <text x="9" y="45" fontSize="10" fill="hsl(350, 80%, 60%)">♥</text>
               </>
             ) : (
               <>
-                {/* 일반 눈 */}
+                {/* 큰 귀여운 눈 */}
                 <ellipse
-                  cx="44"
-                  cy="22"
-                  rx="3"
-                  ry={isHalfClosed ? 1.5 : 3}
-                  fill="hsl(0, 0%, 15%)"
+                  cx="12"
+                  cy="42"
+                  rx="5"
+                  ry={isHalfClosed ? 2 : 5}
+                  fill="hsl(0, 0%, 10%)"
                 />
-                <ellipse
-                  cx="56"
-                  cy="22"
-                  rx="3"
-                  ry={isHalfClosed ? 1.5 : 3}
-                  fill="hsl(0, 0%, 15%)"
-                />
-                {/* 눈 반짝임 (졸린 상태 제외) */}
+                {/* 눈 반짝임 */}
                 {!isHalfClosed && (
                   <>
-                    <circle cx="45" cy="21" r="1" fill="white" />
-                    <circle cx="57" cy="21" r="1" fill="white" />
+                    <circle cx="14" cy="40" r="1.5" fill="white" />
+                    <circle cx="10" cy="43" r="0.8" fill="white" opacity="0.6" />
                   </>
                 )}
               </>
@@ -151,45 +161,25 @@ export function TurtleCharacter({ achievementCount }: TurtleCharacterProps) {
           {/* 입 - 상태에 따라 변화 */}
           {count === 0 && (
             // 졸린 입 (하품 느낌)
-            <ellipse cx="50" cy="30" rx="3" ry="2" fill="hsl(350, 50%, 60%)" />
+            <ellipse cx="8" cy="52" rx="2.5" ry="2" fill="hsl(350, 50%, 55%)" />
           )}
           {count === 1 && (
             // 무표정 입
-            <line x1="47" y1="30" x2="53" y2="30" stroke="hsl(0, 0%, 30%)" strokeWidth="1.5" strokeLinecap="round" />
+            <line x1="5" y1="52" x2="11" y2="52" stroke="hsl(0, 0%, 30%)" strokeWidth="1.5" strokeLinecap="round" />
           )}
           {count === 2 && (
             // 살짝 미소
-            <path d="M46 29 Q50 32, 54 29" stroke="hsl(0, 0%, 30%)" strokeWidth="1.5" fill="none" strokeLinecap="round" />
+            <path d="M5 51 Q8 54, 11 51" stroke="hsl(0, 0%, 30%)" strokeWidth="1.5" fill="none" strokeLinecap="round" />
           )}
           {count >= 3 && (
             // 활짝 웃음
-            <path d="M44 28 Q50 34, 56 28" stroke="hsl(0, 0%, 30%)" strokeWidth="1.5" fill="none" strokeLinecap="round" />
+            <path d="M4 50 Q8 56, 12 50" stroke="hsl(0, 0%, 30%)" strokeWidth="1.5" fill="none" strokeLinecap="round" />
           )}
-
-          {/* 앞다리 */}
-          <ellipse cx="28" cy="50" rx="8" ry="5" fill="hsl(85, 40%, 70%)" stroke="hsl(85, 35%, 55%)" strokeWidth="1" />
-          <ellipse cx="72" cy="50" rx="8" ry="5" fill="hsl(85, 40%, 70%)" stroke="hsl(85, 35%, 55%)" strokeWidth="1" />
-
-          {/* 뒷다리 */}
-          <ellipse cx="30" cy="72" rx="7" ry="5" fill="hsl(85, 40%, 70%)" stroke="hsl(85, 35%, 55%)" strokeWidth="1" />
-          <ellipse cx="70" cy="72" rx="7" ry="5" fill="hsl(85, 40%, 70%)" stroke="hsl(85, 35%, 55%)" strokeWidth="1" />
-
-          {/* 꼬리 */}
-          <ellipse
-            cx="50"
-            cy="86"
-            rx="5"
-            ry="4"
-            fill="hsl(85, 40%, 70%)"
-            stroke="hsl(85, 35%, 55%)"
-            strokeWidth="1"
-            className={count === 3 ? "animate-turtle-tail-wag origin-center" : ""}
-          />
         </svg>
       </div>
 
       {/* 상태 멘트 */}
-      <p className="text-sm text-muted-foreground text-center font-medium">
+      <p className="text-sm text-muted-foreground font-medium flex-1">
         {message}
       </p>
     </div>

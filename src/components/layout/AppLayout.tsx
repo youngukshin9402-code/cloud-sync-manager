@@ -49,7 +49,7 @@ export function AppLayout() {
             <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
               <Heart className="w-5 h-5 text-primary-foreground" />
             </div>
-            <span className="text-xl font-bold text-foreground">영양갱</span>
+            <span className="text-xl font-bold text-foreground font-cute">마이자라</span>
           </Link>
 
           <div className="flex items-center gap-2">

@@ -32,7 +32,7 @@ const CARD_CONFIG = {
   },
   calories: {
     icon: Flame,
-    label: "섭취 칼로리",
+    label: "칼로리",
     color: "text-health-orange",
     bgColor: "bg-health-orange/10",
     link: "/nutrition",
@@ -46,7 +46,7 @@ const CARD_CONFIG = {
   },
   water: {
     icon: Droplets,
-    label: "물 섭취",
+    label: "물",
     color: "text-health-blue",
     bgColor: "bg-health-blue/10",
     link: "/water",
@@ -78,63 +78,63 @@ export function SummaryCard({
   if (type === "inbody") {
     isAchieved = hasInbodyData === true;
     mainValue = hasInbodyData && actualAge && healthAge 
-      ? `${actualAge}세 / ${healthAge}세` 
+      ? `${actualAge} / ${healthAge}세` 
       : "- / -";
-    subValue = "현재 나이 / 신체 나이";
+    subValue = "현재/신체나이";
     progress = hasInbodyData ? 100 : 0;
   } else if (type === "calories") {
     isAchieved = calorieGoal > 0 && currentCalories >= calorieGoal;
     mainValue = caloriesLoading ? "…" : `${currentCalories.toLocaleString()}`;
-    subValue = `목표 ${calorieGoal.toLocaleString()} kcal`;
+    subValue = `/${calorieGoal.toLocaleString()}kcal`;
     progress = calorieGoal > 0 ? Math.min((currentCalories / calorieGoal) * 100, 100) : 0;
   } else if (type === "steps") {
     isAchieved = currentSteps >= stepsGoal;
     mainValue = currentSteps.toLocaleString();
-    subValue = `목표 ${stepsGoal.toLocaleString()} 걸음`;
+    subValue = `/${stepsGoal.toLocaleString()}`;
     progress = stepsGoal > 0 ? Math.min((currentSteps / stepsGoal) * 100, 100) : 0;
   } else if (type === "water") {
     isAchieved = currentWater >= waterGoal;
-    mainValue = `${currentWater.toLocaleString()}ml`;
-    subValue = `목표 ${waterGoal.toLocaleString()}ml`;
+    mainValue = `${currentWater}`;
+    subValue = `/${waterGoal}ml`;
     progress = waterGoal > 0 ? Math.min((currentWater / waterGoal) * 100, 100) : 0;
   }
 
   const CardContent = (
-    <div className="bg-card rounded-2xl border border-border p-3 hover:shadow-md transition-shadow h-full flex flex-col">
-      {/* 헤더 */}
-      <div className="flex items-center justify-between mb-2 gap-1">
-        <div className="flex items-center gap-1.5 min-w-0">
-          <div className={cn("w-7 h-7 rounded-full flex items-center justify-center shrink-0", config.bgColor)}>
-            <Icon className={cn("w-4 h-4", config.color)} />
-          </div>
-          <span className="text-xs text-muted-foreground whitespace-nowrap truncate">
-            {config.label}
-          </span>
+    <div className="bg-card rounded-xl border border-border p-2.5 hover:shadow-md transition-shadow h-full flex flex-col relative">
+      {/* 달성 뱃지 - 우상단 고정 */}
+      {isAchieved && (
+        <Badge className="absolute top-1.5 right-1.5 bg-health-green text-white text-[10px] px-1.5 py-0 h-4">
+          달성
+        </Badge>
+      )}
+      
+      {/* 아이콘 + 라벨 */}
+      <div className="flex items-center gap-1.5 mb-1">
+        <div className={cn("w-6 h-6 rounded-full flex items-center justify-center shrink-0", config.bgColor)}>
+          <Icon className={cn("w-3.5 h-3.5", config.color)} />
         </div>
-        {isAchieved && (
-          <Badge className="bg-health-green text-white text-[10px] px-1.5 py-0.5 shrink-0">
-            달성
-          </Badge>
-        )}
+        <span className="text-xs font-medium text-muted-foreground truncate">
+          {config.label}
+        </span>
       </div>
 
-      {/* 메인 값 */}
-      <p className={cn(
-        "font-bold tabular-nums",
-        type === "inbody" ? "text-base" : "text-xl"
-      )}>
-        {mainValue}
-      </p>
-
-      {/* 서브 텍스트 */}
-      <p className="text-[11px] text-muted-foreground mt-0.5">
-        {subValue}
-      </p>
+      {/* 메인 값 + 단위 - 한 줄 */}
+      <div className="flex items-baseline gap-0.5 truncate">
+        <span className={cn(
+          "font-bold tabular-nums text-foreground",
+          type === "inbody" ? "text-lg" : "text-2xl"
+        )}>
+          {mainValue}
+        </span>
+        <span className="text-xs font-medium text-muted-foreground truncate">
+          {subValue}
+        </span>
+      </div>
 
       {/* 프로그레스 바 */}
       {type !== "inbody" && (
-        <div className="mt-auto pt-2">
-          <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+        <div className="mt-auto pt-1.5">
+          <div className="h-1 bg-muted rounded-full overflow-hidden">
             <div
               className={cn(
                 "h-full transition-all duration-300",
@@ -151,7 +151,7 @@ export function SummaryCard({
   );
 
   return (
-    <Link to={config.link} className="block h-full">
+    <Link to={config.link} className="block">
       {CardContent}
     </Link>
   );
