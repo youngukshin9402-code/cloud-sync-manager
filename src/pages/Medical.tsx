@@ -349,9 +349,13 @@ function InBodySection() {
         toast.error("삭제 실패: " + (result.error.message || "네트워크 오류"));
       } else {
         toast.success("삭제되었습니다");
-        // 인바디 기록 삭제 시 건강나이 결과도 함께 초기화 (홈 탭과 실시간 동기화)
-        clearHealthAge();
-        setHealthAgeResult(null);
+        // 삭제 후 기록이 하나도 없으면 건강나이 결과도 함께 초기화 (홈 탭과 실시간 동기화)
+        // records 배열에서 현재 삭제한 id를 제외하고 남은 기록 수 확인
+        const remainingRecords = records.filter(r => r.id !== id);
+        if (remainingRecords.length === 0) {
+          clearHealthAge();
+          setHealthAgeResult(null);
+        }
       }
     } catch (err: any) {
       toast.error("오류 발생: " + (err?.message || "알 수 없는 오류"));
