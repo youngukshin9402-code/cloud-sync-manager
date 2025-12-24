@@ -32,7 +32,7 @@ const CARD_CONFIG = {
   },
   calories: {
     icon: Flame,
-    label: "칼로리",
+    label: "총 칼로리",
     color: "text-health-orange",
     bgColor: "bg-health-orange/10",
     link: "/nutrition",
@@ -71,69 +71,106 @@ export function SummaryCard({
 
   // 달성 여부 계산
   let isAchieved = false;
-  let mainValue = "";
-  let subValue = "";
   let progress = 0;
 
   if (type === "inbody") {
     isAchieved = hasInbodyData === true;
-    mainValue = hasInbodyData && actualAge && healthAge 
-      ? `${actualAge} / ${healthAge}세` 
-      : "- / -";
-    subValue = "현재/신체나이";
     progress = hasInbodyData ? 100 : 0;
   } else if (type === "calories") {
     isAchieved = calorieGoal > 0 && currentCalories >= calorieGoal;
-    mainValue = caloriesLoading ? "…" : `${currentCalories.toLocaleString()}`;
-    subValue = `/${calorieGoal.toLocaleString()}kcal`;
     progress = calorieGoal > 0 ? Math.min((currentCalories / calorieGoal) * 100, 100) : 0;
   } else if (type === "steps") {
     isAchieved = currentSteps >= stepsGoal;
-    mainValue = currentSteps.toLocaleString();
-    subValue = `/${stepsGoal.toLocaleString()}`;
     progress = stepsGoal > 0 ? Math.min((currentSteps / stepsGoal) * 100, 100) : 0;
   } else if (type === "water") {
     isAchieved = currentWater >= waterGoal;
-    mainValue = `${currentWater}`;
-    subValue = `/${waterGoal}ml`;
     progress = waterGoal > 0 ? Math.min((currentWater / waterGoal) * 100, 100) : 0;
   }
 
-  const CardContent = (
-    <div className="bg-card rounded-xl border border-border p-2.5 hover:shadow-md transition-shadow h-full flex flex-col relative">
-      {/* 달성 뱃지 - 우상단 고정 */}
-      {isAchieved && (
-        <Badge className="absolute top-1.5 right-1.5 bg-health-green text-white text-[10px] px-1.5 py-0 h-4">
-          달성
-        </Badge>
-      )}
-      
-      {/* 아이콘 + 라벨 */}
-      <div className="flex items-center gap-1.5 mb-1">
-        <div className={cn("w-6 h-6 rounded-full flex items-center justify-center shrink-0", config.bgColor)}>
-          <Icon className={cn("w-3.5 h-3.5", config.color)} />
+  // 인바디 카드 전용 렌더링
+  if (type === "inbody") {
+    return (
+      <Link to={config.link} className="block">
+        <div className="bg-card rounded-xl border border-border p-2 hover:shadow-md transition-shadow h-full flex flex-col relative">
+          {isAchieved && (
+            <Badge className="absolute top-1.5 right-1.5 bg-health-green text-white text-[10px] px-1.5 py-0 h-4">
+              달성
+            </Badge>
+          )}
+          
+          <div className="flex items-center gap-1.5 mb-1">
+            <div className={cn("w-5 h-5 rounded-full flex items-center justify-center shrink-0", config.bgColor)}>
+              <Icon className={cn("w-3 h-3", config.color)} />
+            </div>
+            <span className="text-xs font-semibold text-muted-foreground truncate">
+              {config.label}
+            </span>
+          </div>
+
+          {/* 숫자 아래 라벨 구조 */}
+          <div className="flex items-center justify-center gap-3 flex-1">
+            <div className="text-center">
+              <span className="text-xl font-bold text-foreground block">
+                {hasInbodyData && actualAge ? actualAge : "-"}
+              </span>
+              <span className="text-[10px] font-medium text-muted-foreground">현재 나이</span>
+            </div>
+            <span className="text-muted-foreground">/</span>
+            <div className="text-center">
+              <span className="text-xl font-bold text-foreground block">
+                {hasInbodyData && healthAge ? healthAge : "-"}
+              </span>
+              <span className="text-[10px] font-medium text-muted-foreground">신체 나이</span>
+            </div>
+          </div>
         </div>
-        <span className="text-xs font-medium text-muted-foreground truncate">
-          {config.label}
-        </span>
-      </div>
+      </Link>
+    );
+  }
 
-      {/* 메인 값 + 단위 - 한 줄 */}
-      <div className="flex items-baseline gap-0.5 truncate">
-        <span className={cn(
-          "font-bold tabular-nums text-foreground",
-          type === "inbody" ? "text-lg" : "text-2xl"
-        )}>
-          {mainValue}
-        </span>
-        <span className="text-xs font-medium text-muted-foreground truncate">
-          {subValue}
-        </span>
-      </div>
+  // 일반 카드 렌더링 (칼로리, 걸음 수, 물)
+  let mainValue = "";
+  let subValue = "";
 
-      {/* 프로그레스 바 */}
-      {type !== "inbody" && (
-        <div className="mt-auto pt-1.5">
+  if (type === "calories") {
+    mainValue = caloriesLoading ? "…" : `${currentCalories.toLocaleString()}`;
+    subValue = `/${calorieGoal.toLocaleString()}kcal`;
+  } else if (type === "steps") {
+    mainValue = currentSteps.toLocaleString();
+    subValue = `/${stepsGoal.toLocaleString()}`;
+  } else if (type === "water") {
+    mainValue = `${currentWater}`;
+    subValue = `/${waterGoal}ml`;
+  }
+
+  return (
+    <Link to={config.link} className="block">
+      <div className="bg-card rounded-xl border border-border p-2 hover:shadow-md transition-shadow h-full flex flex-col relative">
+        {isAchieved && (
+          <Badge className="absolute top-1.5 right-1.5 bg-health-green text-white text-[10px] px-1.5 py-0 h-4">
+            달성
+          </Badge>
+        )}
+        
+        <div className="flex items-center gap-1.5 mb-0.5">
+          <div className={cn("w-5 h-5 rounded-full flex items-center justify-center shrink-0", config.bgColor)}>
+            <Icon className={cn("w-3 h-3", config.color)} />
+          </div>
+          <span className="text-xs font-semibold text-muted-foreground truncate">
+            {config.label}
+          </span>
+        </div>
+
+        <div className="flex items-baseline gap-0.5 truncate">
+          <span className="text-2xl font-bold tabular-nums text-foreground">
+            {mainValue}
+          </span>
+          <span className="text-xs font-semibold text-muted-foreground truncate">
+            {subValue}
+          </span>
+        </div>
+
+        <div className="mt-auto pt-1">
           <div className="h-1 bg-muted rounded-full overflow-hidden">
             <div
               className={cn(
@@ -146,13 +183,7 @@ export function SummaryCard({
             />
           </div>
         </div>
-      )}
-    </div>
-  );
-
-  return (
-    <Link to={config.link} className="block">
-      {CardContent}
+      </div>
     </Link>
   );
 }

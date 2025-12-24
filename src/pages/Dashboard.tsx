@@ -82,13 +82,13 @@ export default function Dashboard() {
   const nickname = profile?.nickname || "회원";
 
   return (
-    <div className="flex flex-col gap-2 pb-2">
+    <div className="flex flex-col gap-1.5 pb-1">
       {/* 인사 문구 */}
-      <div className="text-center pt-1">
-        <p className="text-lg font-semibold text-foreground">
+      <div className="text-center py-0.5">
+        <p className="text-base font-semibold text-foreground">
           안녕하세요, {nickname}님!
         </p>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-xs text-muted-foreground">
           오늘도 건강한 하루 보내세요!
         </p>
       </div>
@@ -97,7 +97,7 @@ export default function Dashboard() {
       <TurtleCharacter achievementCount={achievementCount} />
 
       {/* 오늘 요약 2×2 그리드 */}
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-2 gap-1.5">
         {/* 1열 1행 - 인바디 & 신체 나이 */}
         <SummaryCard
           type="inbody"
