@@ -214,14 +214,14 @@ export function TurtleCharacter({ achievementCount }: TurtleCharacterProps) {
   const message = STATUS_MESSAGES[count];
 
   return (
-    <div className="bg-card rounded-2xl border border-border p-2 flex flex-col items-center">
-      {/* 거북이 캐릭터 - 중앙 */}
-      <div className="relative w-24 h-24 flex items-center justify-center">
+    <div className="bg-card rounded-2xl border border-border p-3 flex flex-col items-center w-full max-w-[280px]">
+      {/* 거북이 캐릭터 - 중앙, 더 크게 */}
+      <div className="relative w-32 h-32 flex items-center justify-center">
         <TurtleSVG state={count} />
       </div>
 
       {/* 상태 멘트 - 거북이 아래 */}
-      <p className="text-sm text-muted-foreground font-medium text-center mt-1">
+      <p className="text-sm text-muted-foreground font-medium text-center mt-2">
         {message}
       </p>
     </div>

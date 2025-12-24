@@ -90,8 +90,8 @@ export function SummaryCard({
   // 인바디 카드 전용 렌더링
   if (type === "inbody") {
     return (
-      <Link to={config.link} className="block">
-        <div className="bg-card rounded-xl border border-border p-2 hover:shadow-md transition-shadow h-full flex flex-col relative">
+      <Link to={config.link} className="block h-full">
+        <div className="bg-card rounded-xl border border-border p-2 hover:shadow-md transition-shadow h-full min-h-[88px] flex flex-col relative">
           {isAchieved && (
             <Badge className="absolute top-1.5 right-1.5 bg-health-green text-white text-[10px] px-1.5 py-0 h-4">
               달성
@@ -107,22 +107,21 @@ export function SummaryCard({
             </span>
           </div>
 
-          {/* 숫자 아래 라벨 구조 */}
-          <div className="flex items-center justify-center gap-3 flex-1">
-            <div className="text-center">
-              <span className="text-xl font-bold text-foreground block">
-                {hasInbodyData && actualAge ? actualAge : "-"}
-              </span>
-              <span className="text-[10px] font-medium text-muted-foreground">현재 나이</span>
-            </div>
-            <span className="text-muted-foreground">/</span>
-            <div className="text-center">
-              <span className="text-xl font-bold text-foreground block">
-                {hasInbodyData && healthAge ? healthAge : "-"}
-              </span>
-              <span className="text-[10px] font-medium text-muted-foreground">신체 나이</span>
-            </div>
+          {/* 수치 영역 */}
+          <div className="flex items-baseline justify-center gap-1 flex-1">
+            <span className="text-2xl font-bold text-foreground tabular-nums">
+              {hasInbodyData && actualAge ? actualAge : "-"}
+            </span>
+            <span className="text-muted-foreground text-sm">/</span>
+            <span className="text-2xl font-bold text-foreground tabular-nums">
+              {hasInbodyData && healthAge ? healthAge : "-"}
+            </span>
           </div>
+
+          {/* 라벨 - 한 줄로 표시 */}
+          <p className="text-[10px] font-medium text-muted-foreground text-center whitespace-nowrap mt-auto">
+            현재 나이 / 신체 나이
+          </p>
         </div>
       </Link>
     );
@@ -144,8 +143,8 @@ export function SummaryCard({
   }
 
   return (
-    <Link to={config.link} className="block">
-      <div className="bg-card rounded-xl border border-border p-2 hover:shadow-md transition-shadow h-full flex flex-col relative">
+    <Link to={config.link} className="block h-full">
+      <div className="bg-card rounded-xl border border-border p-2 hover:shadow-md transition-shadow h-full min-h-[88px] flex flex-col relative">
         {isAchieved && (
           <Badge className="absolute top-1.5 right-1.5 bg-health-green text-white text-[10px] px-1.5 py-0 h-4">
             달성
@@ -161,7 +160,7 @@ export function SummaryCard({
           </span>
         </div>
 
-        <div className="flex items-baseline gap-0.5 truncate">
+        <div className="flex items-baseline gap-0.5 truncate flex-1">
           <span className="text-2xl font-bold tabular-nums text-foreground">
             {mainValue}
           </span>
@@ -170,7 +169,7 @@ export function SummaryCard({
           </span>
         </div>
 
-        <div className="mt-auto pt-1">
+        <div className="mt-auto">
           <div className="h-1 bg-muted rounded-full overflow-hidden">
             <div
               className={cn(

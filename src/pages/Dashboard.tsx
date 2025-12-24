@@ -82,9 +82,9 @@ export default function Dashboard() {
   const nickname = profile?.nickname || "회원";
 
   return (
-    <div className="flex flex-col gap-1.5 pb-1">
+    <div className="flex flex-col h-full min-h-[calc(100dvh-120px)]">
       {/* 인사 문구 */}
-      <div className="text-center py-0.5">
+      <div className="text-center py-1 shrink-0">
         <p className="text-base font-semibold text-foreground">
           안녕하세요, {nickname}님!
         </p>
@@ -93,11 +93,13 @@ export default function Dashboard() {
         </p>
       </div>
 
-      {/* 거북이 캐릭터 카드 */}
-      <TurtleCharacter achievementCount={achievementCount} />
+      {/* 거북이 캐릭터 카드 - 메인 영역 (flex-1로 확장) */}
+      <div className="flex-1 flex items-center justify-center py-2">
+        <TurtleCharacter achievementCount={achievementCount} />
+      </div>
 
-      {/* 오늘 요약 2×2 그리드 */}
-      <div className="grid grid-cols-2 gap-1.5">
+      {/* 오늘 요약 2×2 그리드 - 하단 고정 */}
+      <div className="grid grid-cols-2 gap-2 shrink-0 pb-2">
         {/* 1열 1행 - 인바디 & 신체 나이 */}
         <SummaryCard
           type="inbody"
@@ -131,15 +133,15 @@ export default function Dashboard() {
 
       {/* Guardian Family Section - 보호자만 표시 */}
       {isGuardian && (
-        <Link to="/guardian" className="block mt-auto">
-          <div className="bg-gradient-to-r from-primary/10 to-primary/5 rounded-2xl border border-primary/20 p-4 flex items-center justify-between hover:shadow-md transition-shadow">
+        <Link to="/guardian" className="block shrink-0 pb-2">
+          <div className="bg-gradient-to-r from-primary/10 to-primary/5 rounded-2xl border border-primary/20 p-3 flex items-center justify-between hover:shadow-md transition-shadow">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center">
-                <TrendingUp className="w-6 h-6 text-primary" />
+              <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
+                <TrendingUp className="w-5 h-5 text-primary" />
               </div>
               <div>
-                <p className="font-semibold text-primary">연결된 가족 현황</p>
-                <p className="text-sm text-muted-foreground">건강 요약 보기</p>
+                <p className="font-semibold text-primary text-sm">연결된 가족 현황</p>
+                <p className="text-xs text-muted-foreground">건강 요약 보기</p>
               </div>
             </div>
             <ChevronRight className="w-5 h-5 text-primary" />
