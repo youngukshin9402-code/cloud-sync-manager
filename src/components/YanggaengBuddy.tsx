@@ -1,5 +1,5 @@
 import { useMemo, useEffect, useState, useCallback, useRef } from "react";
-import { motion, useReducedMotion, useSpring, useTransform, AnimatePresence } from "framer-motion";
+import { motion, useReducedMotion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 
 interface YanggaengBuddyProps {
@@ -11,101 +11,103 @@ interface YanggaengBuddyProps {
 const stateConfigs = {
   1: {
     message: "오늘은… 쉬엄쉬엄 🫠",
-    badge: { text: "휴식중 💤", bg: "bg-muted/60", glow: false },
-    bodyColor: "#d4a574",
-    bodyGradientStart: "#d4a574",
-    bodyGradientEnd: "#b8956a",
-    highlightOpacity: 0.25,
+    tapReaction: "삐짐…",
+    bodyGradientStart: "#c9a06a",
+    bodyGradientEnd: "#a8855a",
+    highlightOpacity: 0.15,
     glowOpacity: 0,
-    cheekOpacity: 0,
-    bounceY: [-1, 0, -1],
-    bounceDuration: 4.5,
-    wiggle: [-1, 1, 0],
-    wiggleDuration: 6.0,
+    cheekOpacity: 0.05,
+    bounceY: [-2, 0, -2],
+    bounceDuration: 4.6,
+    scaleX: [1, 1.01, 1],
+    scaleY: [1, 0.99, 1],
   },
   2: {
     message: "조금만 더 해볼까? 🥺",
-    badge: { text: "시동중 🥺", bg: "bg-amber-100/60", glow: false },
-    bodyColor: "#daa06d",
-    bodyGradientStart: "#daa06d",
-    bodyGradientEnd: "#c49660",
-    highlightOpacity: 0.35,
+    tapReaction: "으음…",
+    bodyGradientStart: "#d4a86d",
+    bodyGradientEnd: "#b89058",
+    highlightOpacity: 0.18,
     glowOpacity: 0,
-    cheekOpacity: 0.15,
-    bounceY: [-2, 0, -2],
-    bounceDuration: 4.0,
-    wiggle: [-1.5, 1.5, 0],
-    wiggleDuration: 5.5,
+    cheekOpacity: 0.12,
+    bounceY: [-3, 0, -3],
+    bounceDuration: 3.8,
+    scaleX: [1, 1.02, 1],
+    scaleY: [1, 0.98, 1],
   },
   3: {
     message: "좋아, 반은 했어 🙂",
-    badge: { text: "안정 🙂", bg: "bg-green-100/60", glow: false },
-    bodyColor: "#e8a854",
+    tapReaction: "좋아~",
     bodyGradientStart: "#e8a854",
     bodyGradientEnd: "#d49545",
-    highlightOpacity: 0.45,
+    highlightOpacity: 0.22,
     glowOpacity: 0.05,
-    cheekOpacity: 0.35,
-    bounceY: [-4, 0, -4],
-    bounceDuration: 3.2,
-    wiggle: [0, 0, 0],
-    wiggleDuration: 5.0,
+    cheekOpacity: 0.18,
+    bounceY: [-6, 0, -6],
+    bounceDuration: 2.8,
+    scaleX: [1, 1.05, 1],
+    scaleY: [1, 0.95, 1],
   },
   4: {
     message: "거의 다 왔다! ✨",
-    badge: { text: "상승 ✨", bg: "bg-yellow-100/70", glow: false },
-    bodyColor: "#f0a830",
+    tapReaction: "파이팅!",
     bodyGradientStart: "#f0a830",
     bodyGradientEnd: "#e09520",
-    highlightOpacity: 0.55,
+    highlightOpacity: 0.25,
     glowOpacity: 0.08,
-    cheekOpacity: 0.5,
-    bounceY: [-6, 0, -6],
-    bounceDuration: 2.7,
-    wiggle: [0, 0, 0],
-    wiggleDuration: 5.0,
+    cheekOpacity: 0.26,
+    bounceY: [-8, 0, -8],
+    bounceDuration: 2.4,
+    scaleX: [1, 1.06, 1],
+    scaleY: [1, 0.94, 1],
   },
   5: {
     message: "완벽해! 최고야!! 💛",
-    badge: { text: "최고 💛", bg: "bg-amber-200/80", glow: true },
-    bodyColor: "#ffb020",
+    tapReaction: "최고!!",
     bodyGradientStart: "#ffb020",
     bodyGradientEnd: "#f5a010",
-    highlightOpacity: 0.65,
+    highlightOpacity: 0.28,
     glowOpacity: 0.12,
-    cheekOpacity: 0.7,
-    bounceY: [-9, 0, -9],
-    bounceDuration: 2.2,
-    wiggle: [0, 0, 0],
-    wiggleDuration: 5.0,
+    cheekOpacity: 0.32,
+    bounceY: [-11, 0, -11],
+    bounceDuration: 2.0,
+    scaleX: [1, 1.07, 1],
+    scaleY: [1, 0.93, 1],
   },
 } as const;
 
-// 눈 모양 상태별
-const eyeShapes = {
-  1: { type: "flat", scaleY: 0.5 }, // 찡그림
-  2: { type: "half", scaleY: 0.7 },
-  3: { type: "normal", scaleY: 1 },
-  4: { type: "happy", scaleY: 0.85 },
-  5: { type: "sparkle", scaleY: 0.8 },
+// 눈 모양 - state별 차이 확실하게
+const getEyeProps = (state: 1 | 2 | 3 | 4 | 5, isBlinking: boolean) => {
+  if (isBlinking) {
+    return { type: "blink", scaleY: 0.1 };
+  }
+  switch (state) {
+    case 1: return { type: "sleepy", scaleY: 0.4 }; // 반쯤 감은 눈
+    case 2: return { type: "small", scaleY: 0.7 }; // 작은 눈
+    case 3: return { type: "normal", scaleY: 1 };
+    case 4: return { type: "bright", scaleY: 1.05 }; // 초롱
+    case 5: return { type: "happy", scaleY: 0.6 }; // 반달눈
+  }
 };
 
-// 입 모양 상태별
-const mouthShapes = {
-  1: "M 85 95 Q 110 92 135 95", // 일자/삐죽
-  2: "M 88 93 Q 110 96 132 93", // 살짝 아래
-  3: "M 90 90 Q 110 98 130 90", // 미소
-  4: "M 88 88 Q 110 102 132 88", // 활짝
-  5: "M 85 85 Q 110 108 135 85", // 완전 활짝
+// 입 모양 path
+const getMouthPath = (state: 1 | 2 | 3 | 4 | 5) => {
+  switch (state) {
+    case 1: return "M 95 82 L 115 80 L 135 82"; // 삐죽/일자
+    case 2: return "M 98 80 Q 115 84 132 80"; // 작은 곡선
+    case 3: return "M 95 78 Q 115 88 135 78"; // 기본 미소
+    case 4: return "M 92 76 Q 115 92 138 76"; // 더 큰 미소
+    case 5: return "M 88 74 Q 115 98 142 74"; // 활짝 웃음
+  }
 };
 
-// 눈썹 상태별
-const eyebrowAngles = {
-  1: -12, // 찡그림
-  2: -6,
-  3: 0,
-  4: 3,
-  5: 5,
+// 눈썹 각도
+const getEyebrowAngle = (state: 1 | 2 | 3 | 4 | 5) => {
+  switch (state) {
+    case 1: return -15; // 찡그림
+    case 2: return -8;
+    default: return 0;
+  }
 };
 
 export function YanggaengBuddy({ completedCount, className }: YanggaengBuddyProps) {
@@ -118,13 +120,13 @@ export function YanggaengBuddy({ completedCount, className }: YanggaengBuddyProp
   const blinkTimeoutRef = useRef<number | null>(null);
   
   const scheduleBlink = useCallback(() => {
-    const delay = 3000 + Math.random() * 2500; // 3.0s ~ 5.5s
+    const delay = 2500 + Math.random() * 3000;
     blinkTimeoutRef.current = window.setTimeout(() => {
       setIsBlinking(true);
       setTimeout(() => {
         setIsBlinking(false);
         scheduleBlink();
-      }, 140); // 0.14s blink duration
+      }, 120);
     }, delay);
   }, []);
   
@@ -139,6 +141,21 @@ export function YanggaengBuddy({ completedCount, className }: YanggaengBuddyProp
     };
   }, [scheduleBlink, reducedMotion]);
   
+  // Tap reaction
+  const [isTapped, setIsTapped] = useState(false);
+  const [showBubble, setShowBubble] = useState(false);
+  const [tapHeart, setTapHeart] = useState(false);
+  
+  const handleTap = () => {
+    setIsTapped(true);
+    setShowBubble(true);
+    if (state === 5) setTapHeart(true);
+    
+    setTimeout(() => setIsTapped(false), 220);
+    setTimeout(() => setShowBubble(false), 1200);
+    setTimeout(() => setTapHeart(false), 1100);
+  };
+  
   // Effects (sparkle/heart) for state 4-5
   const [effects, setEffects] = useState<{ id: number; type: "sparkle" | "heart"; x: number; y: number }[]>([]);
   const effectIdRef = useRef(0);
@@ -146,93 +163,60 @@ export function YanggaengBuddy({ completedCount, className }: YanggaengBuddyProp
   useEffect(() => {
     if (state < 4 || reducedMotion) return;
     
-    const interval = state === 5 ? (5000 + Math.random() * 3000) : (7000 + Math.random() * 3000);
-    
     const spawnEffect = () => {
-      const count = Math.random() > 0.5 ? 2 : 1;
+      const count = state === 5 && Math.random() > 0.6 ? 2 : 1;
       const newEffects: typeof effects = [];
       for (let i = 0; i < count; i++) {
         newEffects.push({
           id: effectIdRef.current++,
-          type: state === 5 && Math.random() > 0.5 ? "heart" : "sparkle",
-          x: 80 + Math.random() * 60,
-          y: 20 + Math.random() * 30,
+          type: state === 5 && Math.random() > 0.4 ? "heart" : "sparkle",
+          x: 70 + Math.random() * 80,
+          y: 15 + Math.random() * 25,
         });
       }
-      setEffects(prev => [...prev.slice(-2), ...newEffects]); // Max 2
+      setEffects(prev => [...prev.slice(-1), ...newEffects]);
       
       setTimeout(() => {
         setEffects(prev => prev.filter(e => !newEffects.some(n => n.id === e.id)));
       }, state === 5 ? 1100 : 900);
     };
     
+    const interval = state === 5 ? (5000 + Math.random() * 3000) : (7000 + Math.random() * 3000);
     const timer = setInterval(spawnEffect, interval);
     return () => clearInterval(timer);
   }, [state, reducedMotion]);
+
+  const springConfig = { stiffness: 300, damping: 20, mass: 0.8 };
   
-  // Sigh effect for state 1
-  const [sighEffects, setSighEffects] = useState<{ id: number; x: number }[]>([]);
-  
-  useEffect(() => {
-    if (state !== 1 || reducedMotion) return;
-    
-    const spawnSigh = () => {
-      const id = effectIdRef.current++;
-      setSighEffects(prev => [...prev.slice(-1), { id, x: 130 + Math.random() * 20 }]);
-      setTimeout(() => {
-        setSighEffects(prev => prev.filter(e => e.id !== id));
-      }, 900);
-    };
-    
-    const delay = 8000 + Math.random() * 4000;
-    const timer = setInterval(spawnSigh, delay);
-    return () => clearInterval(timer);
-  }, [state, reducedMotion]);
-  
-  // Spring for state transition
-  const springConfig = { stiffness: 260, damping: 18, mass: 0.8 };
-  const bodyColorSpring = useSpring(0, springConfig);
-  const [popScale, setPopScale] = useState(1);
-  
-  useEffect(() => {
-    bodyColorSpring.set(state);
-    // Pop effect on state change
-    setPopScale(1.04);
-    const timer = setTimeout(() => setPopScale(1), 220);
-    return () => clearTimeout(timer);
-  }, [state, bodyColorSpring]);
+  const eyeProps = getEyeProps(state, isBlinking);
 
   const bounceAnimation = useMemo(() => reducedMotion ? {} : {
     y: [...config.bounceY],
-    rotate: [...config.wiggle],
-    scaleX: state === 5 ? [1, 1.06, 1] : [1, 1, 1],
-    scaleY: state === 5 ? [1, 0.94, 1] : [1, 1, 1],
+    scaleX: [...config.scaleX],
+    scaleY: [...config.scaleY],
     transition: {
       y: { duration: config.bounceDuration, repeat: Infinity, ease: "easeInOut" as const },
-      rotate: { duration: config.wiggleDuration, repeat: Infinity, ease: "easeInOut" as const },
       scaleX: { duration: config.bounceDuration, repeat: Infinity, ease: "easeInOut" as const },
       scaleY: { duration: config.bounceDuration, repeat: Infinity, ease: "easeInOut" as const },
     },
-  }, [config, state, reducedMotion]);
+  }, [config, reducedMotion]);
 
   const shadowAnimation = useMemo(() => reducedMotion ? {} : {
-    scaleX: [1, 0.92, 1],
-    transition: { duration: 3.2, repeat: Infinity, ease: "easeInOut" as const },
-  }, [reducedMotion]);
-
-  const eyeScaleY = isBlinking ? 0.12 : eyeShapes[state].scaleY;
+    scaleX: [1, 0.90, 1],
+    transition: { duration: config.bounceDuration, repeat: Infinity, ease: "easeInOut" as const },
+  }, [config.bounceDuration, reducedMotion]);
 
   return (
     <div className={cn("flex flex-col items-center gap-2", className)}>
       <motion.svg
-        viewBox="0 0 220 140"
-        className="w-[200px] h-[130px] sm:w-[220px] sm:h-[140px]"
-        initial={false}
-        animate={{ scale: popScale }}
-        transition={{ type: "spring", ...springConfig }}
+        viewBox="0 0 230 130"
+        className="w-[200px] h-[120px] sm:w-[220px] sm:h-[130px] cursor-pointer select-none"
+        onClick={handleTap}
+        animate={{ scale: isTapped ? 1.06 : 1 }}
+        transition={{ type: "spring", ...springConfig, duration: 0.22 }}
       >
         <defs>
-          <linearGradient id="bodyGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+          <linearGradient id="jellyBodyGradient" x1="0%" y1="0%" x2="0%" y2="100%">
             <motion.stop
               offset="0%"
               animate={{ stopColor: config.bodyGradientStart }}
@@ -244,12 +228,12 @@ export function YanggaengBuddy({ completedCount, className }: YanggaengBuddyProp
               transition={{ type: "spring", ...springConfig }}
             />
           </linearGradient>
-          <radialGradient id="glossGradient" cx="30%" cy="20%" r="50%">
-            <stop offset="0%" stopColor="white" stopOpacity="0.8" />
+          <radialGradient id="jellyHighlight" cx="25%" cy="18%" r="45%">
+            <stop offset="0%" stopColor="white" stopOpacity="0.9" />
             <stop offset="100%" stopColor="white" stopOpacity="0" />
           </radialGradient>
-          <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
-            <feGaussianBlur stdDeviation="4" result="blur" />
+          <filter id="jellyGlow" x="-30%" y="-30%" width="160%" height="160%">
+            <feGaussianBlur stdDeviation="5" result="blur" />
             <feMerge>
               <feMergeNode in="blur" />
               <feMergeNode in="SourceGraphic" />
@@ -259,166 +243,198 @@ export function YanggaengBuddy({ completedCount, className }: YanggaengBuddyProp
 
         {/* Shadow */}
         <motion.ellipse
-          cx="110"
-          cy="130"
-          rx="55"
-          ry="8"
-          fill="rgba(0,0,0,0.15)"
+          cx="115"
+          cy="118"
+          rx="50"
+          ry="9"
+          fill="rgba(0,0,0,0.12)"
           animate={shadowAnimation}
         />
 
         {/* Body Group with bounce */}
         <motion.g
           animate={bounceAnimation}
-          style={{ originX: "110px", originY: "70px" }}
+          style={{ transformOrigin: "115px 65px" }}
         >
           {/* Glow (state 3+) */}
           {state >= 3 && (
-            <motion.ellipse
-              cx="110"
-              cy="70"
-              rx="65"
-              ry="50"
-              fill={config.bodyColor}
+            <motion.rect
+              x="55"
+              y="18"
+              width="120"
+              height="85"
+              rx="26"
+              ry="26"
+              fill={config.bodyGradientStart}
               animate={{ opacity: config.glowOpacity }}
               transition={{ type: "spring", ...springConfig }}
-              filter="url(#glow)"
+              filter="url(#jellyGlow)"
             />
           )}
 
-          {/* Body */}
+          {/* Jelly Body - Rounded Rectangle */}
           <motion.rect
-            x="45"
-            y="25"
-            width="130"
-            height="90"
-            rx="45"
-            ry="45"
-            fill="url(#bodyGradient)"
-            animate={{ fill: "url(#bodyGradient)" }}
+            x="55"
+            y="18"
+            width="120"
+            height="85"
+            rx="26"
+            ry="26"
+            fill="url(#jellyBodyGradient)"
           />
 
-          {/* Highlight */}
+          {/* Main Highlight */}
           <motion.ellipse
-            cx="80"
-            cy="45"
-            rx="25"
-            ry="15"
-            fill="url(#glossGradient)"
+            cx="85"
+            cy="38"
+            rx="28"
+            ry="16"
+            fill="url(#jellyHighlight)"
             animate={{ opacity: config.highlightOpacity }}
             transition={{ type: "spring", ...springConfig }}
           />
 
-          {/* Eyebrows (state 1-2) */}
+          {/* Small Gloss Dot */}
+          <circle cx="72" cy="32" r="5" fill="white" opacity="0.35" />
+
+          {/* Eyebrows (state 1-2 only) */}
           {state <= 2 && (
             <>
               <motion.line
-                x1="70"
-                y1="48"
-                x2="85"
-                y2="50"
+                x1="82"
+                y1="42"
+                x2="98"
+                y2="44"
                 stroke="#5d4037"
                 strokeWidth="2.5"
                 strokeLinecap="round"
-                animate={{ rotate: eyebrowAngles[state] }}
-                style={{ transformOrigin: "77px 49px" }}
+                animate={{ rotate: getEyebrowAngle(state) }}
+                style={{ transformOrigin: "90px 43px" }}
                 transition={{ type: "spring", ...springConfig }}
               />
               <motion.line
-                x1="135"
-                y1="50"
-                x2="150"
-                y2="48"
+                x1="132"
+                y1="44"
+                x2="148"
+                y2="42"
                 stroke="#5d4037"
                 strokeWidth="2.5"
                 strokeLinecap="round"
-                animate={{ rotate: -eyebrowAngles[state] }}
-                style={{ transformOrigin: "142px 49px" }}
+                animate={{ rotate: -getEyebrowAngle(state) }}
+                style={{ transformOrigin: "140px 43px" }}
                 transition={{ type: "spring", ...springConfig }}
               />
             </>
           )}
 
-          {/* Eyes */}
-          <motion.ellipse
-            cx="80"
-            cy="60"
-            rx="8"
-            ry="10"
-            fill="#3d2914"
-            animate={{ scaleY: eyeScaleY }}
-            transition={{ duration: isBlinking ? 0.07 : 0.2 }}
-            style={{ transformOrigin: "80px 60px" }}
-          />
-          <motion.ellipse
-            cx="140"
-            cy="60"
-            rx="8"
-            ry="10"
-            fill="#3d2914"
-            animate={{ scaleY: eyeScaleY }}
-            transition={{ duration: isBlinking ? 0.07 : 0.2 }}
-            style={{ transformOrigin: "140px 60px" }}
-          />
+          {/* Left Eye */}
+          {state === 5 && !isBlinking ? (
+            // 반달눈 (웃는 눈)
+            <path
+              d="M 82 56 Q 90 50 98 56"
+              fill="none"
+              stroke="#3d2914"
+              strokeWidth="3.5"
+              strokeLinecap="round"
+            />
+          ) : state === 1 && !isBlinking ? (
+            // 반쯤 감은 눈 (arc)
+            <path
+              d="M 82 55 Q 90 52 98 55"
+              fill="none"
+              stroke="#3d2914"
+              strokeWidth="3"
+              strokeLinecap="round"
+            />
+          ) : (
+            <motion.ellipse
+              cx="90"
+              cy="54"
+              rx="9"
+              ry="11"
+              fill="#3d2914"
+              animate={{ scaleY: eyeProps.scaleY }}
+              transition={{ duration: isBlinking ? 0.06 : 0.15 }}
+              style={{ transformOrigin: "90px 54px" }}
+            />
+          )}
 
-          {/* Eye sparkles (state 5) */}
+          {/* Right Eye */}
+          {state === 5 && !isBlinking ? (
+            <path
+              d="M 132 56 Q 140 50 148 56"
+              fill="none"
+              stroke="#3d2914"
+              strokeWidth="3.5"
+              strokeLinecap="round"
+            />
+          ) : state === 1 && !isBlinking ? (
+            <path
+              d="M 132 55 Q 140 52 148 55"
+              fill="none"
+              stroke="#3d2914"
+              strokeWidth="3"
+              strokeLinecap="round"
+            />
+          ) : (
+            <motion.ellipse
+              cx="140"
+              cy="54"
+              rx="9"
+              ry="11"
+              fill="#3d2914"
+              animate={{ scaleY: eyeProps.scaleY }}
+              transition={{ duration: isBlinking ? 0.06 : 0.15 }}
+              style={{ transformOrigin: "140px 54px" }}
+            />
+          )}
+
+          {/* Eye Highlights (state 4-5) */}
+          {state >= 4 && !isBlinking && state !== 5 && (
+            <>
+              <circle cx="93" cy="50" r="3" fill="white" opacity="0.95" />
+              <circle cx="143" cy="50" r="3" fill="white" opacity="0.95" />
+            </>
+          )}
           {state === 5 && !isBlinking && (
             <>
-              <circle cx="83" cy="56" r="2.5" fill="white" opacity="0.9" />
-              <circle cx="143" cy="56" r="2.5" fill="white" opacity="0.9" />
+              {/* 반달눈 위의 반짝임 */}
+              <circle cx="90" cy="48" r="2.5" fill="white" opacity="0.9" />
+              <circle cx="140" cy="48" r="2.5" fill="white" opacity="0.9" />
             </>
           )}
 
           {/* Cheeks */}
           <motion.ellipse
-            cx="60"
-            cy="75"
-            rx="12"
-            ry="8"
-            fill="#ff9f9f"
+            cx="68"
+            cy="68"
+            rx="14"
+            ry="9"
+            fill="#ff9090"
             animate={{ opacity: config.cheekOpacity }}
             transition={{ type: "spring", ...springConfig }}
           />
           <motion.ellipse
-            cx="160"
-            cy="75"
-            rx="12"
-            ry="8"
-            fill="#ff9f9f"
+            cx="162"
+            cy="68"
+            rx="14"
+            ry="9"
+            fill="#ff9090"
             animate={{ opacity: config.cheekOpacity }}
             transition={{ type: "spring", ...springConfig }}
           />
 
           {/* Mouth */}
           <motion.path
-            d={mouthShapes[state]}
+            d={getMouthPath(state)}
             fill="none"
             stroke="#5d4037"
-            strokeWidth="3"
+            strokeWidth="3.5"
             strokeLinecap="round"
             initial={false}
-            animate={{ d: mouthShapes[state] }}
+            animate={{ d: getMouthPath(state) }}
             transition={{ type: "spring", ...springConfig }}
           />
-
-          {/* Sigh effects (state 1) */}
-          <AnimatePresence>
-            {sighEffects.map(effect => (
-              <motion.g key={effect.id}>
-                <motion.path
-                  d={`M ${effect.x} 30 Q ${effect.x + 5} 25 ${effect.x + 10} 30`}
-                  fill="none"
-                  stroke="#999"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                  initial={{ y: 0, opacity: 1 }}
-                  animate={{ y: -10, opacity: 0 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.9, ease: "easeOut" }}
-                />
-              </motion.g>
-            ))}
-          </AnimatePresence>
 
           {/* Sparkle/Heart effects (state 4-5) */}
           <AnimatePresence>
@@ -426,12 +442,12 @@ export function YanggaengBuddy({ completedCount, className }: YanggaengBuddyProp
               <motion.g key={effect.id}>
                 {effect.type === "sparkle" ? (
                   <motion.path
-                    d="M0,-6 L1.5,0 L0,6 L-1.5,0 Z M-6,0 L0,1.5 L6,0 L0,-1.5 Z"
+                    d="M0,-7 L2,0 L0,7 L-2,0 Z M-7,0 L0,2 L7,0 L0,-2 Z"
                     fill="#ffd700"
-                    initial={{ x: effect.x, y: effect.y, scale: 0.6, opacity: 0 }}
+                    initial={{ x: effect.x, y: effect.y, scale: 0.5, opacity: 0 }}
                     animate={{ 
-                      y: effect.y - (state === 5 ? 18 : 10),
-                      scale: [0.6, 1.1, 0.8],
+                      y: effect.y - 18,
+                      scale: [0.5, 1.2, 0.9],
                       opacity: [0, 1, 0],
                     }}
                     exit={{ opacity: 0 }}
@@ -439,12 +455,12 @@ export function YanggaengBuddy({ completedCount, className }: YanggaengBuddyProp
                   />
                 ) : (
                   <motion.path
-                    d="M0,3 C0,0 -3,-3 -5,-3 C-8,-3 -8,1 -8,1 C-8,5 0,9 0,9 C0,9 8,5 8,1 C8,1 8,-3 5,-3 C3,-3 0,0 0,3 Z"
+                    d="M0,4 C0,0 -4,-4 -6,-4 C-9,-4 -9,1 -9,1 C-9,6 0,11 0,11 C0,11 9,6 9,1 C9,1 9,-4 6,-4 C4,-4 0,0 0,4 Z"
                     fill="#ff6b9d"
-                    initial={{ x: effect.x, y: effect.y, scale: 0.5, opacity: 0 }}
+                    initial={{ x: effect.x, y: effect.y, scale: 0.4, opacity: 0 }}
                     animate={{ 
                       y: effect.y - 18,
-                      scale: [0.5, 1, 0.8],
+                      scale: [0.4, 1.1, 0.85],
                       opacity: [0, 1, 0],
                     }}
                     exit={{ opacity: 0 }}
@@ -454,34 +470,70 @@ export function YanggaengBuddy({ completedCount, className }: YanggaengBuddyProp
               </motion.g>
             ))}
           </AnimatePresence>
+
+          {/* Tap Heart (state 5 only) */}
+          <AnimatePresence>
+            {tapHeart && (
+              <motion.path
+                d="M0,4 C0,0 -4,-4 -6,-4 C-9,-4 -9,1 -9,1 C-9,6 0,11 0,11 C0,11 9,6 9,1 C9,1 9,-4 6,-4 C4,-4 0,0 0,4 Z"
+                fill="#ff6b9d"
+                initial={{ x: 115, y: 10, scale: 0.3, opacity: 0 }}
+                animate={{ 
+                  y: -8,
+                  scale: [0.3, 1.3, 1],
+                  opacity: [0, 1, 0],
+                }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 1.0, ease: "easeOut" }}
+              />
+            )}
+          </AnimatePresence>
         </motion.g>
+
+        {/* Speech Bubble on Tap */}
+        <AnimatePresence>
+          {showBubble && (
+            <motion.g
+              initial={{ opacity: 0, y: 5, scale: 0.8 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -5, scale: 0.9 }}
+              transition={{ type: "spring", stiffness: 400, damping: 25 }}
+            >
+              <rect
+                x="150"
+                y="2"
+                width="70"
+                height="24"
+                rx="12"
+                fill="white"
+                stroke="#e0e0e0"
+                strokeWidth="1"
+              />
+              <text
+                x="185"
+                y="18"
+                textAnchor="middle"
+                fontSize="11"
+                fill="#5d4037"
+                fontWeight="500"
+              >
+                {config.tapReaction}
+              </text>
+            </motion.g>
+          )}
+        </AnimatePresence>
       </motion.svg>
 
-      {/* Message + Badge */}
-      <div className="flex items-center gap-2">
-        <motion.p
-          className="text-sm text-muted-foreground text-center"
-          key={state}
-          initial={{ opacity: 0, y: 5 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ type: "spring", ...springConfig }}
-        >
-          {config.message}
-        </motion.p>
-        <motion.span
-          className={cn(
-            "px-2 py-0.5 rounded-full text-[12px] font-medium whitespace-nowrap",
-            config.badge.bg,
-            config.badge.glow && "shadow-[0_0_8px_rgba(255,176,32,0.25)]"
-          )}
-          key={`badge-${state}`}
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ type: "spring", ...springConfig }}
-        >
-          {config.badge.text}
-        </motion.span>
-      </div>
+      {/* Message Only (no badge) */}
+      <motion.p
+        className="text-sm text-muted-foreground text-center"
+        key={state}
+        initial={{ opacity: 0, y: 5 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ type: "spring", ...springConfig }}
+      >
+        {config.message}
+      </motion.p>
     </div>
   );
 }
