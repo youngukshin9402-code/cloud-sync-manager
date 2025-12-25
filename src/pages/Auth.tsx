@@ -780,7 +780,7 @@ export default function Auth() {
                     
                     {/* 나이 */}
                     <div className="space-y-1">
-                      <Label htmlFor="age" className="text-sm">나이 (세)</Label>
+                      <Label htmlFor="age" className="text-sm">만 나이 (세)</Label>
                       <Input
                         id="age"
                         type="number"
