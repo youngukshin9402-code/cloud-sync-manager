@@ -47,7 +47,7 @@ export function YanggaengSection() {
             description={
               <>
                 결과를 이해하는데서 끝나지 않고<br />
-                일상에서 실천할 수 있게 챙겨드려요
+                실천할 수 있게 챙겨드려요
               </>
             }
             icon={Stethoscope}
@@ -65,27 +65,37 @@ export function YanggaengSection() {
             title="영양양갱"
             description={
               <>
-                식사 사진을 찍으면 바로<br className="md:hidden" />
-                {" "}영양 피드백을 받을 수 있어요
+                먹은 걸 적는 것만으로도<br />
+                식사는 달라지기 시작해요
               </>
             }
             icon={Utensils}
             color="nutrition"
             to="/nutrition"
             features={[
-              "음식 사진 분석",
-              "식단 기록",
+              "음식 사진 기록",
+              "식사 흐름 확인",
+              "코치와 함께 피드백",
             ]}
             delay={100}
           />
 
           <YanggaengCard
             title="운동양갱"
-            description="매일 운동을 쉽게 기록하고 1:1 코치를 받아보세요"
+            description={
+              <>
+                오늘 운동을 삶에 넣으셨어요<br />
+                그것만으로도 충분히 의미 있어요
+              </>
+            }
             icon={Dumbbell}
             color="exercise"
             to="/exercise"
-            features={["운동 기록", "1:1 코치"]}
+            features={[
+              "운동 기록",
+              "주간 운동 안내",
+              "코치와 함께 관리",
+            ]}
             delay={200}
           />
         </div>
