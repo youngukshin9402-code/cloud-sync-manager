@@ -616,7 +616,13 @@ function InBodySection() {
                 </div>
               </div>
               <div className="bg-background/50 rounded-xl p-4">
-                <p className="text-sm text-foreground leading-relaxed">{healthAgeResult.analysis}</p>
+                <div className="space-y-2">
+                  {healthAgeResult.analysis.split('\n').filter(line => line.trim()).slice(0, 3).map((line, index) => (
+                    <p key={index} className="text-base font-semibold text-foreground leading-snug">
+                      {index + 1}. {line.trim()}
+                    </p>
+                  ))}
+                </div>
               </div>
             </div>
           )}
