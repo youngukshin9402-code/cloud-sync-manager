@@ -22,29 +22,84 @@ async function generateHealthAgeAnalysisText(
   isAthletic: boolean
 ): Promise<Response> {
   const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+  
+  // 기본 분석 텍스트 생성 함수
+  const getDefaultAnalysis = () => {
+    const ageDiff = healthAge - actualAge;
+    if (ageDiff <= -3) {
+      return "전반적으로 건강한 상태입니다.\n현재 생활습관이 잘 유지되고 있습니다.\n꾸준히 유지하시면 좋겠습니다.";
+    } else if (ageDiff <= 3) {
+      return "보통 수준의 건강 상태입니다.\n균형 잡힌 관리가 필요합니다.\n규칙적인 운동을 권장드립니다.";
+    } else {
+      return "관리가 필요한 상태입니다.\n체지방과 근육 균형에 신경써주세요.\n가벼운 운동 시작을 권장드립니다.";
+    }
+  };
+  
   if (!LOVABLE_API_KEY) {
     return new Response(
-      JSON.stringify({ analysis: `실제 나이 ${actualAge}세 대비 건강 나이는 ${healthAge}세입니다.` }),
+      JSON.stringify({ analysis: getDefaultAnalysis() }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 
   const genderLabel = gender === "male" ? "남성" : "여성";
-  const prompt = `당신은 건강 전문가입니다. 다음 인바디(체성분) 데이터와 분석 결과를 기반으로 사용자에게 간단한 건강 조언을 제공해주세요.
+  
+  // 건강 나이와 실제 나이 차이 계산
+  const ageDiff = healthAge - actualAge;
+  const ageStatus = ageDiff <= -5 ? "매우 좋음" : ageDiff < 0 ? "좋음" : ageDiff === 0 ? "보통" : ageDiff <= 5 ? "관리 필요" : "집중 관리 필요";
+  
+  // 체지방률 상태 판정
+  let fatStatus = "보통";
+  if (inbodyData.body_fat_percent !== null) {
+    if (gender === "male") {
+      fatStatus = inbodyData.body_fat_percent < 15 ? "낮음" : inbodyData.body_fat_percent > 25 ? "높음" : "적정";
+    } else {
+      fatStatus = inbodyData.body_fat_percent < 20 ? "낮음" : inbodyData.body_fat_percent > 32 ? "높음" : "적정";
+    }
+  }
+  
+  // 골격근량 상태 판정
+  let muscleStatus = "보통";
+  if (inbodyData.skeletal_muscle !== null && inbodyData.weight) {
+    const muscleRatio = (inbodyData.skeletal_muscle / inbodyData.weight) * 100;
+    if (gender === "male") {
+      muscleStatus = muscleRatio > 45 ? "우수" : muscleRatio < 38 ? "부족" : "적정";
+    } else {
+      muscleStatus = muscleRatio > 38 ? "우수" : muscleRatio < 30 ? "부족" : "적정";
+    }
+  }
+  
+  const prompt = `당신은 친절한 건강 코치입니다. 인바디 결과를 누구나 쉽게 이해할 수 있도록 설명합니다.
 
-실제 나이: ${actualAge}세
-성별: ${genderLabel}
-건강 나이: ${healthAge}세
-운동형 판정: ${isAthletic ? "예" : "아니오"}
+## 입력 데이터
+- 실제 나이: ${actualAge}세
+- 건강 나이: ${healthAge}세 (${ageStatus})
+- 성별: ${genderLabel}
+- 운동형 여부: ${isAthletic ? "예" : "아니오"}
+- 체지방률 상태: ${fatStatus}
+- 골격근량 상태: ${muscleStatus}
 
-인바디 데이터:
-- 체중: ${inbodyData.weight}kg
-- 골격근량: ${inbodyData.skeletal_muscle ? inbodyData.skeletal_muscle + 'kg' : '측정 안됨'}
-- 체지방률: ${inbodyData.body_fat_percent ? inbodyData.body_fat_percent + '%' : '측정 안됨'}
-- 내장지방 레벨: ${inbodyData.visceral_fat ?? '측정 안됨'}
+## 반드시 지켜야 할 출력 형식
+정확히 3줄로 작성합니다. 각 줄은 줄바꿈(\\n)으로 구분합니다.
 
-2-3문장으로 건강 상태 분석 및 조언을 작성하세요. 건강 나이가 실제 나이보다 낮으면 좋은 것이고, 높으면 개선이 필요함을 언급하세요.
-숫자 계산은 하지 마세요. 위에 제공된 건강 나이를 그대로 사용하세요.`;
+1줄: 현재 신체 상태를 한 문장으로 요약 (예: "전반적으로 건강한 상태입니다." 또는 "체중 관리가 필요한 상태입니다.")
+2줄: 체지방·근육·대사 중 가장 중요한 핵심 포인트 1개 (예: "근육량이 핵심입니다." 또는 "체지방 관리에 집중이 필요합니다.")
+3줄: 건강 나이의 의미와 생활 방향 (예: "꾸준한 운동으로 유지하면 좋겠습니다." 또는 "가벼운 운동을 시작하는 것이 좋습니다.")
+
+## 절대 금지 사항
+- 숫자, 퍼센트, kg 등 수치 언급 금지
+- "위험", "심각", "의학적으로", "임상적으로" 등 불안 조성 표현 금지
+- 각 문장은 공백 포함 25자 이내
+- 어려운 의학 용어 사용 금지
+- 과장된 칭찬이나 경고 금지
+- 건강 나이 숫자는 AI가 계산하지 않음 (이미 계산된 결과를 해석만)
+
+## 톤 & 스타일
+- 친절한 건강 코치 말투
+- 고령자도 이해 가능한 쉬운 문장
+- 긍정적이고 실용적인 조언
+
+지금 3줄만 작성하세요:`;
 
   try {
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -64,14 +119,13 @@ async function generateHealthAgeAnalysisText(
     if (!response.ok) {
       console.error("AI response error:", response.status);
       return new Response(
-        JSON.stringify({ analysis: `실제 나이 ${actualAge}세 대비 건강 나이는 ${healthAge}세입니다.` }),
+        JSON.stringify({ analysis: getDefaultAnalysis() }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     const data = await response.json();
-    const content = data.choices?.[0]?.message?.content?.trim() || 
-      `실제 나이 ${actualAge}세 대비 건강 나이는 ${healthAge}세입니다.`;
+    const content = data.choices?.[0]?.message?.content?.trim() || getDefaultAnalysis();
 
     return new Response(
       JSON.stringify({ analysis: content }),
@@ -80,7 +134,7 @@ async function generateHealthAgeAnalysisText(
   } catch (error) {
     console.error("Health analysis text error:", error);
     return new Response(
-      JSON.stringify({ analysis: `실제 나이 ${actualAge}세 대비 건강 나이는 ${healthAge}세입니다.` }),
+      JSON.stringify({ analysis: getDefaultAnalysis() }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
