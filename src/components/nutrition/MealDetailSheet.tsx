@@ -170,14 +170,25 @@ export function MealDetailSheet({
                   ) : (
                     <>
                       <div className="space-y-1">
-                        {record.foods.map((food, idx) => (
-                          <div key={idx} className="flex justify-between text-sm">
-                            <span>
-                              {food.name} {food.portion && `(${food.portion})`}
-                            </span>
-                            <span className="text-muted-foreground">{food.calories} kcal</span>
-                          </div>
-                        ))}
+                        {record.foods.map((food, idx) => {
+                          // 0이 아닌 영양소만 표시
+                          const nutritionParts: string[] = [];
+                          if (food.carbs && food.carbs > 0) nutritionParts.push(`탄 ${food.carbs}g`);
+                          if (food.protein && food.protein > 0) nutritionParts.push(`단 ${food.protein}g`);
+                          if (food.fat && food.fat > 0) nutritionParts.push(`지 ${food.fat}g`);
+                          const nutritionText = nutritionParts.length > 0 ? ` · ${nutritionParts.join(' / ')}` : '';
+                          
+                          return (
+                            <div key={idx} className="flex justify-between text-sm">
+                              <span>
+                                {food.name} {food.portion && `(${food.portion})`}
+                              </span>
+                              <span className="text-muted-foreground">
+                                {food.calories} kcal{nutritionText}
+                              </span>
+                            </div>
+                          );
+                        })}
                       </div>
                       <div className="flex gap-2 pt-2 border-t border-border">
                         <Button

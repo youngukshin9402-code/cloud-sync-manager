@@ -3,6 +3,7 @@
  * - 3갈래: 빠른 추가 / 직접 등록 / 사진 AI 분석
  * - 직접 입력: 음식명(필수) + 단위 OR g (중량 우선)
  * - AI가 영양정보 계산
+ * - 수동 음식 추가: 사용자가 직접 영양정보 입력
  */
 
 import { useState, useRef } from "react";
@@ -66,6 +67,14 @@ export function AddFoodSheet({
   // 프리미엄 팝업 상태
   const [showPremiumPopup, setShowPremiumPopup] = useState(false);
 
+  // 수동 음식 추가 팝업 상태
+  const [showManualFoodPopup, setShowManualFoodPopup] = useState(false);
+  const [manualFoodName, setManualFoodName] = useState("");
+  const [manualCalories, setManualCalories] = useState("");
+  const [manualCarbs, setManualCarbs] = useState("");
+  const [manualProtein, setManualProtein] = useState("");
+  const [manualFat, setManualFat] = useState("");
+
   // 코치 배정 여부 확인
   const hasCoach = !!profile?.assigned_coach_id;
 
@@ -73,6 +82,14 @@ export function AddFoodSheet({
     setManualName("");
     setManualGrams("");
     setManualUnit("");
+  };
+
+  const resetManualFoodForm = () => {
+    setManualFoodName("");
+    setManualCalories("");
+    setManualCarbs("");
+    setManualProtein("");
+    setManualFat("");
   };
 
   const handleClose = () => {
@@ -106,6 +123,9 @@ export function AddFoodSheet({
 
   // +추가하기 버튼 활성화 조건: 음식명 + (단위 OR 중량)
   const canSave = manualName.trim() && (manualUnit.trim() || manualGrams.trim());
+
+  // 수동 음식 추가 저장 버튼 활성화 조건: 음식명 + 칼로리
+  const canSaveManualFood = manualFoodName.trim() && manualCalories.trim() && parseInt(manualCalories) > 0;
 
   // 직접 입력 저장 - AI로 영양정보 계산 (중량 우선)
   const handleManualSave = async () => {
@@ -170,6 +190,29 @@ export function AddFoodSheet({
     } finally {
       setIsAnalyzing(false);
     }
+  };
+
+  // 수동 음식 추가 저장
+  const handleManualFoodSave = () => {
+    if (!manualFoodName.trim() || !manualCalories.trim()) {
+      toast({ title: "음식명과 칼로리를 입력해주세요", variant: "destructive" });
+      return;
+    }
+
+    const food: MealFood = {
+      name: manualFoodName.trim(),
+      calories: parseInt(manualCalories) || 0,
+      carbs: parseInt(manualCarbs) || 0,
+      protein: parseInt(manualProtein) || 0,
+      fat: parseInt(manualFat) || 0,
+      portion: "1인분",
+    };
+
+    onFoodsSelected([food]);
+    resetManualFoodForm();
+    setShowManualFoodPopup(false);
+    handleClose();
+    toast({ title: `${food.name} 추가됨 (${food.calories}kcal)` });
   };
 
   // 빠른 추가에서 단일 음식 추가
@@ -305,6 +348,21 @@ export function AddFoodSheet({
                   </>
                 )}
               </Button>
+
+              {/* 수동 음식 추가 안내 */}
+              <div className="flex flex-col items-center gap-2 pt-4">
+                <p className="text-sm text-muted-foreground">
+                  원하는 음식을 찾을 수 없나요?
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowManualFoodPopup(true)}
+                >
+                  <Plus className="w-4 h-4 mr-1" />
+                  음식추가
+                </Button>
+              </div>
             </TabsContent>
 
             {/* 사진 탭 */}
@@ -347,6 +405,105 @@ export function AddFoodSheet({
           </DialogHeader>
         </DialogContent>
       </Dialog>
+
+      {/* 수동 음식 추가 팝업 */}
+      <Sheet open={showManualFoodPopup} onOpenChange={(open) => {
+        if (!open) resetManualFoodForm();
+        setShowManualFoodPopup(open);
+      }}>
+        <SheetContent 
+          side="bottom" 
+          className="h-[80vh] h-[80dvh] rounded-t-3xl w-full max-w-[420px] mx-auto left-1/2 -translate-x-1/2 flex flex-col pb-[max(1rem,env(safe-area-inset-bottom))]"
+        >
+          <SheetHeader className="pb-4 flex-shrink-0">
+            <SheetTitle>음식 직접 추가</SheetTitle>
+          </SheetHeader>
+
+          <div className="flex-1 overflow-y-auto space-y-4">
+            {/* 음식명 (필수) */}
+            <div>
+              <label className="text-sm font-medium">음식명 *</label>
+              <Input
+                placeholder="예: 삶은 계란"
+                value={manualFoodName}
+                onChange={(e) => setManualFoodName(e.target.value)}
+                className="mt-1"
+              />
+            </div>
+
+            {/* 섭취칼로리 (필수) */}
+            <div>
+              <label className="text-sm font-medium">섭취칼로리 (kcal) *</label>
+              <Input
+                type="number"
+                inputMode="numeric"
+                placeholder="예: 150"
+                value={manualCalories}
+                onChange={(e) => setManualCalories(e.target.value)}
+                className="mt-1"
+              />
+            </div>
+
+            {/* 구분선 */}
+            <div className="flex items-center gap-3 pt-2">
+              <div className="flex-1 h-px bg-border" />
+              <span className="text-xs text-muted-foreground">선택 입력</span>
+              <div className="flex-1 h-px bg-border" />
+            </div>
+
+            {/* 탄수화물 (선택) */}
+            <div>
+              <label className="text-sm font-medium">탄수화물 (g)</label>
+              <Input
+                type="number"
+                inputMode="numeric"
+                placeholder="예: 20"
+                value={manualCarbs}
+                onChange={(e) => setManualCarbs(e.target.value)}
+                className="mt-1"
+              />
+            </div>
+
+            {/* 단백질 (선택) */}
+            <div>
+              <label className="text-sm font-medium">단백질 (g)</label>
+              <Input
+                type="number"
+                inputMode="numeric"
+                placeholder="예: 10"
+                value={manualProtein}
+                onChange={(e) => setManualProtein(e.target.value)}
+                className="mt-1"
+              />
+            </div>
+
+            {/* 지방 (선택) */}
+            <div>
+              <label className="text-sm font-medium">지방 (g)</label>
+              <Input
+                type="number"
+                inputMode="numeric"
+                placeholder="예: 5"
+                value={manualFat}
+                onChange={(e) => setManualFat(e.target.value)}
+                className="mt-1"
+              />
+            </div>
+          </div>
+
+          {/* 저장 버튼 */}
+          <div className="pt-4 flex-shrink-0">
+            <Button 
+              className="w-full h-12" 
+              onClick={handleManualFoodSave}
+              disabled={!canSaveManualFood}
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              추가하기
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
     </>
   );
 }
