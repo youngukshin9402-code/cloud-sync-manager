@@ -5,8 +5,8 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// 건강 나이 분석 함수
-async function analyzeHealthAgeFromData(
+// 건강 나이 분석 텍스트 생성 함수 (숫자는 클라이언트에서 계산됨)
+async function generateHealthAgeAnalysisText(
   inbodyData: {
     weight: number;
     skeletal_muscle: number | null;
@@ -16,47 +16,35 @@ async function analyzeHealthAgeFromData(
     visceral_fat: number | null;
     date: string;
   },
-  actualAge: number
+  actualAge: number,
+  gender: string,
+  healthAge: number,
+  isAthletic: boolean
 ): Promise<Response> {
   const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
   if (!LOVABLE_API_KEY) {
     return new Response(
-      JSON.stringify({ error: "AI 서비스가 설정되지 않았습니다" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      JSON.stringify({ analysis: `실제 나이 ${actualAge}세 대비 건강 나이는 ${healthAge}세입니다.` }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 
-  console.log("Analyzing health age from InBody data:", inbodyData, "Actual age:", actualAge);
-
-  const prompt = `당신은 건강 전문가입니다. 다음 인바디(체성분) 데이터와 실제 나이를 기반으로 사용자의 건강 나이와 신체 점수를 평가해주세요.
+  const genderLabel = gender === "male" ? "남성" : "여성";
+  const prompt = `당신은 건강 전문가입니다. 다음 인바디(체성분) 데이터와 분석 결과를 기반으로 사용자에게 간단한 건강 조언을 제공해주세요.
 
 실제 나이: ${actualAge}세
+성별: ${genderLabel}
+건강 나이: ${healthAge}세
+운동형 판정: ${isAthletic ? "예" : "아니오"}
 
 인바디 데이터:
 - 체중: ${inbodyData.weight}kg
 - 골격근량: ${inbodyData.skeletal_muscle ? inbodyData.skeletal_muscle + 'kg' : '측정 안됨'}
 - 체지방률: ${inbodyData.body_fat_percent ? inbodyData.body_fat_percent + '%' : '측정 안됨'}
-- 체지방량: ${inbodyData.body_fat ? inbodyData.body_fat + 'kg' : '측정 안됨'}
-- 기초대사량: ${inbodyData.bmr ? inbodyData.bmr + 'kcal' : '측정 안됨'}
 - 내장지방 레벨: ${inbodyData.visceral_fat ?? '측정 안됨'}
 
-다음 형식의 JSON으로만 응답하세요:
-{
-  "healthAge": 추정 건강 나이(숫자),
-  "bodyScore": 신체 점수(1-100점 사이 숫자),
-  "analysis": "실제 나이(${actualAge}세)와 비교한 건강 상태 분석 및 조언 (2-3문장, 건강 나이가 실제 나이보다 낮으면 좋은 것이고, 높으면 개선이 필요함을 언급)"
-}
-
-건강 나이 계산 기준 (실제 나이 ${actualAge}세 기준):
-- 체지방률이 낮고 골격근량이 높으면 건강 나이가 실제 나이보다 낮아짐
-- 내장지방 레벨이 높으면 건강 나이가 실제 나이보다 높아짐
-- 기초대사량이 높으면 건강 나이가 낮아지고 신체 점수가 높아짐
-
-신체 점수 기준:
-- 80-100점: 매우 우수
-- 60-79점: 양호
-- 40-59점: 보통
-- 40점 미만: 개선 필요`;
+2-3문장으로 건강 상태 분석 및 조언을 작성하세요. 건강 나이가 실제 나이보다 낮으면 좋은 것이고, 높으면 개선이 필요함을 언급하세요.
+숫자 계산은 하지 마세요. 위에 제공된 건강 나이를 그대로 사용하세요.`;
 
   try {
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -67,61 +55,33 @@ async function analyzeHealthAgeFromData(
       },
       body: JSON.stringify({
         model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "user", content: prompt }
-        ],
-        max_tokens: 500,
+        messages: [{ role: "user", content: prompt }],
+        max_tokens: 300,
+        temperature: 0, // 결정론 보장
       }),
     });
 
     if (!response.ok) {
-      if (response.status === 429) {
-        return new Response(
-          JSON.stringify({ error: "요청이 너무 많습니다. 잠시 후 다시 시도해주세요." }),
-          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: "AI 크레딧이 부족합니다." }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      throw new Error("AI 분석 중 오류가 발생했습니다");
+      console.error("AI response error:", response.status);
+      return new Response(
+        JSON.stringify({ analysis: `실제 나이 ${actualAge}세 대비 건강 나이는 ${healthAge}세입니다.` }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     const data = await response.json();
-    const content = data.choices?.[0]?.message?.content;
-
-    if (!content) {
-      throw new Error("AI 응답이 비어있습니다");
-    }
-
-    console.log("Health age AI response:", content);
-
-    // Parse JSON from response
-    let jsonContent = content;
-    const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
-    if (jsonMatch) {
-      jsonContent = jsonMatch[1];
-    }
-
-    const parsedData = JSON.parse(jsonContent.trim());
+    const content = data.choices?.[0]?.message?.content?.trim() || 
+      `실제 나이 ${actualAge}세 대비 건강 나이는 ${healthAge}세입니다.`;
 
     return new Response(
-      JSON.stringify({
-        success: true,
-        healthAge: parsedData.healthAge,
-        bodyScore: parsedData.bodyScore,
-        analysis: parsedData.analysis,
-      }),
+      JSON.stringify({ analysis: content }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
-    console.error("Health age analysis error:", error);
+    console.error("Health analysis text error:", error);
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : "분석 실패" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      JSON.stringify({ analysis: `실제 나이 ${actualAge}세 대비 건강 나이는 ${healthAge}세입니다.` }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 }
@@ -133,11 +93,11 @@ serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { imageBase64, analyzeHealthAge, inbodyData, actualAge } = body;
+    const { imageBase64, generateAnalysisText, inbodyData, actualAge, gender, healthAge, isAthletic } = body;
 
-    // 건강 나이 분석 모드
-    if (analyzeHealthAge && inbodyData && actualAge) {
-      return await analyzeHealthAgeFromData(inbodyData, actualAge);
+    // 건강 나이 분석 텍스트 생성 모드
+    if (generateAnalysisText && inbodyData && actualAge && gender && healthAge !== undefined) {
+      return await generateHealthAgeAnalysisText(inbodyData, actualAge, gender, healthAge, isAthletic || false);
     }
 
     if (!imageBase64) {

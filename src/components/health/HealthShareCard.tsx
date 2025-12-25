@@ -95,8 +95,8 @@ const HealthShareCard = forwardRef<HTMLDivElement, HealthShareCardProps>(
     const warningItems = parsedData?.items?.filter((i) => i.status === "warning") || [];
     const dangerItems = parsedData?.items?.filter((i) => i.status === "danger") || [];
 
-    // 최대 5개 항목만 표시 (중요도: danger > warning > normal)
-    const allItems = [...dangerItems, ...warningItems, ...normalItems].slice(0, 5);
+    // 이미지 저장시 danger 항목만 표시 (주의/정상 항목 제외)
+    const allItems = dangerItems.slice(0, 5);
 
     // AI 분석 데이터 (aiAnalysis prop 또는 parsed_data에서 가져옴)
     const analysis = aiAnalysis || parsedData;
@@ -145,32 +145,7 @@ const HealthShareCard = forwardRef<HTMLDivElement, HealthShareCardProps>(
           </span>
         </div>
 
-        {/* 건강 점수 (크게, 상단 배치) */}
-        {healthScore && (
-          <div
-            style={{
-              textAlign: "center",
-              padding: "16px",
-              backgroundColor: "#f0fdf4",
-              borderRadius: "16px",
-              marginBottom: "12px",
-              border: "2px solid #86efac",
-            }}
-          >
-            <p style={{ color: "#059669", marginBottom: "4px", fontSize: "13px", fontWeight: 600 }}>
-              건강 점수
-            </p>
-            <p style={{ fontSize: "48px", fontWeight: 800, color: "#059669", margin: 0, lineHeight: 1.1 }}>
-              {healthScore}
-              <span style={{ fontSize: "24px", fontWeight: 600 }}>/100</span>
-            </p>
-            {scoreReason && (
-              <p style={{ fontSize: "12px", color: "#374151", marginTop: "8px", lineHeight: 1.4 }}>
-                {scoreReason}
-              </p>
-            )}
-          </div>
-        )}
+        {/* 건강 점수 제거됨 */}
 
         {/* 건강 나이 (점수 없을 때만) */}
         {healthAge && !healthScore && (

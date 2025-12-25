@@ -2,6 +2,8 @@ import { useRef, useState, useMemo, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
 import {
   Camera,
   Upload,
@@ -27,6 +29,7 @@ import { useHealthRecords, HealthRecord, HealthRecordItem } from "@/hooks/useHea
 import { useInBodyRecords } from "@/hooks/useServerSync";
 import { useHealthAgeStorage } from "@/hooks/useHealthAgeStorage";
 import { supabase } from "@/integrations/supabase/client";
+import { computeHealthAge, Gender as HealthAgeGender } from "@/utils/healthAge";
 import html2canvas from "html2canvas";
 import HealthShareCard from "@/components/health/HealthShareCard";
 
@@ -148,6 +151,7 @@ function InBodySection() {
   } | null>(null);
   const [isAnalyzingHealth, setIsAnalyzingHealth] = useState(false);
   const [actualAgeInput, setActualAgeInput] = useState<number | null>(null);
+  const [genderInput, setGenderInput] = useState<HealthAgeGender | null>(null);
   const [showAgeInputDialog, setShowAgeInputDialog] = useState(false);
 
   // localStorage에서 저장된 건강나이 결과 복원
@@ -199,37 +203,64 @@ function InBodySection() {
     setShowAgeInputDialog(true);
   };
 
-  const analyzeHealthAge = async (record: typeof records[0], actualAge: number) => {
+  const analyzeHealthAge = async (record: typeof records[0], actualAge: number, gender: HealthAgeGender) => {
     if (isAnalyzingHealth) return;
     setIsAnalyzingHealth(true);
     setHealthAgeResult(null);
     setShowAgeInputDialog(false);
 
     try {
+      // 필수 데이터 검증
+      const bodyFatPercent = record.body_fat_percent ? Number(record.body_fat_percent) : null;
+      const visceralFat = record.visceral_fat;
+      
+      if (bodyFatPercent === null || visceralFat === null) {
+        throw new Error("체지방률과 내장지방 레벨이 필요합니다");
+      }
+
+      // computeHealthAge로 결정론적 건강 나이 계산
+      const healthAgeInput = {
+        actualAge,
+        gender,
+        bodyFatPercent,
+        visceralFatLevel: visceralFat,
+        weightKg: Number(record.weight),
+        smmKg: record.skeletal_muscle ? Number(record.skeletal_muscle) : undefined,
+      };
+      
+      const computedResult = computeHealthAge(healthAgeInput);
+      
+      // AI로 설명 텍스트만 생성 (temperature=0 사용)
       const { data, error } = await supabase.functions.invoke('analyze-inbody', {
         body: { 
-          analyzeHealthAge: true,
+          generateAnalysisText: true,
           actualAge,
+          gender,
+          healthAge: computedResult.healthAge,
+          isAthletic: computedResult.isAthletic,
+          debug: computedResult.debug,
           inbodyData: {
             weight: Number(record.weight),
             skeletal_muscle: record.skeletal_muscle ? Number(record.skeletal_muscle) : null,
-            body_fat_percent: record.body_fat_percent ? Number(record.body_fat_percent) : null,
+            body_fat_percent: bodyFatPercent,
             body_fat: record.body_fat ? Number(record.body_fat) : null,
             bmr: record.bmr,
-            visceral_fat: record.visceral_fat,
+            visceral_fat: visceralFat,
             date: record.date,
           }
         }
       });
 
       if (error) throw new Error(error.message || 'AI 분석 실패');
-      if (!data.success) throw new Error(data.error || 'AI 분석 실패');
+      
+      // 신체 점수는 athleticScore 기반으로 계산 (0~100)
+      const bodyScore = Math.round(computedResult.debug.athleticScore * 100);
 
       const result = {
         actualAge,
-        healthAge: data.healthAge,
-        bodyScore: data.bodyScore,
-        analysis: data.analysis,
+        healthAge: computedResult.healthAge,
+        bodyScore,
+        analysis: data?.analysis || `실제 나이 ${actualAge}세 대비 건강 나이는 ${computedResult.healthAge}세입니다.`,
       };
       setHealthAgeResult(result);
       // localStorage에 결과 저장
@@ -240,7 +271,7 @@ function InBodySection() {
       toast.success("건강 나이 분석 완료!");
     } catch (error) {
       console.error('Health age analysis error:', error);
-      toast.error("분석 실패 - 잠시 후 다시 시도해주세요");
+      toast.error(error instanceof Error ? error.message : "분석 실패 - 잠시 후 다시 시도해주세요");
     } finally {
       setIsAnalyzingHealth(false);
     }
@@ -492,35 +523,62 @@ function InBodySection() {
             )}
           </Button>
 
-          {/* 실제 나이 입력 다이얼로그 */}
-          <Dialog open={showAgeInputDialog} onOpenChange={setShowAgeInputDialog}>
+          {/* 실제 나이/성별 입력 다이얼로그 */}
+          <Dialog open={showAgeInputDialog} onOpenChange={(open) => {
+            setShowAgeInputDialog(open);
+            if (!open) {
+              setActualAgeInput(null);
+              setGenderInput(null);
+            }
+          }}>
             <DialogContent className="max-w-xs">
               <DialogHeader>
-                <DialogTitle>실제 나이 입력</DialogTitle>
+                <DialogTitle>건강나이 분석 정보</DialogTitle>
               </DialogHeader>
-              <div className="py-4">
-                <label className="text-sm font-medium mb-2 block">나이 (만 나이)</label>
-                <Input
-                  type="number"
-                  placeholder="예: 35"
-                  value={actualAgeInput ?? ''}
-                  onChange={(e) => setActualAgeInput(e.target.value ? parseInt(e.target.value) : null)}
-                  className="text-center text-lg"
-                  min={1}
-                  max={120}
-                />
+              <div className="py-4 space-y-4">
+                <div>
+                  <label className="text-sm font-medium mb-2 block">실제 나이 (필수)</label>
+                  <Input
+                    type="number"
+                    placeholder="예: 35"
+                    value={actualAgeInput ?? ''}
+                    onChange={(e) => setActualAgeInput(e.target.value ? parseInt(e.target.value) : null)}
+                    className="text-center text-lg"
+                    min={10}
+                    max={99}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-2 block">성별 (필수)</label>
+                  <RadioGroup 
+                    value={genderInput || ''} 
+                    onValueChange={(value) => setGenderInput(value as HealthAgeGender)}
+                    className="flex gap-4"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="male" id="male" />
+                      <Label htmlFor="male">남성</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="female" id="female" />
+                      <Label htmlFor="female">여성</Label>
+                    </div>
+                  </RadioGroup>
+                </div>
               </div>
               <DialogFooter>
                 <Button
                   onClick={() => {
-                    if (actualAgeInput && actualAgeInput > 0 && latestRecord) {
-                      analyzeHealthAge(latestRecord, actualAgeInput);
-                    } else {
-                      toast.error("나이를 입력해주세요");
+                    if (actualAgeInput && actualAgeInput >= 10 && actualAgeInput <= 99 && genderInput && latestRecord) {
+                      analyzeHealthAge(latestRecord, actualAgeInput, genderInput);
+                    } else if (!actualAgeInput || actualAgeInput < 10 || actualAgeInput > 99) {
+                      toast.error("나이를 10~99 사이로 입력해주세요");
+                    } else if (!genderInput) {
+                      toast.error("성별을 선택해주세요");
                     }
                   }}
                   className="w-full"
-                  disabled={!actualAgeInput || actualAgeInput <= 0}
+                  disabled={!actualAgeInput || actualAgeInput < 10 || actualAgeInput > 99 || !genderInput}
                 >
                   분석 시작
                 </Button>
@@ -551,7 +609,7 @@ function InBodySection() {
                 </div>
                 <div className="text-center">
                   <p className="text-xs text-muted-foreground mb-1">신체 점수</p>
-                  <p className="text-2xl font-bold text-accent">{healthAgeResult.bodyScore}점</p>
+                  <p className="text-2xl font-bold text-foreground">{healthAgeResult.bodyScore}점</p>
                 </div>
               </div>
               <div className="bg-background/50 rounded-xl p-4">
@@ -1105,33 +1163,12 @@ export default function Medical() {
 
           {parsedData && (
             <div className="bg-card rounded-2xl p-5 border border-border space-y-4">
-              {/* 건강 점수 */}
-              {healthScore && (
-                <div className="text-center py-4 bg-emerald-50 rounded-xl">
-                  <p className="text-sm text-emerald-600 font-medium mb-1">건강 점수</p>
-                  <p className="text-4xl font-bold text-emerald-600">
-                    {healthScore}<span className="text-xl">/100</span>
-                  </p>
-                  {scoreReason && (
-                    <p className="text-sm text-muted-foreground mt-2 px-4">{scoreReason}</p>
-                  )}
-                </div>
-              )}
-
-              {/* AI 요약 */}
-              {parsedData.summary && (
-                <div>
-                  <h4 className="font-medium text-sm mb-2">📝 핵심 요약</h4>
-                  <p className="text-muted-foreground text-sm">{parsedData.summary}</p>
-                </div>
-              )}
-
               {/* 주의 항목 */}
               {keyIssues.length > 0 && (
                 <div>
                   <h4 className="font-medium text-sm text-red-600 mb-2">⚠️ 주요 문제</h4>
                   <ul className="space-y-1">
-                    {keyIssues.slice(0, 3).map((issue, idx) => (
+                    {keyIssues.slice(0, 3).map((issue: string, idx: number) => (
                       <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
                         <span className="text-red-500">•</span>
                         {issue}
@@ -1146,25 +1183,13 @@ export default function Medical() {
                 <div>
                   <h4 className="font-medium text-sm text-emerald-600 mb-2">✅ 권장 행동</h4>
                   <ul className="space-y-1">
-                    {actionItems.slice(0, 3).map((item, idx) => (
+                    {actionItems.slice(0, 3).map((item: string, idx: number) => (
                       <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
                         <span className="text-emerald-500">•</span>
                         {item}
                       </li>
                     ))}
                   </ul>
-                </div>
-              )}
-
-              {/* 검사 항목 (접기 가능하도록 최대 3개만) */}
-              {parsedData.items && parsedData.items.length > 0 && (
-                <div>
-                  <h4 className="font-medium text-sm mb-2">📋 주요 수치</h4>
-                  <div className="space-y-2">
-                    {parsedData.items.slice(0, 3).map((item, idx) => (
-                      <HealthItemCard key={idx} item={item} />
-                    ))}
-                  </div>
                 </div>
               )}
             </div>
