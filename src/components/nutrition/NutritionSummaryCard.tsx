@@ -34,7 +34,7 @@ export function NutritionSummaryCard({ totals, goals, hasSettings, onGoalsUpdate
     <div className="bg-gradient-to-br from-[#ff9f43] to-[#ffb76b] rounded-3xl p-4 text-[#5D4037] space-y-3">
       {/* 상단: 섭취/목표 */}
       <div>
-        <p className="text-[#5D4037]/80 text-xs mb-0.5">오늘 섭취</p>
+        <p className="text-black text-sm mb-0.5">오늘 섭취</p>
         <div className="flex items-baseline gap-1">
           <span className="text-3xl font-bold">{totals.totalCalories.toLocaleString()}</span>
           <span className="text-base text-[#5D4037]/80">/ {goals.calorieGoal.toLocaleString()} kcal</span>
