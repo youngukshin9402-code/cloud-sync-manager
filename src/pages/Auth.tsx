@@ -167,11 +167,13 @@ export default function Auth() {
     }
   };
 
-  // 아이디 중복확인
+  // 아이디 중복확인 (모든 사용자의 아이디와 이메일 비교)
   const handleCheckUserId = useCallback(async () => {
-    if (!userId.trim()) {
+    const trimmedId = userId.trim();
+    
+    if (!trimmedId || trimmedId.length < 6) {
       toast({
-        title: "아이디를 입력해주세요",
+        title: "아이디를 6자 이상 입력해주세요",
         variant: "destructive",
       });
       return;
@@ -181,47 +183,65 @@ export default function Auth() {
     
     try {
       // 내부적으로 아이디를 이메일 형식으로 변환 (예: userId -> userId@yanggaeng.local)
-      const fakeEmail = `${userId.trim()}@yanggaeng.local`;
+      const fakeEmail = `${trimmedId}@yanggaeng.local`;
       
-      // Supabase에서 해당 이메일이 이미 존재하는지 확인하는 방법:
-      // signUp을 시도하고 이미 존재하면 에러가 발생
-      // 하지만 이 방법은 실제로 가입을 시도하므로 좋지 않음
-      // 대신 profiles 테이블에서 확인하거나 RPC 함수를 사용해야 함
-      
-      // 간단한 방법: auth.users는 직접 쿼리할 수 없으므로,
-      // 우리가 직접 user_id 중복 확인용 테이블을 만들거나
-      // 여기서는 일단 signInWithPassword를 시도해서 "Invalid login credentials"가 아니면 존재한다고 판단
-      
-      // 더 나은 방법: Edge Function을 통해 확인
-      // 지금은 간단하게 profiles 테이블에서 확인 (완벽하지 않지만)
-      
-      // 실제로는 아이디로 저장되므로, profiles에서 nickname이나 별도 컬럼으로 확인해야 함
-      // 여기서는 일단 email 패턴으로 auth에서 확인할 수 없으니
-      // 임시로 항상 사용 가능하다고 처리하고, 실제 가입 시 에러 처리
-      
-      // 실제 구현: RPC 함수나 Edge Function으로 이메일 존재 여부 확인 필요
-      // 임시로 간단한 방법 사용
-      const { error } = await supabase.auth.signInWithPassword({
+      // 1. 먼저 로그인 시도로 해당 이메일(아이디)이 존재하는지 확인
+      const { error: signInError } = await supabase.auth.signInWithPassword({
         email: fakeEmail,
         password: "check_only_not_real_password_12345",
       });
       
-      // "Invalid login credentials" 에러면 사용자가 없거나 비밀번호가 틀린 것
-      // 그 외의 에러(예: 사용자 없음)도 마찬가지
-      if (error) {
-        // 에러가 발생하면 (로그인 실패) 아이디 사용 가능
+      // 로그인이 성공하면 (비밀번호가 맞으면) 아이디가 존재하는 것
+      if (!signInError) {
+        // 성공적으로 로그인됐다면 로그아웃하고 중복 알림
+        await supabase.auth.signOut();
         setUserIdChecked(true);
-        setUserIdAvailable(true);
+        setUserIdAvailable(false);
         toast({
-          title: "사용 가능한 아이디입니다",
+          title: "이미 사용 중인 아이디입니다",
+          variant: "destructive",
         });
+        return;
       }
-    } catch {
-      // 에러 발생 시 사용 가능으로 처리
+      
+      // "Invalid login credentials" 에러일 경우:
+      // - 사용자가 없거나 비밀번호가 틀린 것
+      // 추가로 profiles 테이블에서도 확인하여 더 정확한 중복 검사
+      
+      // 2. profiles 테이블에서 nickname이 동일한 사용자가 있는지도 확인
+      const { data: existingProfiles, error: profileError } = await supabase
+        .from("profiles")
+        .select("id")
+        .or(`nickname.eq.${trimmedId}`)
+        .limit(1);
+      
+      if (profileError) {
+        console.error("Profile check error:", profileError);
+      }
+      
+      if (existingProfiles && existingProfiles.length > 0) {
+        setUserIdChecked(true);
+        setUserIdAvailable(false);
+        toast({
+          title: "이미 사용 중인 아이디입니다",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // 모든 검사 통과 - 사용 가능한 아이디
       setUserIdChecked(true);
       setUserIdAvailable(true);
       toast({
         title: "사용 가능한 아이디입니다",
+      });
+    } catch (error) {
+      console.error("User ID check error:", error);
+      // 에러 발생 시 안전하게 중복확인 실패 처리
+      toast({
+        title: "중복확인 중 오류가 발생했습니다",
+        description: "다시 시도해주세요.",
+        variant: "destructive",
       });
     } finally {
       setCheckingUserId(false);
@@ -637,7 +657,7 @@ export default function Auth() {
                     type="text"
                     value={userId}
                     onChange={(e) => setUserId(e.target.value)}
-                    placeholder="아이디를 입력하세요"
+                    placeholder="6자 이상"
                     required
                     className="h-14 text-lg flex-1"
                   />
@@ -646,7 +666,7 @@ export default function Auth() {
                     variant="outline"
                     className="h-14 px-4 whitespace-nowrap"
                     onClick={handleCheckUserId}
-                    disabled={checkingUserId || !userId.trim()}
+                    disabled={checkingUserId || userId.trim().length < 6}
                   >
                     {checkingUserId ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
@@ -657,6 +677,11 @@ export default function Auth() {
                     )}
                   </Button>
                 </div>
+                {userId.trim().length > 0 && userId.trim().length < 6 && (
+                  <p className="text-sm text-muted-foreground">
+                    아이디는 6자 이상 입력해주세요
+                  </p>
+                )}
                 {userIdChecked && (
                   <p className={`text-sm ${userIdAvailable ? "text-green-600" : "text-destructive"}`}>
                     {userIdAvailable ? "사용 가능한 아이디입니다" : "이미 사용 중인 아이디입니다"}
@@ -722,7 +747,6 @@ export default function Auth() {
                         type="number"
                         value={height}
                         onChange={(e) => setHeight(e.target.value)}
-                        placeholder="170"
                         required
                         className="h-12"
                       />
@@ -736,7 +760,6 @@ export default function Auth() {
                         type="number"
                         value={currentWeight}
                         onChange={(e) => setCurrentWeight(e.target.value)}
-                        placeholder="70"
                         required
                         className="h-12"
                       />
@@ -750,7 +773,6 @@ export default function Auth() {
                         type="number"
                         value={goalWeight}
                         onChange={(e) => setGoalWeight(e.target.value)}
-                        placeholder="65"
                         required
                         className="h-12"
                       />
@@ -764,7 +786,6 @@ export default function Auth() {
                         type="number"
                         value={age}
                         onChange={(e) => setAge(e.target.value)}
-                        placeholder="30"
                         required
                         className="h-12"
                       />
