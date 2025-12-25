@@ -132,10 +132,14 @@ export function useNutritionSettings() {
     setError(null);
 
     try {
-      // 목표 자동 계산
+      // 목표 자동 계산 (성별, 활동수준 포함)
       const goals = calculateNutritionGoals({
+        age: input.age,
+        heightCm: input.heightCm,
         currentWeight: input.currentWeight,
         goalWeight: input.goalWeight,
+        gender: input.gender,
+        activityLevel: input.activityLevel,
       });
 
       const upsertData: any = {

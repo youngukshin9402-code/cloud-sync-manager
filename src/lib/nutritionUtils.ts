@@ -64,15 +64,36 @@ export interface NutritionSettings {
   heightCm?: number;
   currentWeight?: number;
   goalWeight?: number;
+  gender?: string;
+  activityLevel?: string;
 }
 
 /**
- * 목표 칼로리 및 매크로 계산
- * E-2: 유지 = current_weight * 30, 감량 -400, 증량 +300, clamp 1200~3500
- * E-3: 탄 60% / 단 20% / 지 20%
+ * 활동수준에 따른 활동계수 반환
+ */
+function getActivityMultiplier(activityLevel?: string): number {
+  switch (activityLevel) {
+    case 'sedentary': return 1.2;      // 거의 활동 안함
+    case 'light': return 1.375;        // 가벼운 활동 (주 1~3회)
+    case 'moderate': return 1.55;      // 보통 활동 (주 3~5회)
+    case 'active': return 1.725;       // 활발한 활동 (주 6~7회)
+    case 'very_active': return 1.9;    // 매우 활발한 활동 (하루 2회)
+    default: return 1.375;             // 기본값: 가벼운 활동
+  }
+}
+
+/**
+ * 목표 칼로리 및 매크로 계산 (Mifflin-St Jeor 공식 기반)
+ * 
+ * BMR 계산:
+ * - 남성: (10 × 체중kg) + (6.25 × 키cm) − (5 × 나이) + 5
+ * - 여성: (10 × 체중kg) + (6.25 × 키cm) − (5 × 나이) − 161
+ * 
+ * TDEE = BMR × 활동계수
+ * 목표 칼로리 = TDEE + 감량/증량 조정
  */
 export function calculateNutritionGoals(settings: NutritionSettings): NutritionGoals {
-  const { currentWeight, goalWeight } = settings;
+  const { currentWeight, goalWeight, age, heightCm, gender, activityLevel } = settings;
   
   // 기본값 (설정 없을 때)
   if (!currentWeight || currentWeight <= 0) {
@@ -84,24 +105,51 @@ export function calculateNutritionGoals(settings: NutritionSettings): NutritionG
     };
   }
   
-  // 유지 칼로리
-  let calories = currentWeight * 30;
+  // BMR 계산 (Mifflin-St Jeor 공식)
+  let bmr: number;
+  const weight = currentWeight;
+  const height = heightCm || 170; // 기본 키 170cm
+  const userAge = age || 30;      // 기본 나이 30세
+  
+  if (gender === 'female') {
+    // 여성: (10 × 체중) + (6.25 × 키) − (5 × 나이) − 161
+    bmr = (10 * weight) + (6.25 * height) - (5 * userAge) - 161;
+  } else {
+    // 남성 또는 미지정: (10 × 체중) + (6.25 × 키) − (5 × 나이) + 5
+    bmr = (10 * weight) + (6.25 * height) - (5 * userAge) + 5;
+  }
+  
+  // TDEE = BMR × 활동계수
+  const activityMultiplier = getActivityMultiplier(activityLevel);
+  let calories = bmr * activityMultiplier;
   
   // 감량/증량 조정
   if (goalWeight && goalWeight < currentWeight) {
-    calories -= 400; // 감량
+    calories -= 400; // 감량: -400kcal
   } else if (goalWeight && goalWeight > currentWeight) {
-    calories += 300; // 증량
+    calories += 300; // 증량: +300kcal
   }
   
   // clamp 1200~3500
   calories = Math.max(1200, Math.min(3500, calories));
   const calorieGoal = Math.round(calories);
   
-  // 매크로 목표 (탄 60% / 단 20% / 지 20%)
-  const carbGoalG = Math.round((calories * 0.6) / 4);
-  const proteinGoalG = Math.round((calories * 0.2) / 4);
-  const fatGoalG = Math.round((calories * 0.2) / 9);
+  // 매크로 목표
+  // 감량 시: 탄 50% / 단 30% / 지 20% (고단백)
+  // 증량/유지 시: 탄 55% / 단 25% / 지 20%
+  let carbRatio = 0.55;
+  let proteinRatio = 0.25;
+  let fatRatio = 0.20;
+  
+  if (goalWeight && goalWeight < currentWeight) {
+    carbRatio = 0.50;
+    proteinRatio = 0.30;
+    fatRatio = 0.20;
+  }
+  
+  const carbGoalG = Math.round((calories * carbRatio) / 4);
+  const proteinGoalG = Math.round((calories * proteinRatio) / 4);
+  const fatGoalG = Math.round((calories * fatRatio) / 9);
   
   return { calorieGoal, carbGoalG, proteinGoalG, fatGoalG };
 }

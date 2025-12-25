@@ -67,7 +67,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const ensureProfile = async (authUser: User) => {
     const existing = await fetchProfile(authUser.id);
-    if (existing) return existing;
+    if (existing) {
+      // 기존 프로필이 있으면 nutrition_settings도 확인
+      await ensureNutritionSettings(authUser);
+      return existing;
+    }
 
     const meta = (authUser.user_metadata || {}) as Record<string, unknown>;
     const nickname =
@@ -101,7 +105,105 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return null;
     }
 
+    // 새 프로필 생성 시 nutrition_settings도 생성
+    await ensureNutritionSettings(authUser);
+
     return data as Profile;
+  };
+
+  // 회원가입 시 메타데이터로부터 nutrition_settings 생성
+  const ensureNutritionSettings = async (authUser: User) => {
+    const meta = (authUser.user_metadata || {}) as Record<string, unknown>;
+    
+    // 메타데이터에 신체정보가 있는지 확인
+    const heightCm = typeof meta.height_cm === "number" ? meta.height_cm : null;
+    const currentWeight = typeof meta.current_weight === "number" ? meta.current_weight : null;
+    const goalWeight = typeof meta.goal_weight === "number" ? meta.goal_weight : null;
+    const age = typeof meta.age === "number" ? meta.age : null;
+    const gender = typeof meta.gender === "string" ? meta.gender : null;
+    const activityLevel = typeof meta.activity_level === "string" ? meta.activity_level : null;
+    const conditions = typeof meta.conditions === "string" ? meta.conditions : null;
+
+    // 신체정보가 있으면 nutrition_settings 생성/업데이트
+    if (currentWeight || heightCm || age) {
+      // 목표 칼로리 계산
+      let calorieGoal = 2000;
+      let carbGoalG = 300;
+      let proteinGoalG = 100;
+      let fatGoalG = 44;
+
+      if (currentWeight && currentWeight > 0) {
+        const height = heightCm || 170;
+        const userAge = age || 30;
+        
+        // Mifflin-St Jeor 공식
+        let bmr: number;
+        if (gender === 'female') {
+          bmr = (10 * currentWeight) + (6.25 * height) - (5 * userAge) - 161;
+        } else {
+          bmr = (10 * currentWeight) + (6.25 * height) - (5 * userAge) + 5;
+        }
+
+        // 활동계수
+        let activityMultiplier = 1.375; // 기본: 가벼운 활동
+        switch (activityLevel) {
+          case 'sedentary': activityMultiplier = 1.2; break;
+          case 'light': activityMultiplier = 1.375; break;
+          case 'moderate': activityMultiplier = 1.55; break;
+          case 'active': activityMultiplier = 1.725; break;
+          case 'very_active': activityMultiplier = 1.9; break;
+        }
+
+        let calories = bmr * activityMultiplier;
+
+        // 감량/증량 조정
+        if (goalWeight && goalWeight < currentWeight) {
+          calories -= 400;
+        } else if (goalWeight && goalWeight > currentWeight) {
+          calories += 300;
+        }
+
+        calories = Math.max(1200, Math.min(3500, calories));
+        calorieGoal = Math.round(calories);
+
+        // 매크로 비율
+        let carbRatio = 0.55;
+        let proteinRatio = 0.25;
+        if (goalWeight && goalWeight < currentWeight) {
+          carbRatio = 0.50;
+          proteinRatio = 0.30;
+        }
+
+        carbGoalG = Math.round((calories * carbRatio) / 4);
+        proteinGoalG = Math.round((calories * proteinRatio) / 4);
+        fatGoalG = Math.round((calories * 0.20) / 9);
+      }
+
+      const { error } = await supabase
+        .from("nutrition_settings")
+        .upsert(
+          {
+            user_id: authUser.id,
+            height_cm: heightCm,
+            current_weight: currentWeight,
+            goal_weight: goalWeight,
+            age: age,
+            gender: gender,
+            activity_level: activityLevel,
+            conditions: conditions ? [conditions] : null,
+            calorie_goal: calorieGoal,
+            carb_goal_g: carbGoalG,
+            protein_goal_g: proteinGoalG,
+            fat_goal_g: fatGoalG,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "user_id" }
+        );
+
+      if (error) {
+        console.error("Error creating nutrition_settings:", error);
+      }
+    }
   };
 
   const refreshProfile = async () => {
