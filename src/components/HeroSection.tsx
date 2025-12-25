@@ -25,13 +25,9 @@ export function HeroSection() {
 
           {/* 메인 타이틀 */}
           <h1 className="text-4xl md:text-5xl lg:text-7xl font-bold text-foreground mb-8 leading-tight animate-slide-up">
-            <span className="whitespace-nowrap">
-              건강도{" "}
-              <span className="text-primary">양갱</span>
-              처럼
-            </span>
+            하루에 한 번,
             <br />
-            달콤하게
+            <span className="text-primary">건강</span> 한 입
           </h1>
 
           {/* 서브 타이틀 */}
@@ -39,9 +35,7 @@ export function HeroSection() {
             className="text-xl md:text-2xl text-muted-foreground mb-12 max-w-2xl mx-auto leading-relaxed animate-slide-up"
             style={{ animationDelay: "100ms" }}
           >
-            복잡한 건강 데이터를 쉽게 이해하고,
-            <br />
-            매일 작은 습관으로 건강을 관리하세요.
+            당신의 하루에 맞춰, 옆에서 함께 합니다.
           </p>
 
           {/* CTA 버튼들 */}
@@ -63,15 +57,15 @@ export function HeroSection() {
             style={{ animationDelay: "400ms" }}
           >
             <div className="flex flex-col items-center text-center text-muted-foreground md:flex-row md:gap-3 md:text-left">
-              <Shield className="w-6 h-6 text-accent mb-1 md:mb-0" />
+              <Shield className="w-6 h-6 text-[#f59b0a] mb-1 md:mb-0" />
               <span className="text-sm md:text-lg">개인정보<br className="md:hidden" />안전 보호</span>
             </div>
             <div className="flex flex-col items-center text-center text-muted-foreground md:flex-row md:gap-3 md:text-left">
-              <Users className="w-6 h-6 text-accent mb-1 md:mb-0" />
+              <Users className="w-6 h-6 text-[#f59b0a] mb-1 md:mb-0" />
               <span className="text-sm md:text-lg">전문 코치<br className="md:hidden" />상담</span>
             </div>
             <div className="flex flex-col items-center text-center text-muted-foreground md:flex-row md:gap-3 md:text-left">
-              <Sparkles className="w-6 h-6 text-accent mb-1 md:mb-0" />
+              <Sparkles className="w-6 h-6 text-[#f59b0a] mb-1 md:mb-0" />
               <span className="text-sm md:text-lg">AI 맞춤<br className="md:hidden" />분석</span>
             </div>
           </div>
