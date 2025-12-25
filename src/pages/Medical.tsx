@@ -1314,7 +1314,7 @@ export default function Medical() {
       <Tabs defaultValue="checkup" className="w-full">
         <TabsList className="w-full grid grid-cols-2">
           <TabsTrigger value="checkup">건강검진</TabsTrigger>
-          <TabsTrigger value="inbody" className="whitespace-nowrap text-sm">인바디 및 신체나이</TabsTrigger>
+          <TabsTrigger value="inbody" className="whitespace-nowrap text-sm">인바디 및 건강나이</TabsTrigger>
         </TabsList>
 
         <TabsContent value="checkup" className="mt-4 space-y-4">
