@@ -14,7 +14,7 @@ export function BenefitsSection() {
       description: (
         <>
           눈이 편한 큰 글씨와 단순한<br className="md:hidden" />
-          {" "}화면 구성으로 어르신도<br className="md:hidden" />
+          {" "}화면 구성으로 누구나<br className="md:hidden" />
           {" "}쉽게 사용할 수 있어요.
         </>
       ),

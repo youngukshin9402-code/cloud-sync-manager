@@ -23,7 +23,9 @@ export function CTASection() {
           <p className="text-xl text-muted-foreground mb-10 max-w-2xl mx-auto">
             복잡한 건강 관리는 이제 그만!
             <br />
-            카카오톡으로 간편하게 로그인하고 시작하세요.
+            카카오톡으로 간편하게 로그인하고
+            <br />
+            시작하세요.
           </p>
 
           {/* 혜택 목록 */}
@@ -33,7 +35,7 @@ export function CTASection() {
                 key={index}
                 className="flex items-center gap-2 px-4 py-2 rounded-full bg-card border border-border"
               >
-                <CheckCircle2 className="w-5 h-5 text-accent" />
+                <CheckCircle2 className="w-5 h-5 text-primary" />
                 <span className="text-base text-foreground">{benefit}</span>
               </div>
             ))}
