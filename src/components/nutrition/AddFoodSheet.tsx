@@ -247,7 +247,7 @@ export function AddFoodSheet({
               <div>
                 <label className="text-sm font-medium">음식명 *</label>
                 <Input
-                  placeholder="예: 김치찌개, 스타벅스 바닐라라떼"
+                  placeholder="예: 삶은 계란, 흰쌀밥"
                   value={manualName}
                   onChange={(e) => setManualName(e.target.value)}
                   className="mt-1"
