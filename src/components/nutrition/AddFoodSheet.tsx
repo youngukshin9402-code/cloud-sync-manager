@@ -338,10 +338,10 @@ export function AddFoodSheet({
 
       {/* 프리미엄 기능 안내 팝업 */}
       <Dialog open={showPremiumPopup} onOpenChange={setShowPremiumPopup}>
-        <DialogContent className="max-w-[320px] rounded-2xl">
+        <DialogContent className="max-w-[320px] min-h-[240px] rounded-2xl flex items-center justify-center">
           <DialogHeader className="text-center">
             <DialogTitle className="sr-only">프리미엄 기능</DialogTitle>
-            <DialogDescription className="text-base text-foreground pt-2">
+            <DialogDescription className="text-base text-foreground">
               프리미엄 회원님들을 위한 기능입니다.
             </DialogDescription>
           </DialogHeader>
