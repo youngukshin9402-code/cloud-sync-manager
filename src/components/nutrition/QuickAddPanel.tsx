@@ -1,19 +1,18 @@
 /**
  * Quick Add Panel
- * - 최근 기록, 즐겨찾기, 식사 세트에서 원탭 추가
+ * - 최근 기록, 즐겨찾기에서 원탭 추가
+ * - 모바일 한 화면에 맞도록 최적화
  */
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Clock, Star, Package, Plus, Trash2, Heart, HeartOff, Loader2 } from 'lucide-react';
+import { Clock, Star, Plus, Trash2, Heart, HeartOff, Loader2 } from 'lucide-react';
 import { MealFood, MealType } from '@/hooks/useServerSync';
 import { useRecentFoods } from '@/hooks/useRecentFoods';
 import { useFavoriteFoods } from '@/hooks/useFavoriteFoods';
-import { useMealSets } from '@/hooks/useMealSets';
 import { useToast } from '@/hooks/use-toast';
-import { cn } from '@/lib/utils';
 
 interface QuickAddPanelProps {
   mealType: MealType;
@@ -25,21 +24,12 @@ export function QuickAddPanel({ mealType, onAddFood, onAddFoods }: QuickAddPanel
   const { toast } = useToast();
   const { foods: recentFoods, loading: recentLoading } = useRecentFoods();
   const { foods: favoriteFoods, loading: favLoading, add: addFavorite, remove: removeFavorite, isFavorite, getFavoriteId } = useFavoriteFoods();
-  const { sets, loading: setsLoading, getByMealType, remove: removeSet } = useMealSets();
   
   const [adding, setAdding] = useState<string | null>(null);
-
-  const mealTypeSets = getByMealType(mealType);
 
   const handleAddFood = async (food: MealFood, id: string) => {
     setAdding(id);
     onAddFood(food);
-    setAdding(null);
-  };
-
-  const handleAddSet = async (foods: MealFood[], setId: string) => {
-    setAdding(setId);
-    onAddFoods(foods);
     setAdding(null);
   };
 
@@ -56,13 +46,8 @@ export function QuickAddPanel({ mealType, onAddFood, onAddFoods }: QuickAddPanel
     }
   };
 
-  const handleDeleteSet = async (setId: string) => {
-    await removeSet(setId);
-    toast({ title: '세트가 삭제되었습니다' });
-  };
-
   return (
-    <div className="space-y-4 h-full overflow-hidden flex flex-col">
+    <div className="h-full overflow-hidden flex flex-col">
       <Tabs defaultValue="recent" className="w-full flex-1 flex flex-col overflow-hidden">
         <TabsList className="grid w-full grid-cols-2 flex-shrink-0">
           <TabsTrigger value="recent" className="text-xs gap-1">
@@ -76,51 +61,52 @@ export function QuickAddPanel({ mealType, onAddFood, onAddFoods }: QuickAddPanel
         </TabsList>
 
         {/* 최근 기록 */}
-        <TabsContent value="recent" className="mt-3 flex-1 overflow-hidden">
-          <ScrollArea className="h-[50vh] max-h-[400px]">
+        <TabsContent value="recent" className="mt-2 flex-1 overflow-hidden">
+          <ScrollArea className="h-[45vh] max-h-[350px]">
             {recentLoading ? (
-              <div className="flex justify-center py-8">
-                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+              <div className="flex justify-center py-6">
+                <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
               </div>
             ) : recentFoods.length === 0 ? (
-              <p className="text-center text-muted-foreground py-8 text-sm">
+              <p className="text-center text-muted-foreground py-6 text-sm">
                 최근 기록이 없어요
               </p>
             ) : (
-              <div className="space-y-2 pr-2">
+              <div className="space-y-1.5 pr-2">
                 {recentFoods.map((food, idx) => (
                   <div
                     key={`${food.name}-${idx}`}
-                    className="flex items-center justify-between p-3 bg-card border border-border rounded-xl"
+                    className="flex items-center justify-between p-2.5 bg-card border border-border rounded-xl"
                   >
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium truncate">{food.name}</p>
+                    <div className="flex-1 min-w-0 pr-2">
+                      <p className="font-medium text-sm truncate">{food.name}</p>
                       <p className="text-xs text-muted-foreground">
-                        {food.calories}kcal · {food.count}회 기록
+                        {food.calories}kcal
                       </p>
                     </div>
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1 flex-shrink-0">
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8"
+                        className="h-7 w-7"
                         onClick={() => handleToggleFavorite(food)}
                       >
                         {isFavorite(food.name) ? (
-                          <Heart className="w-4 h-4 text-red-500 fill-red-500" />
+                          <Heart className="w-3.5 h-3.5 text-red-500 fill-red-500" />
                         ) : (
-                          <HeartOff className="w-4 h-4 text-muted-foreground" />
+                          <HeartOff className="w-3.5 h-3.5 text-muted-foreground" />
                         )}
                       </Button>
                       <Button
                         size="sm"
+                        className="h-7 px-2"
                         onClick={() => handleAddFood(food, `recent-${idx}`)}
                         disabled={adding === `recent-${idx}`}
                       >
                         {adding === `recent-${idx}` ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
                         ) : (
-                          <Plus className="w-4 h-4" />
+                          <Plus className="w-3.5 h-3.5" />
                         )}
                       </Button>
                     </div>
@@ -132,51 +118,52 @@ export function QuickAddPanel({ mealType, onAddFood, onAddFoods }: QuickAddPanel
         </TabsContent>
 
         {/* 즐겨찾기 */}
-        <TabsContent value="favorite" className="mt-3 flex-1 overflow-hidden">
-          <ScrollArea className="h-[50vh] max-h-[400px]">
+        <TabsContent value="favorite" className="mt-2 flex-1 overflow-hidden">
+          <ScrollArea className="h-[45vh] max-h-[350px]">
             {favLoading ? (
-              <div className="flex justify-center py-8">
-                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+              <div className="flex justify-center py-6">
+                <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
               </div>
             ) : favoriteFoods.length === 0 ? (
-              <div className="text-center py-8">
-                <Star className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
+              <div className="text-center py-6">
+                <Star className="w-6 h-6 mx-auto text-muted-foreground mb-2" />
                 <p className="text-muted-foreground text-sm">즐겨찾기가 없어요</p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  최근 기록에서 하트를 눌러 추가하세요
+                  최근 기록에서 ♥ 눌러 추가
                 </p>
               </div>
             ) : (
-              <div className="space-y-2 pr-2">
+              <div className="space-y-1.5 pr-2">
                 {favoriteFoods.map((food) => (
                   <div
                     key={food.id}
-                    className="flex items-center justify-between p-3 bg-card border border-border rounded-xl"
+                    className="flex items-center justify-between p-2.5 bg-card border border-border rounded-xl"
                   >
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium truncate">{food.name}</p>
+                    <div className="flex-1 min-w-0 pr-2">
+                      <p className="font-medium text-sm truncate">{food.name}</p>
                       <p className="text-xs text-muted-foreground">
                         {food.calories}kcal
                       </p>
                     </div>
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1 flex-shrink-0">
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8"
+                        className="h-7 w-7"
                         onClick={() => removeFavorite(food.id)}
                       >
-                        <Trash2 className="w-4 h-4 text-muted-foreground" />
+                        <Trash2 className="w-3.5 h-3.5 text-muted-foreground" />
                       </Button>
                       <Button
                         size="sm"
+                        className="h-7 px-2"
                         onClick={() => handleAddFood(food, food.id)}
                         disabled={adding === food.id}
                       >
                         {adding === food.id ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
                         ) : (
-                          <Plus className="w-4 h-4" />
+                          <Plus className="w-3.5 h-3.5" />
                         )}
                       </Button>
                     </div>

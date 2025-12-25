@@ -25,9 +25,9 @@ serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { imageUrl, userId, healthTags, foodName, grams, portion } = body;
+    const { imageUrl, userId, healthTags, foodName, grams, unit, portion } = body;
     
-    console.log("Analyze food request:", { imageUrl, foodName, grams, portion });
+    console.log("Analyze food request:", { imageUrl, foodName, grams, unit, portion });
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
@@ -38,30 +38,55 @@ serve(async (req) => {
     if (foodName && !imageUrl) {
       console.log("Text-based food analysis for:", foodName);
       
-      // 양 결정 (인분 또는 그램)
+      // 양 결정: 중량(g) 우선, 그 다음 unit, 그 다음 portion(레거시)
       let quantityText = "";
       if (grams) {
-        quantityText = `${grams}g`;
+        quantityText = `정확히 ${grams}g`;
+      } else if (unit) {
+        quantityText = `${unit}`;
       } else if (portion) {
         quantityText = `${portion}인분 (약 ${Math.round(portion * 200)}g 추정)`;
       } else {
         quantityText = "1인분 (약 200g 추정)";
       }
 
-      const textPrompt = `당신은 한국 음식과 전 세계 음식에 대한 전문적인 영양 분석가입니다. 
-다음 음식의 영양정보를 정확하고 냉철하게 분석해주세요.
+      const textPrompt = `당신은 한국 음식과 전 세계 음식에 대한 최고의 영양 분석 전문가입니다.
+다음 음식의 영양정보를 매우 정확하고 꼼꼼하게 분석해주세요.
 
 음식: ${foodName}
 양: ${quantityText}
 
-## 분석 지침:
-1. 브랜드명이 포함된 경우 (예: 스타벅스 카페라떼, 맥도날드 빅맥, CU 삼각김밥 등), 해당 브랜드의 실제 영양정보를 기준으로 하세요.
-2. 프랜차이즈 메뉴 (예: 교촌치킨, 굽네치킨, 파파이스 등)는 실제 메뉴 영양정보를 참고하세요.
-3. 편의점 음식 (CU, GS25, 세븐일레븐 등)도 실제 제품 영양정보를 기준으로 분석하세요.
-4. 한국 음식 (김치찌개, 된장찌개, 불고기, 삼겹살 등)은 한국 일반적인 1인분 기준으로 분석하세요.
-5. 인스턴트 음식 (라면, 컵라면, 불닭볶음면 등)은 제품 표기 영양정보를 참고하세요.
-6. 영문명이나 줄임말도 최대한 인식하세요 (예: fried chicken = 치킨, americano = 아메리카노)
-7. 모르는 음식이면 비슷한 종류의 음식으로 합리적으로 추정하세요.
+## 핵심 분석 지침:
+
+### 1. 브랜드/프랜차이즈 음식
+- 스타벅스, 투썸플레이스, 이디야, 할리스 등 카페 메뉴는 실제 영양정보 기준
+- 맥도날드, 버거킹, 롯데리아, KFC 등 패스트푸드는 실제 메뉴 영양정보 기준
+- 교촌, 굽네, BBQ, BHC 등 치킨 프랜차이즈는 실제 메뉴 영양정보 기준
+- 편의점(CU, GS25, 세븐일레븐, 이마트24) 제품은 실제 제품 영양정보 기준
+
+### 2. 건강식품/보충제
+- 마이프로틴, 옵티멈뉴트리션 등 프로틴 제품은 제품 영양정보 기준
+- 퀵오트밀, 오버나이트오츠 등은 제품 영양정보 기준
+- 그릭요거트(풀무원, 빙그레 등)는 제품 영양정보 기준
+- 스키피, 땅콩버터 등은 제품 영양정보 기준
+
+### 3. 한국 전통 음식
+- 김치찌개, 된장찌개, 비빔밥, 불고기, 삼겹살 등은 한국 일반적인 1인분 기준
+- 국밥, 설렁탕, 갈비탕 등 탕류는 일반적인 1그릇 기준
+- 분식(떡볶이, 순대, 튀김 등)은 일반적인 1인분 기준
+
+### 4. 과자/스낵류
+- 코스모스 제과, 농심, 오리온, 롯데제과 등 과자는 제품 영양정보 기준
+- 1봉지, 1개 단위로 정확히 계산
+
+### 5. 단위 해석 규칙
+- "2개", "2컵", "2그릇", "2봉지" 등 → 해당 단위의 일반적인 양 × 2
+- "반개", "0.5개" → 해당 단위의 일반적인 양 × 0.5
+- 숫자만 입력 시 (예: "2") → 2인분으로 해석
+
+### 6. 모르는 음식 처리
+- 정확한 정보가 없으면 비슷한 음식 카테고리로 합리적으로 추정
+- 추정 시에도 칼로리, 탄수화물, 단백질, 지방을 최대한 정확하게
 
 ## 응답 형식 (JSON만 출력):
 {
@@ -83,7 +108,6 @@ serve(async (req) => {
         body: JSON.stringify({
           model: "google/gemini-2.5-flash",
           messages: [{ role: "user", content: textPrompt }],
-          temperature: 0.1, // 낮은 temperature로 일관성 확보
         }),
       });
 
@@ -129,7 +153,7 @@ serve(async (req) => {
       } catch (parseErr) {
         console.error("JSON parse error:", parseErr);
         // 기본값 제공
-        const baseGrams = grams || (portion ? portion * 200 : 200);
+        const baseGrams = grams || 200;
         result = {
           name: foodName,
           calories: Math.round(baseGrams * 1.5),
@@ -239,7 +263,6 @@ JSON만 응답하고 다른 텍스트는 포함하지 마세요.`;
             ],
           },
         ],
-        temperature: 0.1,
       }),
     });
 
