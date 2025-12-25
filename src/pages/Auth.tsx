@@ -62,10 +62,12 @@ export default function Auth() {
   const [selectedUserType, setSelectedUserType] = useState<UserType>("user");
   
   // 신체 정보
+  const [gender, setGender] = useState<"male" | "female" | "">("");
   const [height, setHeight] = useState("");
   const [currentWeight, setCurrentWeight] = useState("");
   const [goalWeight, setGoalWeight] = useState("");
   const [age, setAge] = useState("");
+  const [activityLevel, setActivityLevel] = useState("");
   const [conditions, setConditions] = useState(""); // 지병 (선택)
   
   // 전화번호 인증
@@ -90,10 +92,12 @@ export default function Auth() {
     nickname.trim() !== "" &&
     userIdChecked && userIdAvailable &&
     passwordsMatch &&
+    gender !== "" &&
     height.trim() !== "" && !isNaN(Number(height)) &&
     currentWeight.trim() !== "" && !isNaN(Number(currentWeight)) &&
     goalWeight.trim() !== "" && !isNaN(Number(goalWeight)) &&
     age.trim() !== "" && !isNaN(Number(age)) &&
+    activityLevel !== "" &&
     phoneVerified;
 
   // 아이디 변경 시 중복확인 상태 초기화
@@ -426,10 +430,12 @@ export default function Auth() {
         data: {
           nickname: nickname,
           user_type: selectedUserType,
+          gender: gender,
           height_cm: Number(height),
           current_weight: Number(currentWeight),
           goal_weight: Number(goalWeight),
           age: Number(age),
+          activity_level: activityLevel,
           conditions: conditions.trim() || null,
           phone: phone.replace(/\D/g, ""),
         },
@@ -462,10 +468,12 @@ export default function Auth() {
       setUserId("");
       setPassword("");
       setPasswordConfirm("");
+      setGender("");
       setHeight("");
       setCurrentWeight("");
       setGoalWeight("");
       setAge("");
+      setActivityLevel("");
       setConditions("");
       setPhone("");
       setOtpCode("");
@@ -738,6 +746,45 @@ export default function Auth() {
                 <div className="border-t border-border pt-4">
                   <p className="text-lg font-medium mb-3">신체 정보 <span className="text-destructive">*</span></p>
                   
+                  {/* 성별 */}
+                  <div className="space-y-2 mb-4">
+                    <Label className="text-sm">성별</Label>
+                    <div className="flex gap-4">
+                      <button
+                        type="button"
+                        onClick={() => setGender("male")}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-all ${
+                          gender === "male"
+                            ? "border-primary bg-primary/10 text-primary"
+                            : "border-border hover:border-primary/50"
+                        }`}
+                      >
+                        <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                          gender === "male" ? "border-primary" : "border-muted-foreground"
+                        }`}>
+                          {gender === "male" && <div className="w-2 h-2 rounded-full bg-primary" />}
+                        </div>
+                        남성
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setGender("female")}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-all ${
+                          gender === "female"
+                            ? "border-primary bg-primary/10 text-primary"
+                            : "border-border hover:border-primary/50"
+                        }`}
+                      >
+                        <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                          gender === "female" ? "border-primary" : "border-muted-foreground"
+                        }`}>
+                          {gender === "female" && <div className="w-2 h-2 rounded-full bg-primary" />}
+                        </div>
+                        여성
+                      </button>
+                    </div>
+                  </div>
+                  
                   <div className="grid grid-cols-2 gap-3">
                     {/* 키 */}
                     <div className="space-y-1">
@@ -794,6 +841,24 @@ export default function Auth() {
                         className="h-12"
                       />
                     </div>
+                  </div>
+
+                  {/* 활동수준 */}
+                  <div className="space-y-2 mt-4">
+                    <Label htmlFor="activity-level" className="text-sm">활동수준</Label>
+                    <select
+                      id="activity-level"
+                      value={activityLevel}
+                      onChange={(e) => setActivityLevel(e.target.value)}
+                      className="w-full h-12 px-3 rounded-md border border-input bg-background text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                    >
+                      <option value="">선택해주세요</option>
+                      <option value="sedentary">거의 활동 안함</option>
+                      <option value="light">가벼운 활동 (주 1~3회 가벼운 운동)</option>
+                      <option value="moderate">보통 활동 (주 3~5회 운동)</option>
+                      <option value="active">활발한 활동 (주 6~7회 강한 운동)</option>
+                      <option value="very_active">매우 활발한 활동 (하루 2회 운동, 운동선수)</option>
+                    </select>
                   </div>
                 </div>
               </div>
@@ -905,9 +970,11 @@ export default function Auth() {
                     {!userIdChecked && <li>아이디 중복확인을 해주세요</li>}
                     {userIdChecked && !userIdAvailable && <li>사용 가능한 아이디를 입력해주세요</li>}
                     {!passwordsMatch && <li>비밀번호를 확인해주세요 (6자 이상, 일치)</li>}
+                    {!gender && <li>성별을 선택해주세요</li>}
                     {(!height.trim() || !currentWeight.trim() || !goalWeight.trim() || !age.trim()) && (
                       <li>신체 정보를 모두 입력해주세요</li>
                     )}
+                    {!activityLevel && <li>활동수준을 선택해주세요</li>}
                     {!phoneVerified && <li>전화번호 인증을 완료해주세요</li>}
                   </ul>
                 </div>
