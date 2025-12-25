@@ -9,6 +9,7 @@
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Sheet,
@@ -30,6 +31,7 @@ import { useToast } from "@/hooks/use-toast";
 import { QuickAddPanel } from "./QuickAddPanel";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useCustomFoods } from "@/hooks/useCustomFoods";
 
 const MEAL_TYPE_LABELS: Record<MealType, string> = {
   breakfast: "아침",
@@ -55,6 +57,7 @@ export function AddFoodSheet({
 }: AddFoodSheetProps) {
   const { toast } = useToast();
   const { profile } = useAuth();
+  const { add: addCustomFood } = useCustomFoods();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
@@ -74,6 +77,7 @@ export function AddFoodSheet({
   const [manualCarbs, setManualCarbs] = useState("");
   const [manualProtein, setManualProtein] = useState("");
   const [manualFat, setManualFat] = useState("");
+  const [saveToLibrary, setSaveToLibrary] = useState(false);
 
   // 코치 배정 여부 확인
   const hasCoach = !!profile?.assigned_coach_id;
@@ -90,6 +94,7 @@ export function AddFoodSheet({
     setManualCarbs("");
     setManualProtein("");
     setManualFat("");
+    setSaveToLibrary(false);
   };
 
   const handleClose = () => {
@@ -193,7 +198,7 @@ export function AddFoodSheet({
   };
 
   // 수동 음식 추가 저장
-  const handleManualFoodSave = () => {
+  const handleManualFoodSave = async () => {
     if (!manualFoodName.trim() || !manualCalories.trim()) {
       toast({ title: "음식명과 칼로리를 입력해주세요", variant: "destructive" });
       return;
@@ -207,6 +212,20 @@ export function AddFoodSheet({
       fat: parseInt(manualFat) || 0,
       portion: "1인분",
     };
+
+    // 라이브러리에 저장
+    if (saveToLibrary) {
+      const success = await addCustomFood({
+        name: food.name,
+        calories: food.calories,
+        carbs: food.carbs,
+        protein: food.protein,
+        fat: food.fat,
+      });
+      if (success) {
+        toast({ title: `${food.name}이(가) 나만의 음식에 저장되었습니다` });
+      }
+    }
 
     onFoodsSelected([food]);
     resetManualFoodForm();
@@ -488,6 +507,21 @@ export function AddFoodSheet({
                 onChange={(e) => setManualFat(e.target.value)}
                 className="mt-1"
               />
+            </div>
+
+            {/* 나만의 음식에 저장 체크박스 */}
+            <div className="flex items-center gap-2 pt-2">
+              <Checkbox
+                id="saveToLibrary"
+                checked={saveToLibrary}
+                onCheckedChange={(checked) => setSaveToLibrary(checked === true)}
+              />
+              <label 
+                htmlFor="saveToLibrary" 
+                className="text-sm text-muted-foreground cursor-pointer"
+              >
+                나만의 음식에 저장하기
+              </label>
             </div>
           </div>
 
