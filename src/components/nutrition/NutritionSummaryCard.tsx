@@ -31,7 +31,7 @@ export function NutritionSummaryCard({ totals, goals, hasSettings, onGoalsUpdate
   }
 
   return (
-    <div className="bg-gradient-to-br from-[#2F4DB6] to-[#5B7CFF] rounded-3xl p-4 text-white space-y-3">
+    <div className="bg-gradient-to-br from-[#ff9f43] to-[#ffb76b] rounded-3xl p-4 text-white space-y-3">
       {/* 상단: 섭취/목표 */}
       <div>
         <p className="text-white/80 text-xs mb-0.5">오늘 섭취</p>
@@ -46,7 +46,7 @@ export function NutritionSummaryCard({ totals, goals, hasSettings, onGoalsUpdate
         <Progress 
           value={caloriePercent} 
           className="h-2 bg-white/20"
-          indicatorClassName="bg-[#8FB3FF]"
+          indicatorClassName="bg-white/70"
         />
         <p className="text-xs text-white/80 mt-1.5 flex items-center gap-1">
           <Flame className="w-3 h-3" />

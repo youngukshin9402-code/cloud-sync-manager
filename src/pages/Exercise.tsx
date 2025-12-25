@@ -591,27 +591,47 @@ export default function Exercise() {
         onChange={handleMachineImageSelect}
       />
 
-      {/* 헤더 */}
+      {/* 헤더 - 영양탭과 동일 구조 */}
       <div>
         <h1 className="text-3xl font-bold text-foreground mb-2">운동양갱</h1>
-        <p className="text-lg text-muted-foreground">
-          오늘의 운동을 기록하세요
-        </p>
+        <p className="text-lg text-muted-foreground">오늘의 운동을 기록하세요</p>
       </div>
 
-      {/* 걸음수 연동 Placeholder */}
-      <div className="bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950 dark:to-teal-950 rounded-2xl border border-emerald-200 dark:border-emerald-800 p-4">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-full bg-emerald-100 dark:bg-emerald-900 flex items-center justify-center">
-            <Footprints className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
+      {/* 걸음수 연동 Placeholder - 영양탭 NutritionSummaryCard와 동일한 높이 */}
+      <div className="bg-gradient-to-br from-emerald-500 to-teal-500 rounded-3xl p-4 text-white space-y-3">
+        {/* 상단 */}
+        <div>
+          <p className="text-white/80 text-xs mb-0.5">오늘 걸음</p>
+          <div className="flex items-baseline gap-1">
+            <span className="text-3xl font-bold">--</span>
+            <span className="text-base text-white/80">/ 10,000 걸음</span>
           </div>
-          <div className="flex-1">
-            <p className="font-semibold text-emerald-900 dark:text-emerald-100">걸음수 연동</p>
-            <p className="text-sm text-emerald-700 dark:text-emerald-300">갤럭시핏/헬스 연동 준비 중</p>
+        </div>
+
+        {/* 프로그레스 */}
+        <div>
+          <div className="h-2 bg-white/20 rounded-full">
+            <div className="h-full w-0 bg-white/70 rounded-full" />
           </div>
-          <div className="text-right">
-            <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">--</p>
-            <p className="text-xs text-emerald-600 dark:text-emerald-400">걸음</p>
+          <p className="text-xs text-white/80 mt-1.5 flex items-center gap-1">
+            <Footprints className="w-3 h-3" />
+            갤럭시핏/헬스 연동 준비 중
+          </p>
+        </div>
+
+        {/* 하단 통계 - 3열 구조로 영양탭과 동일 */}
+        <div className="grid grid-cols-3 gap-2">
+          <div className="bg-white/10 rounded-lg p-2">
+            <p className="text-[10px] text-white/80 mb-0.5">이동 거리</p>
+            <p className="text-xs font-semibold">-- km</p>
+          </div>
+          <div className="bg-white/10 rounded-lg p-2">
+            <p className="text-[10px] text-white/80 mb-0.5">활동 칼로리</p>
+            <p className="text-xs font-semibold">-- kcal</p>
+          </div>
+          <div className="bg-white/10 rounded-lg p-2">
+            <p className="text-[10px] text-white/80 mb-0.5">활동 시간</p>
+            <p className="text-xs font-semibold">-- 분</p>
           </div>
         </div>
       </div>
