@@ -2,7 +2,7 @@
  * 건강나이 결과 저장 훅 - localStorage 기반 (사용자별 분리)
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 
 const STORAGE_KEY_PREFIX = 'yanggaeng_health_age_result_';
@@ -20,15 +20,14 @@ export function useHealthAgeStorage() {
   const { user } = useAuth();
   const [result, setResult] = useState<HealthAgeResult | null>(null);
 
-  // 사용자별 스토리지 키 생성
-  const getStorageKey = useCallback(() => {
+  // 사용자별 스토리지 키 생성 - useMemo로 안정화
+  const storageKey = useMemo(() => {
     if (!user?.id) return null;
     return `${STORAGE_KEY_PREFIX}${user.id}`;
   }, [user?.id]);
 
   // localStorage에서 값 로드하는 함수
   const loadFromStorage = useCallback(() => {
-    const storageKey = getStorageKey();
     if (!storageKey) {
       setResult(null);
       return;
@@ -45,19 +44,26 @@ export function useHealthAgeStorage() {
       console.error('Failed to load health age result:', e);
       setResult(null);
     }
-  }, [getStorageKey]);
+  }, [storageKey]);
 
-  // 사용자 변경 시 또는 초기 로드
+  // 사용자 변경 시 즉시 상태 초기화 및 새 데이터 로드
   useEffect(() => {
+    // 사용자가 없으면 즉시 null로 설정
+    if (!user?.id) {
+      setResult(null);
+      return;
+    }
+    
+    // 새 사용자의 데이터 로드
     loadFromStorage();
-  }, [loadFromStorage, user?.id]);
+  }, [user?.id, loadFromStorage]);
 
   // 다른 탭/컴포넌트에서 변경 시 실시간 동기화
   useEffect(() => {
-    const storageKey = getStorageKey();
+    if (!storageKey) return;
     
     const handleStorageChange = (e: StorageEvent) => {
-      if (storageKey && e.key === storageKey) {
+      if (e.key === storageKey) {
         loadFromStorage();
       }
     };
@@ -74,11 +80,10 @@ export function useHealthAgeStorage() {
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('healthAgeStorageChange', handleCustomStorageChange);
     };
-  }, [loadFromStorage, getStorageKey]);
+  }, [loadFromStorage, storageKey]);
 
   // 저장
   const saveResult = useCallback((data: Omit<HealthAgeResult, 'savedAt'>) => {
-    const storageKey = getStorageKey();
     if (!storageKey) {
       console.error('Cannot save health age result: user not logged in');
       return;
@@ -96,11 +101,10 @@ export function useHealthAgeStorage() {
     } catch (e) {
       console.error('Failed to save health age result:', e);
     }
-  }, [getStorageKey]);
+  }, [storageKey]);
 
   // 삭제
   const clearResult = useCallback(() => {
-    const storageKey = getStorageKey();
     if (!storageKey) return;
 
     try {
@@ -111,7 +115,7 @@ export function useHealthAgeStorage() {
     } catch (e) {
       console.error('Failed to clear health age result:', e);
     }
-  }, [getStorageKey]);
+  }, [storageKey]);
 
   return { result, saveResult, clearResult };
 }
