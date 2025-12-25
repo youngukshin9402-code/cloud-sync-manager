@@ -607,10 +607,6 @@ function InBodySection() {
                       : '실제 나이와 동일'}
                   </p>
                 </div>
-                <div className="text-center">
-                  <p className="text-xs text-muted-foreground mb-1">신체 점수</p>
-                  <p className="text-2xl font-bold text-foreground">{healthAgeResult.bodyScore}점</p>
-                </div>
               </div>
               <div className="bg-background/50 rounded-xl p-4">
                 <p className="text-sm text-foreground leading-relaxed">{healthAgeResult.analysis}</p>
