@@ -103,15 +103,6 @@ export function YanggaengCard({
         ))}
       </ul>
 
-      {/* 배지 */}
-      <div
-        className={cn(
-          "absolute top-6 right-6 px-4 py-1.5 rounded-full text-sm font-medium",
-          styles.badge
-        )}
-      >
-        양갱
-      </div>
     </>
   );
 
