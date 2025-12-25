@@ -19,7 +19,7 @@ export function Footer() {
 
           {/* 저작권 */}
           <p className="text-sm text-muted-foreground">
-            © 2024 영양갱. All rights reserved.
+            © 2026 영양갱. All rights reserved.
           </p>
         </div>
       </div>

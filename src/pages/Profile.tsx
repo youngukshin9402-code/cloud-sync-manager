@@ -191,6 +191,9 @@ export default function Profile() {
       <p className="text-center text-sm text-muted-foreground">
         영양갱 v1.0.0
       </p>
+      <p className="text-center text-xs text-muted-foreground pb-4">
+        © 2026 영양갱. All rights reserved.
+      </p>
     </div>
   );
 }
