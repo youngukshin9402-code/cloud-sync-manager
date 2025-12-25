@@ -345,18 +345,6 @@ export function AddFoodSheet({
               프리미엄 회원님들을 위한 기능입니다.
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter className="flex-col gap-2 sm:flex-col">
-            <Button onClick={() => setShowPremiumPopup(false)} className="w-full">
-              확인
-            </Button>
-            <Button 
-              variant="ghost" 
-              onClick={() => setShowPremiumPopup(false)}
-              className="w-full text-muted-foreground"
-            >
-              나가기
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
     </>
