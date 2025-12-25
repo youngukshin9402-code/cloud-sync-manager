@@ -87,7 +87,7 @@ export default function Auth() {
   const passwordsMatch = password === passwordConfirm && password.length >= 6;
   const passwordMismatch = passwordConfirm.length > 0 && password !== passwordConfirm;
 
-  // 회원가입 가능 조건 체크
+  // 회원가입 가능 조건 체크 (휴대폰 인증은 선택사항)
   const canSignup = 
     nickname.trim() !== "" &&
     userIdChecked && userIdAvailable &&
@@ -97,8 +97,7 @@ export default function Auth() {
     currentWeight.trim() !== "" && !isNaN(Number(currentWeight)) &&
     goalWeight.trim() !== "" && !isNaN(Number(goalWeight)) &&
     age.trim() !== "" && !isNaN(Number(age)) &&
-    activityLevel !== "" &&
-    phoneVerified;
+    activityLevel !== "";
 
   // 아이디 변경 시 중복확인 상태 초기화
   useEffect(() => {
