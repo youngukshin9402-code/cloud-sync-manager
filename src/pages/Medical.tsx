@@ -589,17 +589,17 @@ function InBodySection() {
           {/* AI 분석 결과 */}
           {healthAgeResult && (
             <div className="bg-gradient-to-br from-primary/10 to-accent/10 rounded-2xl p-5 space-y-4">
-              <div className="grid grid-cols-3 gap-3">
-                <div className="text-center">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex flex-col items-center justify-center text-center py-3 px-2 bg-background/30 rounded-xl min-h-[80px]">
                   <p className="text-xs text-muted-foreground mb-1">실제 나이</p>
                   <p className="text-2xl font-bold text-foreground">{healthAgeResult.actualAge}세</p>
                 </div>
-                <div className="text-center">
+                <div className="flex flex-col items-center justify-center text-center py-3 px-2 bg-background/30 rounded-xl min-h-[80px]">
                   <p className="text-xs text-muted-foreground mb-1">건강 나이</p>
                   <p className={`text-2xl font-bold ${healthAgeResult.healthAge <= healthAgeResult.actualAge ? 'text-health-green' : 'text-destructive'}`}>
                     {healthAgeResult.healthAge}세
                   </p>
-                  <p className={`text-xs ${healthAgeResult.healthAge <= healthAgeResult.actualAge ? 'text-health-green' : 'text-destructive'}`}>
+                  <p className={`text-xs mt-0.5 ${healthAgeResult.healthAge <= healthAgeResult.actualAge ? 'text-health-green' : 'text-destructive'}`}>
                     {healthAgeResult.healthAge < healthAgeResult.actualAge 
                       ? `${healthAgeResult.actualAge - healthAgeResult.healthAge}세 젊음`
                       : healthAgeResult.healthAge > healthAgeResult.actualAge
