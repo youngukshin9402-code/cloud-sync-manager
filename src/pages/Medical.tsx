@@ -637,11 +637,11 @@ function InBodySection() {
       {/* 인바디 트렌드 차트 */}
       {chartData.length >= 2 && (
         <div className="bg-card rounded-2xl border border-border p-5 space-y-4">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center justify-center gap-2">
             <TrendingUp className="w-5 h-5 text-primary" />
             <h3 className="font-semibold">인바디 트렌드</h3>
           </div>
-          <div className="h-[200px]">
+          <div className="h-[280px] w-full flex justify-center">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
