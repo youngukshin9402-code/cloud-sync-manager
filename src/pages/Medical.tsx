@@ -590,16 +590,23 @@ function InBodySection() {
           {healthAgeResult && (
             <div className="bg-gradient-to-br from-primary/10 to-accent/10 rounded-2xl p-5 space-y-4">
               <div className="grid grid-cols-2 gap-4">
-                <div className="flex flex-col items-center justify-center text-center py-3 px-2 bg-background/30 rounded-xl min-h-[80px]">
-                  <p className="text-xs text-muted-foreground mb-1">실제 나이</p>
-                  <p className="text-2xl font-bold text-foreground">{healthAgeResult.actualAge}세</p>
+                <div className="flex flex-col items-center text-center py-3 px-2 bg-background/30 rounded-xl">
+                  {/* Row 1: Label */}
+                  <p className="text-xs text-muted-foreground mb-1 h-4">실제 나이</p>
+                  {/* Row 2: Number */}
+                  <p className="text-2xl font-bold text-foreground h-8 flex items-center">{healthAgeResult.actualAge}세</p>
+                  {/* Row 3: Subtext placeholder */}
+                  <p className="text-xs mt-0.5 h-4 invisible">placeholder</p>
                 </div>
-                <div className="flex flex-col items-center justify-center text-center py-3 px-2 bg-background/30 rounded-xl min-h-[80px]">
-                  <p className="text-xs text-muted-foreground mb-1">건강 나이</p>
-                  <p className={`text-2xl font-bold ${healthAgeResult.healthAge <= healthAgeResult.actualAge ? 'text-health-green' : 'text-destructive'}`}>
+                <div className="flex flex-col items-center text-center py-3 px-2 bg-background/30 rounded-xl">
+                  {/* Row 1: Label */}
+                  <p className="text-xs text-muted-foreground mb-1 h-4">건강 나이</p>
+                  {/* Row 2: Number */}
+                  <p className={`text-2xl font-bold h-8 flex items-center ${healthAgeResult.healthAge <= healthAgeResult.actualAge ? 'text-health-green' : 'text-destructive'}`}>
                     {healthAgeResult.healthAge}세
                   </p>
-                  <p className={`text-xs mt-0.5 ${healthAgeResult.healthAge <= healthAgeResult.actualAge ? 'text-health-green' : 'text-destructive'}`}>
+                  {/* Row 3: Subtext */}
+                  <p className={`text-xs mt-0.5 h-4 ${healthAgeResult.healthAge <= healthAgeResult.actualAge ? 'text-health-green' : 'text-destructive'}`}>
                     {healthAgeResult.healthAge < healthAgeResult.actualAge 
                       ? `${healthAgeResult.actualAge - healthAgeResult.healthAge}세 젊음`
                       : healthAgeResult.healthAge > healthAgeResult.actualAge
