@@ -210,9 +210,7 @@ export default function Dashboard() {
               <div 
                 className="h-full bg-health-purple transition-all" 
                 style={{ 
-                  width: hasHealthAge && actualAge && healthAge
-                    ? `${Math.min(100, Math.max(0, (1 - (healthAge - actualAge) / 10) * 100))}%`
-                    : '0%' 
+                  width: hasHealthAge ? '100%' : '0%' 
                 }} 
               />
             </div>
