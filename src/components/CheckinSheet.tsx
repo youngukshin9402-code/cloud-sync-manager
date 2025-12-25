@@ -64,7 +64,7 @@ export function CheckinSheet({ trigger }: CheckinSheetProps) {
       </SheetTrigger>
       <SheetContent side="bottom" className="h-[85vh] h-[85dvh] rounded-t-3xl pb-[max(1rem,env(safe-area-inset-bottom))]">
         <SheetHeader className="pb-4">
-          <SheetTitle>오늘 체크인</SheetTitle>
+          <SheetTitle>오늘의 활동</SheetTitle>
         </SheetHeader>
 
         <div className="space-y-6 overflow-y-auto max-h-[calc(85vh-140px)] pb-4">
@@ -104,37 +104,6 @@ export function CheckinSheet({ trigger }: CheckinSheetProps) {
               step={0.5}
               className="py-2"
             />
-          </div>
-
-          {/* 운동 여부 */}
-          <div className="flex items-center justify-between py-2">
-            <Label className="text-base font-medium">오늘 운동했나요?</Label>
-            <Switch 
-              checked={exerciseDone} 
-              onCheckedChange={setExerciseDone}
-            />
-          </div>
-
-          {/* 식사 횟수 */}
-          <div className="space-y-3">
-            <Label className="text-base font-medium">
-              식사 횟수: <span className="text-primary">{mealCount}회</span>
-            </Label>
-            <div className="flex gap-2">
-              {[1, 2, 3, 4, 5].map((count) => (
-                <button
-                  key={count}
-                  onClick={() => setMealCount(count)}
-                  className={`flex-1 py-3 rounded-xl font-medium transition-all ${
-                    mealCount === count
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                  }`}
-                >
-                  {count}
-                </button>
-              ))}
-            </div>
           </div>
 
           {/* 메모 */}

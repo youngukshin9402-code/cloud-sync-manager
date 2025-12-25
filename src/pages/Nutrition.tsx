@@ -22,7 +22,6 @@ import {
   CalendarIcon,
   Loader2,
   Sparkles,
-  TrendingUp,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useMealRecordsQuery } from "@/hooks/useMealRecordsQuery";
@@ -37,7 +36,7 @@ import { MealCardsGrid } from "@/components/nutrition/MealCardsGrid";
 import { AddFoodSheet } from "@/components/nutrition/AddFoodSheet";
 import { FoodAnalysisSheet } from "@/components/nutrition/FoodAnalysisSheet";
 import { AIDietFeedbackSheet } from "@/components/nutrition/AIDietFeedbackSheet";
-import { WeeklyNutritionReportSheet } from "@/components/nutrition/WeeklyNutritionReportSheet";
+
 
 interface AnalyzedFood {
   name: string;
@@ -87,9 +86,6 @@ export default function Nutrition() {
   // 낙관적 업데이트를 위한 로컬 goals 상태
   const [localGoals, setLocalGoals] = useState<NutritionGoals | null>(null);
   const goals = localGoals || getGoals();
-  
-  // 주간 리포트 시트 상태
-  const [weeklyReportOpen, setWeeklyReportOpen] = useState(false);
   
   const loading = settingsLoading || recordsLoading;
   const isTodaySelected = isToday(dateStr);
@@ -292,11 +288,11 @@ export default function Nutrition() {
   }
 
   return (
-    <div className="space-y-5 pb-8">
+    <div className="space-y-4 pb-8">
       {/* 헤더 */}
       <div>
-        <h1 className="text-2xl font-bold">영양양갱</h1>
-        <p className="text-muted-foreground">식사를 기록하고 건강을 관리하세요</p>
+        <h1 className="text-3xl font-bold text-foreground mb-2">영양양갱</h1>
+        <p className="text-lg text-muted-foreground">식사를 기록하고 건강을 관리하세요</p>
       </div>
 
       {/* 날짜 네비게이션 */}
@@ -309,7 +305,7 @@ export default function Nutrition() {
           className="flex items-center gap-2 font-semibold"
         >
           <CalendarIcon className="w-4 h-4" />
-          {format(selectedDate, "M.dd", { locale: ko })}
+          {format(selectedDate, "M월 d일 (EEE)", { locale: ko })}
           {isTodaySelected && (
             <span className="text-xs bg-primary text-primary-foreground px-2 py-0.5 rounded-full">
               오늘
@@ -369,15 +365,6 @@ export default function Nutrition() {
         onUpdateRecord={handleUpdateRecord}
       />
 
-      {/* 주간 영양 리포트 버튼 */}
-      <Button
-        variant="outline"
-        className="w-full h-12"
-        onClick={() => setWeeklyReportOpen(true)}
-      >
-        <TrendingUp className="w-4 h-4 mr-2" />
-        주간 영양 리포트
-      </Button>
 
       {/* 분석 중 오버레이 */}
       {analyzing && (
@@ -418,12 +405,6 @@ export default function Nutrition() {
         totals={totals}
         goals={goals}
         recordsByMealType={recordsByMealType}
-      />
-
-      {/* 주간 영양 리포트 시트 */}
-      <WeeklyNutritionReportSheet
-        open={weeklyReportOpen}
-        onOpenChange={setWeeklyReportOpen}
       />
     </div>
   );

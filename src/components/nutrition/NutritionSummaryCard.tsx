@@ -31,71 +31,59 @@ export function NutritionSummaryCard({ totals, goals, hasSettings, onGoalsUpdate
   }
 
   return (
-    <div className="bg-gradient-to-br from-[#2F4DB6] to-[#5B7CFF] rounded-3xl p-5 text-white space-y-4">
+    <div className="bg-gradient-to-br from-[#2F4DB6] to-[#5B7CFF] rounded-3xl p-4 text-white space-y-3">
       {/* 상단: 섭취/목표 */}
-      <div className="flex items-end justify-between">
-        <div>
-          <p className="text-white/80 text-sm mb-1">오늘 섭취</p>
-          <div className="flex items-baseline gap-1">
-            <span className="text-4xl font-bold">{totals.totalCalories.toLocaleString()}</span>
-            <span className="text-lg text-white/80">/ {goals.calorieGoal.toLocaleString()} kcal</span>
-          </div>
+      <div>
+        <p className="text-white/80 text-xs mb-0.5">오늘 섭취</p>
+        <div className="flex items-baseline gap-1">
+          <span className="text-3xl font-bold">{totals.totalCalories.toLocaleString()}</span>
+          <span className="text-base text-white/80">/ {goals.calorieGoal.toLocaleString()} kcal</span>
         </div>
-        <NutritionSettingsForm compact onGoalsUpdate={onGoalsUpdate} />
       </div>
 
       {/* 칼로리 프로그레스 */}
       <div>
         <Progress 
           value={caloriePercent} 
-          className="h-3 bg-white/20"
+          className="h-2 bg-white/20"
           indicatorClassName="bg-[#8FB3FF]"
         />
-        <p className="text-sm text-white/80 mt-2 flex items-center gap-1">
-          <Flame className="w-4 h-4" />
-          {totals.totalCalories}kcal 섭취 | {remaining > 0 ? `${remaining}kcal 더 먹을 수 있어요` : "목표 달성!"}
+        <p className="text-xs text-white/80 mt-1.5 flex items-center gap-1">
+          <Flame className="w-3 h-3" />
+          {remaining > 0 ? `${remaining}kcal 더 먹을 수 있어요` : "목표 달성!"}
         </p>
       </div>
 
-      {/* 탄단지 요약 */}
-      <div className="grid grid-cols-3 gap-3">
+      {/* 탄단지 요약 - 한 줄 표시 */}
+      <div className="grid grid-cols-3 gap-2">
         {/* 탄수화물 */}
-        <div className="bg-white/10 rounded-xl p-3">
-          <div className="flex items-center gap-1 mb-1">
-            <Wheat className="w-4 h-4 shrink-0" />
-            <span className="text-xs whitespace-nowrap">탄수화물</span>
+        <div className="bg-white/10 rounded-lg p-2">
+          <div className="flex items-center gap-1 mb-0.5">
+            <Wheat className="w-3 h-3 shrink-0" />
+            <span className="text-[10px] whitespace-nowrap">탄수화물</span>
           </div>
-          <Progress value={carbPercent} className="h-1.5 bg-white/20 mb-1" indicatorClassName="bg-white/70" />
-          <p className="text-sm font-semibold">
-            {totals.totalCarbs}g / {goals.carbGoalG}g
-          </p>
-          <p className="text-xs text-white/70">{carbPercent}%</p>
+          <Progress value={carbPercent} className="h-1 bg-white/20 mb-0.5" indicatorClassName="bg-white/70" />
+          <p className="text-xs font-semibold whitespace-nowrap">{totals.totalCarbs}/{goals.carbGoalG}g</p>
         </div>
 
         {/* 단백질 */}
-        <div className="bg-white/10 rounded-xl p-3">
-          <div className="flex items-center gap-1 mb-1">
-            <Beef className="w-4 h-4" />
-            <span className="text-xs">단백질</span>
+        <div className="bg-white/10 rounded-lg p-2">
+          <div className="flex items-center gap-1 mb-0.5">
+            <Beef className="w-3 h-3 shrink-0" />
+            <span className="text-[10px] whitespace-nowrap">단백질</span>
           </div>
-          <Progress value={proteinPercent} className="h-1.5 bg-white/20 mb-1" indicatorClassName="bg-white/70" />
-          <p className="text-sm font-semibold">
-            {totals.totalProtein}g / {goals.proteinGoalG}g
-          </p>
-          <p className="text-xs text-white/70">{proteinPercent}%</p>
+          <Progress value={proteinPercent} className="h-1 bg-white/20 mb-0.5" indicatorClassName="bg-white/70" />
+          <p className="text-xs font-semibold whitespace-nowrap">{totals.totalProtein}/{goals.proteinGoalG}g</p>
         </div>
 
         {/* 지방 */}
-        <div className="bg-white/10 rounded-xl p-3">
-          <div className="flex items-center gap-1 mb-1">
-            <Droplet className="w-4 h-4" />
-            <span className="text-xs">지방</span>
+        <div className="bg-white/10 rounded-lg p-2">
+          <div className="flex items-center gap-1 mb-0.5">
+            <Droplet className="w-3 h-3 shrink-0" />
+            <span className="text-[10px] whitespace-nowrap">지방</span>
           </div>
-          <Progress value={fatPercent} className="h-1.5 bg-white/20 mb-1" indicatorClassName="bg-white/70" />
-          <p className="text-sm font-semibold">
-            {totals.totalFat}g / {goals.fatGoalG}g
-          </p>
-          <p className="text-xs text-white/70">{fatPercent}%</p>
+          <Progress value={fatPercent} className="h-1 bg-white/20 mb-0.5" indicatorClassName="bg-white/70" />
+          <p className="text-xs font-semibold whitespace-nowrap">{totals.totalFat}/{goals.fatGoalG}g</p>
         </div>
       </div>
     </div>
