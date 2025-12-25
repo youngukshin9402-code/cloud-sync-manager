@@ -8,7 +8,6 @@ import {
   Utensils,
   Dumbbell,
   User,
-  LogOut,
   Heart,
   GraduationCap,
 } from "lucide-react";
@@ -66,13 +65,6 @@ export function AppLayout() {
                 </p>
               </div>
             )}
-            <button
-              onClick={signOut}
-              className="p-2 rounded-lg hover:bg-muted transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
-              title="로그아웃"
-            >
-              <LogOut className="w-5 h-5 text-muted-foreground" />
-            </button>
           </div>
         </div>
       </header>

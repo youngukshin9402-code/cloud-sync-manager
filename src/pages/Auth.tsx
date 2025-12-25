@@ -267,7 +267,16 @@ export default function Auth() {
   );
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-6">
+    <div className="min-h-screen bg-background flex items-center justify-center p-6 relative">
+      {/* 우측 상단 뒤로가기 버튼 */}
+      <button
+        onClick={() => navigate("/")}
+        className="absolute top-6 right-6 p-2 rounded-lg hover:bg-muted transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
+        title="돌아가기"
+      >
+        <ArrowLeft className="w-5 h-5 text-muted-foreground" />
+      </button>
+
       <div className="w-full max-w-md">
         {/* 헤더 */}
         <div className="text-center mb-8">
