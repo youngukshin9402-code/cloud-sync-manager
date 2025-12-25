@@ -423,7 +423,7 @@ export default function Auth() {
     const { error } = await supabase.auth.signUp({
       email: fakeEmail,
       password,
-      phone: formatPhoneToE164(phone),
+      phone: phone.trim() ? formatPhoneToE164(phone) : undefined,
       options: {
         emailRedirectTo: redirectUrl,
         data: {
@@ -436,7 +436,7 @@ export default function Auth() {
           age: Number(age),
           activity_level: activityLevel,
           conditions: conditions.trim() || null,
-          phone: phone.replace(/\D/g, ""),
+          phone: phone.trim() ? phone.replace(/\D/g, "") : null,
         },
       },
     });
