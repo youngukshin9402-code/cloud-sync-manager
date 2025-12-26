@@ -11,6 +11,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -19,6 +25,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import {
   Calendar as CalendarIcon,
@@ -82,63 +89,68 @@ interface ExerciseRecord {
   id: string;
   sportType: string;
   name: string;
+  exerciseNames?: string[];
   sets?: GymSet[];
   duration?: number;
   memo?: string;
   imageUrl?: string;
 }
 
-// Memoized exercise card to prevent re-renders
+// 운동 기록에서 종목과 운동명 목록 추출
+function parseExerciseName(name: string): { sportType: string; sportLabel: string; exerciseNames: string[] } {
+  const match = name.match(/^\[(.+?)\](.*)$/);
+  if (!match) {
+    return { sportType: "other", sportLabel: "기타", exerciseNames: name ? [name] : [] };
+  }
+  
+  const sportLabel = match[1];
+  const sport = SPORT_TYPES.find(s => s.label === sportLabel);
+  const sportType = sport?.value || "other";
+  
+  // 운동명 파싱 (쉼표로 구분)
+  const exerciseNamesStr = match[2]?.trim() || "";
+  const exerciseNames = exerciseNamesStr
+    ? exerciseNamesStr.split(",").map(n => n.trim()).filter(Boolean)
+    : [];
+  
+  return { sportType, sportLabel, exerciseNames };
+}
+
+// 운동 기록 카드 (리스트용)
 const ExerciseCard = memo(function ExerciseCard({
   exercise,
-  onEdit,
-  onDelete,
+  onClick,
 }: {
   exercise: GymExercise;
-  onEdit: (exercise: GymExercise) => void;
-  onDelete: (id: string) => void;
+  onClick: () => void;
 }) {
+  const { sportLabel, exerciseNames } = parseExerciseName(exercise.name);
+  
   return (
-    <div className="bg-card rounded-2xl border border-border p-4">
-      <div className="flex items-start justify-between mb-3">
+    <div 
+      className="bg-card rounded-2xl border border-border p-4 cursor-pointer hover:bg-muted/50 transition-colors"
+      onClick={onClick}
+    >
+      <div className="flex items-start justify-between mb-2">
         <div className="flex items-center gap-3">
           {exercise.imageUrl && (
             <img
               src={exercise.imageUrl}
-              alt={exercise.name}
+              alt={sportLabel}
               className="w-12 h-12 rounded-xl object-cover"
             />
           )}
-          <span className="font-semibold text-lg">{exercise.name}</span>
-        </div>
-        <div className="flex gap-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            onClick={() => onEdit(exercise)}
-          >
-            <Pencil className="w-4 h-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 text-destructive"
-            onClick={() => onDelete(exercise.id)}
-          >
-            <Trash2 className="w-4 h-4" />
-          </Button>
+          <span className="font-semibold text-lg">[{sportLabel}]</span>
         </div>
       </div>
-      {exercise.sets && exercise.sets.length > 0 && (
-        <div className="flex flex-wrap gap-2">
-          {exercise.sets.map((set, i) => (
-            <span
-              key={i}
-              className="text-sm bg-muted px-3 py-1 rounded-full"
-            >
-              {i + 1}세트: {set.weight}kg × {set.reps}회
-            </span>
+      
+      {/* 운동명 태그 표시 */}
+      {exerciseNames.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 mt-2">
+          {exerciseNames.map((name, i) => (
+            <Badge key={i} variant="secondary" className="text-xs">
+              {name}
+            </Badge>
           ))}
         </div>
       )}
@@ -169,6 +181,7 @@ export default function Exercise() {
   const { toast } = useToast();
   const { user } = useAuth();
   const machineInputRef = useRef<HTMLInputElement>(null);
+  const exerciseNameInputRef = useRef<HTMLInputElement>(null);
 
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [showCalendar, setShowCalendar] = useState(false);
@@ -193,6 +206,14 @@ export default function Exercise() {
   const [showMachineSuggestions, setShowMachineSuggestions] = useState(false);
   const [editingExerciseId, setEditingExerciseId] = useState<string | null>(null);
   const [editingPendingIndex, setEditingPendingIndex] = useState<number | null>(null);
+  
+  // 운동명 누적 입력용 상태
+  const [exerciseNameInput, setExerciseNameInput] = useState("");
+  const [addedExerciseNames, setAddedExerciseNames] = useState<string[]>([]);
+  
+  // 상세 팝업 상태
+  const [detailExercise, setDetailExercise] = useState<GymExercise | null>(null);
+  const [showDetailSheet, setShowDetailSheet] = useState(false);
 
   // 날짜 표시 포맷: M월 d일 (요일 한 글자)
   const formatDateDisplay = (date: Date) => {
@@ -254,11 +275,12 @@ export default function Exercise() {
 
   // 머신명 선택 (헬스용)
   const selectMachineName = (name: string) => {
+    setAddedExerciseNames([name]);
     setCurrentExercise({
       id: crypto.randomUUID(),
       sportType: "health",
-      name,
-      sets: [{ reps: 10, weight: 20 }],
+      name: "",
+      exerciseNames: [name],
       imageUrl: machineImage || undefined,
     });
     setShowMachineSuggestions(false);
@@ -266,48 +288,40 @@ export default function Exercise() {
     setShowAddExercise(true);
   };
 
-  // 세트 추가 (헬스용)
-  const addSet = () => {
-    if (!currentExercise || !currentExercise.sets) return;
-    const lastSet = currentExercise.sets[currentExercise.sets.length - 1] || { reps: 10, weight: 20 };
-    setCurrentExercise({
-      ...currentExercise,
-      sets: [...currentExercise.sets, { ...lastSet }],
-    });
+  // 운동명 추가 (+ 버튼)
+  const addExerciseName = () => {
+    const trimmed = exerciseNameInput.trim();
+    if (!trimmed) return;
+    
+    setAddedExerciseNames(prev => [...prev, trimmed]);
+    setExerciseNameInput("");
+    exerciseNameInputRef.current?.focus();
   };
 
-  // 세트 삭제
-  const removeSet = (index: number) => {
-    if (!currentExercise || !currentExercise.sets || currentExercise.sets.length <= 1) return;
-    setCurrentExercise({
-      ...currentExercise,
-      sets: currentExercise.sets.filter((_, i) => i !== index),
-    });
+  // 운동명 삭제
+  const removeExerciseName = (index: number) => {
+    setAddedExerciseNames(prev => prev.filter((_, i) => i !== index));
   };
 
-  // 세트 수정 (버튼으로만)
-  const updateSet = (index: number, field: keyof GymSet, delta: number) => {
-    if (!currentExercise || !currentExercise.sets) return;
-    setCurrentExercise({
-      ...currentExercise,
-      sets: currentExercise.sets.map((s, i) =>
-        i === index ? { ...s, [field]: Math.max(0, s[field] + delta) } : s
-      ),
-    });
-  };
-
-  // 장바구니에 운동 추가 (임시 저장) - 모달 유지, 운동명만 초기화
-  const addToPendingExercises = (keepModalOpen: boolean = false) => {
+  // 저장하기 버튼 클릭
+  const handleSaveExercise = () => {
     if (!currentExercise) return;
 
     const sportLabel = SPORT_TYPES.find(s => s.value === currentExercise.sportType)?.label || currentExercise.sportType;
-    const displayName = currentExercise.name?.trim()
-      ? `[${sportLabel}] ${currentExercise.name}`
+    
+    // 운동명들을 쉼표로 조합
+    const exerciseNamesStr = addedExerciseNames.length > 0 
+      ? addedExerciseNames.join(", ")
+      : "";
+    
+    const displayName = exerciseNamesStr
+      ? `[${sportLabel}] ${exerciseNamesStr}`
       : `[${sportLabel}]`;
 
     const exerciseToAdd: ExerciseRecord = {
       ...currentExercise,
       name: displayName,
+      exerciseNames: addedExerciseNames,
     };
 
     if (editingPendingIndex !== null) {
@@ -315,28 +329,21 @@ export default function Exercise() {
         idx === editingPendingIndex ? exerciseToAdd : ex
       ));
       setEditingPendingIndex(null);
-      setCurrentExercise(null);
-      setShowAddExercise(false);
       toast({ title: "운동이 수정되었습니다" });
+    } else if (editingExerciseId) {
+      // 기존 서버 기록 수정
+      saveExistingExercise(exerciseToAdd);
+      return;
     } else {
       setPendingExercises(prev => [...prev, exerciseToAdd]);
-
-      if (keepModalOpen) {
-        const currentSportType = currentExercise.sportType;
-        setCurrentExercise({
-          id: crypto.randomUUID(),
-          sportType: currentSportType,
-          name: "",
-          sets: currentSportType === "health" ? [{ reps: 10, weight: 20 }] : undefined,
-          duration: currentSportType !== "health" ? 30 : undefined,
-        });
-        toast({ title: "장바구니에 추가됨", description: "다른 운동을 계속 추가하세요" });
-      } else {
-        setCurrentExercise(null);
-        setShowAddExercise(false);
-        toast({ title: "운동이 장바구니에 추가되었습니다", description: "저장 버튼으로 한 번에 저장하세요" });
-      }
+      toast({ title: "운동이 장바구니에 추가되었습니다", description: "저장 버튼으로 한 번에 저장하세요" });
     }
+
+    // 폼 초기화
+    setCurrentExercise(null);
+    setShowAddExercise(false);
+    setAddedExerciseNames([]);
+    setExerciseNameInput("");
   };
 
   // 장바구니에서 운동 제거
@@ -347,24 +354,15 @@ export default function Exercise() {
   // 장바구니 운동 수정
   const editPendingExercise = (index: number) => {
     const exercise = pendingExercises[index];
-    const match = exercise.name.match(/^\[(.+?)\] ?(.*)$/);
-    let sportType = "health";
-    let name = exercise.name;
-
-    if (match) {
-      const sportLabel = match[1];
-      const sport = SPORT_TYPES.find(s => s.label === sportLabel);
-      if (sport) {
-        sportType = sport.value;
-      }
-      name = match[2] || "";
-    }
+    const { sportType, exerciseNames } = parseExerciseName(exercise.name);
 
     setCurrentExercise({
       ...exercise,
       sportType,
-      name,
+      name: "",
     });
+    setAddedExerciseNames(exerciseNames);
+    setExerciseNameInput("");
     setEditingPendingIndex(index);
     setEditingExerciseId(null);
     setShowAddExercise(true);
@@ -425,24 +423,19 @@ export default function Exercise() {
   };
 
   // 기존 운동 수정 저장 (서버에 있는 기록)
-  const saveExistingExercise = async () => {
-    if (!user || !currentExercise || !editingExerciseId || !todayGymRecord) return;
+  const saveExistingExercise = async (exerciseToSave: ExerciseRecord) => {
+    if (!user || !editingExerciseId || !todayGymRecord) return;
 
     try {
-      const sportLabel = SPORT_TYPES.find(s => s.value === currentExercise.sportType)?.label || currentExercise.sportType;
-      const displayName = currentExercise.name?.trim()
-        ? `[${sportLabel}] ${currentExercise.name}`
-        : `[${sportLabel}]`;
-
-      const exerciseToSave: GymExercise = {
-        id: currentExercise.id,
-        name: displayName,
-        sets: currentExercise.sets || [],
-        imageUrl: currentExercise.imageUrl,
+      const gymExercise: GymExercise = {
+        id: exerciseToSave.id,
+        name: exerciseToSave.name,
+        sets: exerciseToSave.sets || [],
+        imageUrl: exerciseToSave.imageUrl,
       };
 
       const newExercises = todayGymRecord.exercises.map((ex) =>
-        ex.id === editingExerciseId ? exerciseToSave : ex
+        ex.id === editingExerciseId ? gymExercise : ex
       );
 
       await update(todayGymRecord.id, newExercises);
@@ -451,6 +444,8 @@ export default function Exercise() {
       setCurrentExercise(null);
       setShowAddExercise(false);
       setEditingExerciseId(null);
+      setAddedExerciseNames([]);
+      setExerciseNameInput("");
     } catch (error) {
       console.error('Save error:', error);
       toast({ title: "저장 실패", description: "다시 시도해주세요", variant: "destructive" });
@@ -465,36 +460,37 @@ export default function Exercise() {
       const newExercises = todayGymRecord.exercises.filter((ex) => ex.id !== exerciseId);
       await update(todayGymRecord.id, newExercises);
       toast({ title: "삭제 완료" });
+      setShowDetailSheet(false);
+      setDetailExercise(null);
     } catch (error) {
       toast({ title: "삭제 실패", variant: "destructive" });
     }
   };
 
-  // 운동 수정 (서버에 있는 기록)
-  const editExercise = (exercise: GymExercise) => {
-    const match = exercise.name.match(/^\[(.+?)\] ?(.*)$/);
-    let sportType = "health";
-    let name = exercise.name;
-
-    if (match) {
-      const sportLabel = match[1];
-      const sport = SPORT_TYPES.find(s => s.label === sportLabel);
-      if (sport) {
-        sportType = sport.value;
-      }
-      name = match[2] || "";
-    }
+  // 운동 수정 (서버에 있는 기록) - 상세 팝업에서 호출
+  const startEditExercise = (exercise: GymExercise) => {
+    const { sportType, exerciseNames } = parseExerciseName(exercise.name);
 
     setCurrentExercise({
       id: exercise.id,
       sportType,
-      name,
+      name: "",
       sets: exercise.sets,
       imageUrl: exercise.imageUrl,
     });
+    setAddedExerciseNames(exerciseNames);
+    setExerciseNameInput("");
     setEditingExerciseId(exercise.id);
     setEditingPendingIndex(null);
+    setShowDetailSheet(false);
+    setDetailExercise(null);
     setShowAddExercise(true);
+  };
+
+  // 상세 팝업 열기
+  const openDetailSheet = (exercise: GymExercise) => {
+    setDetailExercise(exercise);
+    setShowDetailSheet(true);
   };
 
   // 날짜 이동
@@ -510,8 +506,9 @@ export default function Exercise() {
       id: crypto.randomUUID(),
       sportType: "health",
       name: "",
-      sets: [{ reps: 10, weight: 20 }],
     });
+    setAddedExerciseNames([]);
+    setExerciseNameInput("");
     setEditingExerciseId(null);
     setEditingPendingIndex(null);
     setShowAddExercise(true);
@@ -523,9 +520,11 @@ export default function Exercise() {
     setShowAddExercise(false);
     setEditingExerciseId(null);
     setEditingPendingIndex(null);
+    setAddedExerciseNames([]);
+    setExerciseNameInput("");
   };
 
-  // 종목 변경 시 세트 초기화 여부 결정
+  // 종목 변경 시 처리
   const handleSportTypeChange = (value: string) => {
     if (!currentExercise) return;
 
@@ -533,14 +532,12 @@ export default function Exercise() {
       setCurrentExercise({
         ...currentExercise,
         sportType: value,
-        sets: currentExercise.sets || [{ reps: 10, weight: 20 }],
         duration: undefined,
       });
     } else {
       setCurrentExercise({
         ...currentExercise,
         sportType: value,
-        sets: undefined,
         duration: currentExercise.duration || 30,
       });
     }
@@ -697,26 +694,33 @@ export default function Exercise() {
               </Button>
             </div>
             <div className="space-y-2">
-              {pendingExercises.map((exercise, index) => (
-                <div key={exercise.id} className="bg-card rounded-xl p-3 flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">{exercise.name}</p>
-                    {exercise.sets && exercise.sets.length > 0 && (
-                      <p className="text-xs text-muted-foreground">
-                        {exercise.sets.length}세트
-                      </p>
+              {pendingExercises.map((exercise, index) => {
+                const { sportLabel, exerciseNames } = parseExerciseName(exercise.name);
+                return (
+                  <div key={exercise.id} className="bg-card rounded-xl p-3">
+                    <div className="flex items-center justify-between">
+                      <p className="font-medium">[{sportLabel}]</p>
+                      <div className="flex gap-1">
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => editPendingExercise(index)}>
+                          <Pencil className="w-4 h-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeFromPending(index)}>
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                    {exerciseNames.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        {exerciseNames.map((name, i) => (
+                          <Badge key={i} variant="secondary" className="text-xs">
+                            {name}
+                          </Badge>
+                        ))}
+                      </div>
                     )}
                   </div>
-                  <div className="flex gap-1">
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => editPendingExercise(index)}>
-                      <Pencil className="w-4 h-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeFromPending(index)}>
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
@@ -753,118 +757,62 @@ export default function Exercise() {
               </Select>
             </div>
 
-            {/* 운동명/세부종목 + 즉시 추가 버튼 */}
+            {/* 운동명 입력 + 누적 리스트 */}
             <div>
               <label className="text-sm font-medium text-muted-foreground">
                 {currentExercise.sportType === "health" ? "운동명 (선택)" : "세부 내용 (선택)"}
               </label>
               <div className="flex gap-2 mt-1">
                 <Input
-                  value={currentExercise.name}
-                  onChange={(e) => setCurrentExercise({ ...currentExercise, name: e.target.value })}
+                  ref={exerciseNameInputRef}
+                  value={exerciseNameInput}
+                  onChange={(e) => setExerciseNameInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      addExerciseName();
+                    }
+                  }}
                   placeholder={currentExercise.sportType === "health" ? "예: 벤치프레스" : "예: 자유형 500m"}
                   className="flex-1"
                 />
-                {!editingExerciseId && editingPendingIndex === null && (
-                  <Button
-                    variant="secondary"
-                    size="icon"
-                    className="shrink-0 h-10 w-10"
-                    onClick={() => addToPendingExercises(true)}
-                    title="장바구니에 추가"
-                  >
-                    <Plus className="w-5 h-5" />
-                  </Button>
-                )}
+                <Button
+                  variant="secondary"
+                  size="icon"
+                  className="shrink-0 h-10 w-10"
+                  onClick={addExerciseName}
+                  title="운동명 추가"
+                >
+                  <Plus className="w-5 h-5" />
+                </Button>
               </div>
-              {!editingExerciseId && editingPendingIndex === null && (
-                <p className="text-xs text-muted-foreground mt-1">+ 버튼으로 장바구니에 추가 후 계속 입력</p>
+              
+              {/* 추가된 운동명 목록 (입력칸 아래) */}
+              {addedExerciseNames.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {addedExerciseNames.map((name, i) => (
+                    <Badge 
+                      key={i} 
+                      variant="secondary" 
+                      className="text-sm gap-1 pr-1"
+                    >
+                      {name}
+                      <button
+                        onClick={() => removeExerciseName(i)}
+                        className="ml-1 hover:bg-muted rounded-full p-0.5"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </Badge>
+                  ))}
+                </div>
               )}
             </div>
 
-            {/* 헬스: 세트 목록 */}
-            {currentExercise.sportType === "health" && currentExercise.sets && (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <label className="text-sm font-medium text-muted-foreground">세트</label>
-                  <Button variant="outline" size="sm" onClick={addSet}>
-                    <Plus className="w-4 h-4 mr-1" />
-                    세트 추가
-                  </Button>
-                </div>
-
-                {currentExercise.sets.map((set, index) => (
-                  <div key={index} className="bg-muted/50 rounded-xl p-3 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-semibold text-muted-foreground">{index + 1}세트</span>
-                      {currentExercise.sets && currentExercise.sets.length > 1 && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 px-2 text-destructive"
-                          onClick={() => removeSet(index)}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      )}
-                    </div>
-
-                    <div className="flex flex-col gap-2">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground w-10 shrink-0">무게</span>
-                        <div className="flex items-center gap-1 flex-1 justify-start">
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            className="h-9 w-9 shrink-0"
-                            onClick={() => updateSet(index, "weight", -5)}
-                          >
-                            <Minus className="w-3 h-3" />
-                          </Button>
-                          <span className="w-16 text-center font-bold">{set.weight}kg</span>
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            className="h-9 w-9 shrink-0"
-                            onClick={() => updateSet(index, "weight", 5)}
-                          >
-                            <Plus className="w-3 h-3" />
-                          </Button>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground w-10 shrink-0">횟수</span>
-                        <div className="flex items-center gap-1 flex-1 justify-start">
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            className="h-9 w-9 shrink-0"
-                            onClick={() => updateSet(index, "reps", -1)}
-                          >
-                            <Minus className="w-3 h-3" />
-                          </Button>
-                          <span className="w-16 text-center font-bold">{set.reps}회</span>
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            className="h-9 w-9 shrink-0"
-                            onClick={() => updateSet(index, "reps", 1)}
-                          >
-                            <Plus className="w-3 h-3" />
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* 비헬스: 운동시간 */}
+            {/* 비헬스: 총 운동시간 */}
             {currentExercise.sportType !== "health" && (
               <div>
-                <label className="text-sm font-medium text-muted-foreground">운동시간 (분)</label>
+                <label className="text-sm font-medium text-muted-foreground">총 운동시간 (분)</label>
                 <div className="flex items-center gap-3 mt-1">
                   <Button
                     variant="outline"
@@ -924,16 +872,10 @@ export default function Exercise() {
               </div>
             )}
 
-            {/* 저장 버튼 */}
-            {editingExerciseId ? (
-              <Button size="lg" className="w-full" onClick={saveExistingExercise}>
-                수정 완료
-              </Button>
-            ) : editingPendingIndex !== null ? (
-              <Button size="lg" className="w-full" onClick={() => addToPendingExercises(false)}>
-                수정 완료
-              </Button>
-            ) : null}
+            {/* 저장하기 버튼 (항상 활성화) */}
+            <Button size="lg" className="w-full" onClick={handleSaveExercise}>
+              {editingExerciseId || editingPendingIndex !== null ? "수정 완료" : "저장하기"}
+            </Button>
           </div>
         ) : (
           /* 운동 추가 버튼 */
@@ -996,8 +938,7 @@ export default function Exercise() {
               <ExerciseCard
                 key={exercise.id}
                 exercise={exercise}
-                onEdit={editExercise}
-                onDelete={deleteExercise}
+                onClick={() => openDetailSheet(exercise)}
               />
             ))}
           </div>
@@ -1009,6 +950,100 @@ export default function Exercise() {
           </div>
         )}
       </div>
+
+      {/* 상세 팝업 (Sheet) */}
+      <Sheet open={showDetailSheet} onOpenChange={setShowDetailSheet}>
+        <SheetContent side="bottom" className="h-auto max-h-[80vh] rounded-t-3xl">
+          {detailExercise && (() => {
+            const { sportLabel, exerciseNames } = parseExerciseName(detailExercise.name);
+            return (
+              <>
+                <SheetHeader className="flex flex-row items-center justify-between pr-8">
+                  <SheetTitle>[{sportLabel}] 상세</SheetTitle>
+                  <div className="flex gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => startEditExercise(detailExercise)}
+                    >
+                      <Pencil className="w-4 h-4 mr-1" />
+                      수정
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={() => setShowDetailSheet(false)}
+                    >
+                      나가기
+                    </Button>
+                  </div>
+                </SheetHeader>
+                
+                <div className="mt-4 space-y-4">
+                  {/* 종목 */}
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-1">종목</p>
+                    <p className="font-medium">{sportLabel}</p>
+                  </div>
+                  
+                  {/* 운동명 목록 */}
+                  {exerciseNames.length > 0 && (
+                    <div>
+                      <p className="text-sm text-muted-foreground mb-1">운동명</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {exerciseNames.map((name, i) => (
+                          <Badge key={i} variant="secondary">
+                            {name}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* 세트 정보 (있는 경우) */}
+                  {detailExercise.sets && detailExercise.sets.length > 0 && (
+                    <div>
+                      <p className="text-sm text-muted-foreground mb-1">세트</p>
+                      <div className="flex flex-wrap gap-2">
+                        {detailExercise.sets.map((set, i) => (
+                          <span
+                            key={i}
+                            className="text-sm bg-muted px-3 py-1 rounded-full"
+                          >
+                            {i + 1}세트: {set.weight}kg × {set.reps}회
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* 이미지 */}
+                  {detailExercise.imageUrl && (
+                    <div>
+                      <p className="text-sm text-muted-foreground mb-1">사진</p>
+                      <img
+                        src={detailExercise.imageUrl}
+                        alt="운동 사진"
+                        className="w-full h-40 object-cover rounded-xl"
+                      />
+                    </div>
+                  )}
+                  
+                  {/* 삭제 버튼 */}
+                  <Button 
+                    variant="destructive" 
+                    className="w-full"
+                    onClick={() => deleteExercise(detailExercise.id)}
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    삭제하기
+                  </Button>
+                </div>
+              </>
+            );
+          })()}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
