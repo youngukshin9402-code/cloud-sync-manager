@@ -57,23 +57,26 @@ export function GymPhotoUpload({
   }, [images]);
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0 || !user) return;
+    const fileList = e.target.files;
+    if (!fileList || fileList.length === 0 || !user) return;
+
+    // IMPORTANT: copy first, then reset input (FileList can become empty after reset)
+    const selectedFiles = Array.from(fileList);
     e.target.value = ''; // Reset input
 
     setUploading(true);
     const newPaths: string[] = [];
 
     try {
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
+      for (const file of selectedFiles) {
         const { path, url } = await uploadGymPhoto(user.id, file);
         newPaths.push(path);
         // Store signed URL immediately
         setSignedUrls(prev => ({ ...prev, [path]: url }));
       }
 
-      onImagesChange([...images, ...newPaths]);
+      const nextImages = [...images, ...newPaths];
+      onImagesChange(nextImages);
       toast({ title: `${newPaths.length}장 업로드 완료` });
     } catch (error) {
       console.error('Upload error:', error);

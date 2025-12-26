@@ -174,31 +174,38 @@ const ExerciseCard = memo(function ExerciseCard({
 }) {
   const { sportLabel, exerciseNames } = parseExerciseName(exercise.name);
   const shortenedLabel = getShortenedSportLabel(sportLabel);
-  
-  // 표시할 태그 결정: 최대 2개까지 + 나머지는 "외 n"
-  const displayTags = exerciseNames.slice(0, 2);
-  const overflowCount = exerciseNames.length - 2;
-  
+
+  const displayTags = exerciseNames.slice(0, 3);
+  const overflowCount = Math.max(0, exerciseNames.length - 3);
+
   return (
-    <div 
+    <div
       className="bg-card rounded-2xl border border-border p-3 cursor-pointer hover:bg-muted/50 transition-colors h-24 flex flex-col justify-between"
       onClick={onClick}
     >
       {/* 상단: 종목 + 시간 */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <span className="font-semibold text-base truncate">{shortenedLabel}</span>
         <span className="text-sm text-muted-foreground shrink-0">
           {exercise.duration ? `${exercise.duration}분` : ""}
         </span>
       </div>
-      
-      {/* 하단: 운동명 컬러 태그 (최대 2개 + 외 n) */}
-      <div className="flex flex-wrap items-center gap-1 min-h-[2rem] overflow-hidden">
-        {displayTags.map((name, i) => (
-          <ExerciseTag key={i} name={name} index={i} size="sm" />
-        ))}
+
+      {/* 하단: 운동명 컬러 태그 (1줄) + 외 n (조건부 2번째 줄 단독) */}
+      <div className="flex flex-col gap-0.5">
+        <div className="flex items-center gap-1 overflow-hidden">
+          {displayTags.map((name, i) => (
+            <ExerciseTag
+              key={`${name}-${i}`}
+              name={name}
+              index={i}
+              size="sm"
+              className="max-w-[7rem] truncate"
+            />
+          ))}
+        </div>
         {overflowCount > 0 && (
-          <span className="text-xs text-muted-foreground px-1.5">외 {overflowCount}</span>
+          <p className="text-xs text-muted-foreground/70 leading-tight">외 {overflowCount}</p>
         )}
       </div>
     </div>
