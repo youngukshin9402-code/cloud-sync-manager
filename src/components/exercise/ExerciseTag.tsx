@@ -76,13 +76,15 @@ export function ExerciseTag({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-0.5 rounded-full border font-medium whitespace-nowrap",
+        "inline-flex items-center gap-0.5 rounded-full border font-medium",
+        // 핵심: 태그 내부 텍스트 줄바꿈 금지
+        "whitespace-nowrap",
         sizeClass,
         colorClass,
         className
       )}
     >
-      <span className="truncate">{name}</span>
+      <span className="break-keep">{name}</span>
       {onRemove && (
         <button
           type="button"

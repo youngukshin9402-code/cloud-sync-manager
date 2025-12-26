@@ -164,8 +164,8 @@ const getExerciseSummary = (names: string[]): { line1: string; overflow: number 
   return { line1: displayNames, overflow: names.length - 3 };
 };
 
-// 운동 기록 카드 (리스트용) - 고정 높이 96px, 컬러 태그
-// 규칙: 최대 3개 태그 (실제 운동명 최대 2개 + 외 n개 1개), 1줄 고정, 소형 태그
+// 운동 기록 카드 (리스트용) - 고정 높이, 컬러 태그
+// 규칙: 태그 2줄 고정, 태그 단위 줄바꿈, 초과시 외 n개 표시
 const ExerciseCard = memo(function ExerciseCard({
   exercise,
   onClick,
@@ -176,10 +176,16 @@ const ExerciseCard = memo(function ExerciseCard({
   const { sportLabel, exerciseNames } = parseExerciseName(exercise.name);
   const shortenedLabel = getShortenedSportLabel(sportLabel);
 
-  // 카드 전용 규칙: 최대 2개 운동명 태그 + 외 n개 태그 (총 3개 태그)
-  const maxVisibleTags = 2;
-  const displayTags = exerciseNames.slice(0, maxVisibleTags);
-  const overflowCount = Math.max(0, exerciseNames.length - maxVisibleTags);
+  // 카드 너비 기준 휴리스틱: 약 2줄에 5개 태그 정도 표시 가능
+  // 초과 시 마지막을 "외 n개"로 대체
+  const maxVisibleTags = 5;
+  const needsOverflow = exerciseNames.length > maxVisibleTags;
+  const displayTags = needsOverflow 
+    ? exerciseNames.slice(0, maxVisibleTags - 1) 
+    : exerciseNames;
+  const overflowCount = needsOverflow 
+    ? exerciseNames.length - (maxVisibleTags - 1) 
+    : 0;
 
   return (
     <div
@@ -194,15 +200,14 @@ const ExerciseCard = memo(function ExerciseCard({
         </span>
       </div>
 
-      {/* 하단: 운동명 컬러 태그 (1줄 고정, 최대 3개: 실제 2개 + 외 n개 1개) */}
-      <div className="flex items-center gap-1 overflow-hidden flex-nowrap">
+      {/* 하단: 운동명 태그 영역 (2줄 고정, 태그 단위 줄바꿈) */}
+      <div className="flex flex-wrap items-start gap-1 overflow-hidden h-[2.75rem]">
         {displayTags.map((name, i) => (
           <ExerciseTag
             key={`${name}-${i}`}
             name={name}
             index={i}
             size="xs"
-            className="shrink-0 max-w-[5rem] truncate"
           />
         ))}
         {overflowCount > 0 && (
