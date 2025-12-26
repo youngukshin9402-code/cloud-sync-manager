@@ -48,17 +48,31 @@ import { useGymMonthHeaders, useGymDayRecord, GymExercise, GymSet } from "@/hook
 import { usePendingQueueOptimized } from "@/hooks/usePendingQueueOptimized";
 import { useAuth } from "@/contexts/AuthContext";
 
-// 운동 종목 목록
+// 운동 종목 목록 + placeholder
 const SPORT_TYPES = [
-  { value: "health", label: "헬스" },
-  { value: "swimming", label: "수영" },
-  { value: "cycling", label: "자전거" },
-  { value: "hiking", label: "등산" },
-  { value: "parkgolf", label: "파크골프" },
-  { value: "running", label: "달리기" },
-  { value: "yoga", label: "요가" },
-  { value: "other", label: "기타" },
+  { value: "walking", label: "걷기", placeholder: "예: 3km" },
+  { value: "health", label: "헬스(근력운동)", placeholder: "예: 벤치프레스" },
+  { value: "hiking", label: "등산", placeholder: "예: 금정산(왕복)" },
+  { value: "running", label: "러닝/조깅", placeholder: "예: 5km" },
+  { value: "cycling", label: "자전거", placeholder: "예: 야외 라이딩 20km" },
+  { value: "spinning", label: "스피닝", placeholder: "예: 스피닝 GX 수업" },
+  { value: "yoga", label: "요가", placeholder: "예: 하타요가" },
+  { value: "pilates", label: "필라테스", placeholder: "예: 기구 필라테스" },
+  { value: "swimming", label: "수영", placeholder: "예: 자유형 500m" },
+  { value: "badminton", label: "배드민턴", placeholder: "예: 복식 경기" },
+  { value: "soccer", label: "축구", placeholder: "예: 조기축구 3경기" },
+  { value: "futsal", label: "풋살", placeholder: "예: 5대5 매치" },
+  { value: "golf", label: "골프/파크골프", placeholder: "예: 스크린 골프 18홀" },
+  { value: "tabletennis", label: "탁구", placeholder: "예: 단식" },
+  { value: "gateball", label: "게이트볼", placeholder: "예: 1경기" },
+  { value: "gymnastics", label: "체조/맨손운동", placeholder: "예: 실버체조 또는 스트레칭" },
+  { value: "aquarobics", label: "아쿠아로빅", placeholder: "예: 수중 에어로빅" },
+  { value: "barefoot", label: "맨발 걷기", placeholder: "예: 황톳길 맨발 걷기" },
+  { value: "other", label: "기타", placeholder: "예: 운동 내용" },
 ];
+
+// 총 운동시간 선택 옵션 (5분 단위)
+const DURATION_OPTIONS = [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 70, 80, 90, 100, 110, 120];
 
 // Mock 머신명 후보 (헬스용)
 const MACHINE_SUGGESTIONS = [
@@ -214,6 +228,13 @@ export default function Exercise() {
   // 상세 팝업 상태
   const [detailExercise, setDetailExercise] = useState<GymExercise | null>(null);
   const [showDetailSheet, setShowDetailSheet] = useState(false);
+  const [isDetailEditMode, setIsDetailEditMode] = useState(false);
+  
+  // 상세 팝업 편집용 상태
+  const [editDetailExerciseNames, setEditDetailExerciseNames] = useState<string[]>([]);
+  const [editDetailNameInput, setEditDetailNameInput] = useState("");
+  const [editDetailMemo, setEditDetailMemo] = useState("");
+  const [editDetailDuration, setEditDetailDuration] = useState<number | undefined>(undefined);
 
   // 날짜 표시 포맷: M월 d일 (요일 한 글자)
   const formatDateDisplay = (date: Date) => {
@@ -535,8 +556,74 @@ export default function Exercise() {
 
   // 상세 팝업 열기
   const openDetailSheet = (exercise: GymExercise) => {
+    const { exerciseNames } = parseExerciseName(exercise.name);
     setDetailExercise(exercise);
     setShowDetailSheet(true);
+    setIsDetailEditMode(false);
+    // 편집용 상태 초기화
+    setEditDetailExerciseNames(exerciseNames);
+    setEditDetailNameInput("");
+    setEditDetailMemo((exercise as any).memo || "");
+    setEditDetailDuration((exercise as any).duration);
+  };
+
+  // 상세 팝업에서 편집모드 전환
+  const toggleDetailEditMode = () => {
+    if (!detailExercise) return;
+    const { exerciseNames } = parseExerciseName(detailExercise.name);
+    setEditDetailExerciseNames(exerciseNames);
+    setEditDetailNameInput("");
+    setEditDetailMemo((detailExercise as any).memo || "");
+    setEditDetailDuration((detailExercise as any).duration);
+    setIsDetailEditMode(true);
+  };
+
+  // 상세 팝업에서 편집 저장
+  const saveDetailEdit = async () => {
+    if (!detailExercise || !todayGymRecord) return;
+
+    const { sportLabel } = parseExerciseName(detailExercise.name);
+    const exerciseNamesStr = editDetailExerciseNames.length > 0 
+      ? editDetailExerciseNames.join(", ")
+      : "";
+    
+    const displayName = exerciseNamesStr
+      ? `[${sportLabel}] ${exerciseNamesStr}`
+      : `[${sportLabel}]`;
+
+    const updatedExercise: GymExercise = {
+      ...detailExercise,
+      name: displayName,
+      // memo와 duration 저장 (GymExercise에 없으면 확장)
+    };
+
+    try {
+      const newExercises = todayGymRecord.exercises.map((ex) =>
+        ex.id === detailExercise.id ? updatedExercise : ex
+      );
+      await update(todayGymRecord.id, newExercises);
+      toast({ title: "수정 완료!" });
+      
+      // 상태 업데이트
+      setDetailExercise(updatedExercise);
+      setIsDetailEditMode(false);
+    } catch (error) {
+      console.error('Save error:', error);
+      toast({ title: "저장 실패", variant: "destructive" });
+    }
+  };
+
+  // 상세 편집에서 운동명 추가
+  const addDetailExerciseName = () => {
+    const trimmed = editDetailNameInput.trim();
+    if (!trimmed) return;
+    setEditDetailExerciseNames(prev => [...prev, trimmed]);
+    setEditDetailNameInput("");
+  };
+
+  // 상세 편집에서 운동명 삭제
+  const removeDetailExerciseName = (index: number) => {
+    setEditDetailExerciseNames(prev => prev.filter((_, i) => i !== index));
   };
 
   // 날짜 이동
@@ -570,23 +657,20 @@ export default function Exercise() {
     setExerciseNameInput("");
   };
 
-  // 종목 변경 시 처리
+  // 종목 변경 시 처리 (헬스도 duration 가능)
   const handleSportTypeChange = (value: string) => {
     if (!currentExercise) return;
+    setCurrentExercise({
+      ...currentExercise,
+      sportType: value,
+    });
+  };
 
-    if (value === "health") {
-      setCurrentExercise({
-        ...currentExercise,
-        sportType: value,
-        duration: undefined,
-      });
-    } else {
-      setCurrentExercise({
-        ...currentExercise,
-        sportType: value,
-        duration: currentExercise.duration || 30,
-      });
-    }
+  // 현재 종목의 placeholder 가져오기
+  const getCurrentPlaceholder = () => {
+    if (!currentExercise) return "예: 운동 내용";
+    const sport = SPORT_TYPES.find(s => s.value === currentExercise.sportType);
+    return sport?.placeholder || "예: 운동 내용";
   };
 
   return (
@@ -806,7 +890,7 @@ export default function Exercise() {
             {/* 운동명 입력 + 누적 리스트 */}
             <div>
               <label className="text-sm font-medium text-muted-foreground">
-                {currentExercise.sportType === "health" ? "운동명 (선택)" : "세부 내용 (선택)"}
+                운동명 (선택)
               </label>
               <div className="flex gap-2 mt-1">
                 <Input
@@ -819,7 +903,7 @@ export default function Exercise() {
                       addExerciseName();
                     }
                   }}
-                  placeholder={currentExercise.sportType === "health" ? "예: 벤치프레스" : "예: 자유형 500m"}
+                  placeholder={getCurrentPlaceholder()}
                   className="flex-1"
                 />
                 <Button
@@ -855,37 +939,44 @@ export default function Exercise() {
               )}
             </div>
 
-            {/* 비헬스: 총 운동시간 */}
-            {currentExercise.sportType !== "health" && (
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">총 운동시간 (분)</label>
-                <div className="flex items-center gap-3 mt-1">
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => setCurrentExercise({
-                      ...currentExercise,
-                      duration: Math.max(0, (currentExercise.duration || 30) - 10)
-                    })}
-                  >
-                    <Minus className="w-4 h-4" />
-                  </Button>
-                  <span className="w-20 text-center text-xl font-bold">
-                    {currentExercise.duration || 30}분
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => setCurrentExercise({
-                      ...currentExercise,
-                      duration: (currentExercise.duration || 30) + 10
-                    })}
-                  >
-                    <Plus className="w-4 h-4" />
-                  </Button>
-                </div>
+            {/* 총 운동시간 (모든 종목에 적용, 선택값) */}
+            <div>
+              <label className="text-sm font-medium text-muted-foreground">총 운동시간 (분) - 선택</label>
+              <div className="flex items-center gap-3 mt-1">
+                {/* 직접 입력 */}
+                <Input
+                  type="number"
+                  min={0}
+                  value={currentExercise.duration ?? ""}
+                  onChange={(e) => setCurrentExercise({
+                    ...currentExercise,
+                    duration: e.target.value ? parseInt(e.target.value) : undefined
+                  })}
+                  placeholder="직접 입력"
+                  className="w-24"
+                />
+                <span className="text-muted-foreground">또는</span>
+                {/* 선택 (5분 단위) */}
+                <Select
+                  value={currentExercise.duration?.toString() || ""}
+                  onValueChange={(val) => setCurrentExercise({
+                    ...currentExercise,
+                    duration: val ? parseInt(val) : undefined
+                  })}
+                >
+                  <SelectTrigger className="w-28">
+                    <SelectValue placeholder="선택" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {DURATION_OPTIONS.map((min) => (
+                      <SelectItem key={min} value={min.toString()}>
+                        {min}분
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-            )}
+            </div>
 
             {/* 메모 */}
             <div>
@@ -998,92 +1089,224 @@ export default function Exercise() {
       </div>
 
       {/* 상세 팝업 (Sheet) */}
-      <Sheet open={showDetailSheet} onOpenChange={setShowDetailSheet}>
+      <Sheet open={showDetailSheet} onOpenChange={(open) => {
+        setShowDetailSheet(open);
+        if (!open) setIsDetailEditMode(false);
+      }}>
         <SheetContent side="bottom" className="h-auto max-h-[80vh] rounded-t-3xl">
           {detailExercise && (() => {
             const { sportLabel, exerciseNames } = parseExerciseName(detailExercise.name);
             return (
               <>
                 <SheetHeader className="flex flex-row items-center justify-between pr-8">
-                  <SheetTitle>[{sportLabel}] 상세</SheetTitle>
-                  <div className="flex gap-2">
+                  <SheetTitle>[{sportLabel}] {isDetailEditMode ? "수정" : "상세"}</SheetTitle>
+                  {!isDetailEditMode && (
                     <Button 
                       variant="outline" 
                       size="sm"
-                      onClick={() => startEditExercise(detailExercise)}
+                      onClick={toggleDetailEditMode}
                     >
                       <Pencil className="w-4 h-4 mr-1" />
                       수정
                     </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="sm"
-                      onClick={() => setShowDetailSheet(false)}
-                    >
-                      나가기
-                    </Button>
-                  </div>
+                  )}
                 </SheetHeader>
                 
                 <div className="mt-4 space-y-4">
-                  {/* 종목 */}
-                  <div>
-                    <p className="text-sm text-muted-foreground mb-1">종목</p>
-                    <p className="font-medium">{sportLabel}</p>
-                  </div>
-                  
-                  {/* 운동명 목록 */}
-                  {exerciseNames.length > 0 && (
-                    <div>
-                      <p className="text-sm text-muted-foreground mb-1">운동명</p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {exerciseNames.map((name, i) => (
-                          <Badge key={i} variant="secondary">
-                            {name}
-                          </Badge>
-                        ))}
+                  {isDetailEditMode ? (
+                    /* 편집 모드 */
+                    <>
+                      {/* 종목 (읽기 전용) */}
+                      <div>
+                        <p className="text-sm text-muted-foreground mb-1">종목</p>
+                        <p className="font-medium">{sportLabel}</p>
                       </div>
-                    </div>
-                  )}
-                  
-                  {/* 세트 정보 (있는 경우) */}
-                  {detailExercise.sets && detailExercise.sets.length > 0 && (
-                    <div>
-                      <p className="text-sm text-muted-foreground mb-1">세트</p>
-                      <div className="flex flex-wrap gap-2">
-                        {detailExercise.sets.map((set, i) => (
-                          <span
-                            key={i}
-                            className="text-sm bg-muted px-3 py-1 rounded-full"
+                      
+                      {/* 운동명 편집 */}
+                      <div>
+                        <label className="text-sm font-medium text-muted-foreground">운동명</label>
+                        <div className="flex gap-2 mt-1">
+                          <Input
+                            value={editDetailNameInput}
+                            onChange={(e) => setEditDetailNameInput(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                addDetailExerciseName();
+                              }
+                            }}
+                            placeholder="운동명 입력 후 + 클릭"
+                            className="flex-1"
+                          />
+                          <Button
+                            variant="secondary"
+                            size="icon"
+                            className="shrink-0 h-10 w-10"
+                            onClick={addDetailExerciseName}
                           >
-                            {i + 1}세트: {set.weight}kg × {set.reps}회
-                          </span>
-                        ))}
+                            <Plus className="w-5 h-5" />
+                          </Button>
+                        </div>
+                        {editDetailExerciseNames.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5 mt-2">
+                            {editDetailExerciseNames.map((name, i) => (
+                              <Badge 
+                                key={i} 
+                                variant="secondary" 
+                                className="text-sm gap-1 pr-1"
+                              >
+                                {name}
+                                <button
+                                  onClick={() => removeDetailExerciseName(i)}
+                                  className="ml-1 hover:bg-muted rounded-full p-0.5"
+                                >
+                                  <X className="w-3 h-3" />
+                                </button>
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
                       </div>
-                    </div>
+                      
+                      {/* 총 운동시간 편집 */}
+                      <div>
+                        <label className="text-sm font-medium text-muted-foreground">총 운동시간 (분) - 선택</label>
+                        <div className="flex items-center gap-3 mt-1">
+                          <Input
+                            type="number"
+                            min={0}
+                            value={editDetailDuration ?? ""}
+                            onChange={(e) => setEditDetailDuration(e.target.value ? parseInt(e.target.value) : undefined)}
+                            placeholder="직접 입력"
+                            className="w-24"
+                          />
+                          <span className="text-muted-foreground">또는</span>
+                          <Select
+                            value={editDetailDuration?.toString() || ""}
+                            onValueChange={(val) => setEditDetailDuration(val ? parseInt(val) : undefined)}
+                          >
+                            <SelectTrigger className="w-28">
+                              <SelectValue placeholder="선택" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {DURATION_OPTIONS.map((min) => (
+                                <SelectItem key={min} value={min.toString()}>
+                                  {min}분
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      
+                      {/* 메모 편집 */}
+                      <div>
+                        <label className="text-sm font-medium text-muted-foreground">메모</label>
+                        <Textarea
+                          value={editDetailMemo}
+                          onChange={(e) => setEditDetailMemo(e.target.value)}
+                          placeholder="메모를 입력하세요"
+                          className="mt-1"
+                          rows={2}
+                        />
+                      </div>
+                      
+                      {/* 저장/취소 버튼 */}
+                      <div className="flex gap-2">
+                        <Button 
+                          variant="outline" 
+                          className="flex-1"
+                          onClick={() => setIsDetailEditMode(false)}
+                        >
+                          취소
+                        </Button>
+                        <Button 
+                          className="flex-1"
+                          onClick={saveDetailEdit}
+                        >
+                          저장하기
+                        </Button>
+                      </div>
+                    </>
+                  ) : (
+                    /* 보기 모드 */
+                    <>
+                      {/* 종목 */}
+                      <div>
+                        <p className="text-sm text-muted-foreground mb-1">종목</p>
+                        <p className="font-medium">{sportLabel}</p>
+                      </div>
+                      
+                      {/* 운동명 목록 */}
+                      {exerciseNames.length > 0 && (
+                        <div>
+                          <p className="text-sm text-muted-foreground mb-1">운동명</p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {exerciseNames.map((name, i) => (
+                              <Badge key={i} variant="secondary">
+                                {name}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* 총 운동시간 */}
+                      {(detailExercise as any).duration && (
+                        <div>
+                          <p className="text-sm text-muted-foreground mb-1">총 운동시간</p>
+                          <p className="font-medium">{(detailExercise as any).duration}분</p>
+                        </div>
+                      )}
+                      
+                      {/* 메모 표시 */}
+                      {(detailExercise as any).memo && (
+                        <div>
+                          <p className="text-sm text-muted-foreground mb-1">메모</p>
+                          <p className="font-medium whitespace-pre-wrap">{(detailExercise as any).memo}</p>
+                        </div>
+                      )}
+                      
+                      {/* 세트 정보 (있는 경우) */}
+                      {detailExercise.sets && detailExercise.sets.length > 0 && (
+                        <div>
+                          <p className="text-sm text-muted-foreground mb-1">세트</p>
+                          <div className="flex flex-wrap gap-2">
+                            {detailExercise.sets.map((set, i) => (
+                              <span
+                                key={i}
+                                className="text-sm bg-muted px-3 py-1 rounded-full"
+                              >
+                                {i + 1}세트: {set.weight}kg × {set.reps}회
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* 이미지 */}
+                      {detailExercise.imageUrl && (
+                        <div>
+                          <p className="text-sm text-muted-foreground mb-1">사진</p>
+                          <img
+                            src={detailExercise.imageUrl}
+                            alt="운동 사진"
+                            className="w-full h-40 object-cover rounded-xl"
+                          />
+                        </div>
+                      )}
+                      
+                      {/* 삭제 버튼 */}
+                      <Button 
+                        variant="destructive" 
+                        className="w-full"
+                        onClick={() => deleteExercise(detailExercise.id)}
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        삭제하기
+                      </Button>
+                    </>
                   )}
-                  
-                  {/* 이미지 */}
-                  {detailExercise.imageUrl && (
-                    <div>
-                      <p className="text-sm text-muted-foreground mb-1">사진</p>
-                      <img
-                        src={detailExercise.imageUrl}
-                        alt="운동 사진"
-                        className="w-full h-40 object-cover rounded-xl"
-                      />
-                    </div>
-                  )}
-                  
-                  {/* 삭제 버튼 */}
-                  <Button 
-                    variant="destructive" 
-                    className="w-full"
-                    onClick={() => deleteExercise(detailExercise.id)}
-                  >
-                    <Trash2 className="w-4 h-4 mr-2" />
-                    삭제하기
-                  </Button>
                 </div>
               </>
             );
