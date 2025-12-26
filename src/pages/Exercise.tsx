@@ -352,6 +352,11 @@ export default function Exercise() {
   const [editPhotoTitle, setEditPhotoTitle] = useState("");
   const [editPhotoImages, setEditPhotoImages] = useState<string[]>([]);
   const photoEditFileInputRef = useRef<HTMLInputElement>(null);
+  
+  // 라이트박스 상태
+  const [lightboxImage, setLightboxImage] = useState<string | null>(null);
+  const [lightboxImages, setLightboxImages] = useState<string[]>([]);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
 
   // 날짜 표시 포맷: M월 d일 (요일 한 글자)
   const formatDateDisplay = (date: Date) => {
@@ -1556,7 +1561,11 @@ export default function Exercise() {
                                   src={img}
                                   alt={`사진 ${idx + 1}`}
                                   className="w-full h-full object-cover rounded-lg cursor-pointer hover:opacity-80 transition-opacity"
-                                  onClick={() => window.open(img, '_blank')}
+                                  onClick={() => {
+                                    setLightboxImages(detailExercise.images || []);
+                                    setLightboxIndex(idx);
+                                    setLightboxImage(img);
+                                  }}
                                 />
                               </div>
                             ))}
@@ -1818,6 +1827,80 @@ export default function Exercise() {
           })()}
         </SheetContent>
       </Sheet>
+
+      {/* 라이트박스 */}
+      {lightboxImage && (
+        <div 
+          className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center"
+          onClick={() => setLightboxImage(null)}
+        >
+          {/* 닫기 버튼 */}
+          <button 
+            className="absolute top-4 right-4 w-10 h-10 flex items-center justify-center text-white/80 hover:text-white"
+            onClick={() => setLightboxImage(null)}
+          >
+            <X className="w-6 h-6" />
+          </button>
+          
+          {/* 이전 버튼 */}
+          {lightboxImages.length > 1 && (
+            <button 
+              className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center text-white/80 hover:text-white bg-black/30 rounded-full"
+              onClick={(e) => {
+                e.stopPropagation();
+                const newIndex = lightboxIndex > 0 ? lightboxIndex - 1 : lightboxImages.length - 1;
+                setLightboxIndex(newIndex);
+                setLightboxImage(lightboxImages[newIndex]);
+              }}
+            >
+              <ChevronLeft className="w-6 h-6" />
+            </button>
+          )}
+          
+          {/* 이미지 */}
+          <img
+            src={lightboxImage}
+            alt="확대 보기"
+            className="max-w-[90vw] max-h-[90vh] object-contain"
+            onClick={(e) => e.stopPropagation()}
+          />
+          
+          {/* 다음 버튼 */}
+          {lightboxImages.length > 1 && (
+            <button 
+              className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center text-white/80 hover:text-white bg-black/30 rounded-full"
+              onClick={(e) => {
+                e.stopPropagation();
+                const newIndex = lightboxIndex < lightboxImages.length - 1 ? lightboxIndex + 1 : 0;
+                setLightboxIndex(newIndex);
+                setLightboxImage(lightboxImages[newIndex]);
+              }}
+            >
+              <ChevronRight className="w-6 h-6" />
+            </button>
+          )}
+          
+          {/* 인디케이터 */}
+          {lightboxImages.length > 1 && (
+            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-1.5">
+              {lightboxImages.map((_, idx) => (
+                <button
+                  key={idx}
+                  className={cn(
+                    "w-2 h-2 rounded-full transition-colors",
+                    idx === lightboxIndex ? "bg-white" : "bg-white/40"
+                  )}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setLightboxIndex(idx);
+                    setLightboxImage(lightboxImages[idx]);
+                  }}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
