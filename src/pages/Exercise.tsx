@@ -46,7 +46,7 @@ import { useGymMonthHeaders, useGymDayRecord, GymExercise, GymSet } from "@/hook
 import { usePendingQueueOptimized } from "@/hooks/usePendingQueueOptimized";
 import { useAuth } from "@/contexts/AuthContext";
 import { PageHeader } from "@/components/layout/PageHeader";
-import { ExerciseTagList } from "@/components/exercise/ExerciseTag";
+import { ExerciseTagList, ExerciseTag } from "@/components/exercise/ExerciseTag";
 import { GymPhotoUpload } from "@/components/exercise/GymPhotoUpload";
 
 // 운동 종목 목록 + placeholder + 색상
@@ -164,7 +164,7 @@ const getExerciseSummary = (names: string[]): { line1: string; overflow: number 
   return { line1: displayNames, overflow: names.length - 3 };
 };
 
-// 운동 기록 카드 (리스트용) - 고정 높이 96px
+// 운동 기록 카드 (리스트용) - 고정 높이 96px, 컬러 태그
 const ExerciseCard = memo(function ExerciseCard({
   exercise,
   onClick,
@@ -174,7 +174,10 @@ const ExerciseCard = memo(function ExerciseCard({
 }) {
   const { sportLabel, exerciseNames } = parseExerciseName(exercise.name);
   const shortenedLabel = getShortenedSportLabel(sportLabel);
-  const { line1, overflow } = getExerciseSummary(exerciseNames);
+  
+  // 표시할 태그 결정: 최대 2개까지 + 나머지는 "외 n"
+  const displayTags = exerciseNames.slice(0, 2);
+  const overflowCount = exerciseNames.length - 2;
   
   return (
     <div 
@@ -189,13 +192,13 @@ const ExerciseCard = memo(function ExerciseCard({
         </span>
       </div>
       
-      {/* 하단: 운동명 요약 (1줄 고정) */}
-      <div className="flex flex-col gap-0.5 min-h-[2.5rem]">
-        {line1 && (
-          <p className="text-sm text-muted-foreground truncate leading-tight">{line1}</p>
-        )}
-        {overflow > 0 && (
-          <p className="text-xs text-muted-foreground/70 leading-tight">외 {overflow}</p>
+      {/* 하단: 운동명 컬러 태그 (최대 2개 + 외 n) */}
+      <div className="flex flex-wrap items-center gap-1 min-h-[2rem] overflow-hidden">
+        {displayTags.map((name, i) => (
+          <ExerciseTag key={i} name={name} index={i} size="sm" />
+        ))}
+        {overflowCount > 0 && (
+          <span className="text-xs text-muted-foreground px-1.5">외 {overflowCount}</span>
         )}
       </div>
     </div>
