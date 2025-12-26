@@ -71,8 +71,6 @@ const SPORT_TYPES = [
   { value: "other", label: "기타", placeholder: "예: 운동 내용" },
 ];
 
-// 총 운동시간 선택 옵션 (5분 단위)
-const DURATION_OPTIONS = [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 70, 80, 90, 100, 110, 120];
 
 // Mock 머신명 후보 (헬스용)
 const MACHINE_SUGGESTIONS = [
@@ -344,6 +342,8 @@ export default function Exercise() {
       name: displayName,
       sets: currentExercise.sets || [],
       imageUrl: currentExercise.imageUrl,
+      duration: currentExercise.duration,
+      memo: currentExercise.memo,
     };
 
     try {
@@ -594,7 +594,8 @@ export default function Exercise() {
     const updatedExercise: GymExercise = {
       ...detailExercise,
       name: displayName,
-      // memo와 duration 저장 (GymExercise에 없으면 확장)
+      duration: editDetailDuration,
+      memo: editDetailMemo,
     };
 
     try {
@@ -939,11 +940,21 @@ export default function Exercise() {
               )}
             </div>
 
-            {/* 총 운동시간 (모든 종목에 적용, 선택값) */}
+            {/* 총 운동시간 (플러스/마이너스 + 직접입력) */}
             <div>
               <label className="text-sm font-medium text-muted-foreground">총 운동시간 (분) - 선택</label>
               <div className="flex items-center gap-3 mt-1">
-                {/* 직접 입력 */}
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setCurrentExercise({
+                    ...currentExercise,
+                    duration: Math.max(0, (currentExercise.duration || 0) - 5)
+                  })}
+                  disabled={!currentExercise.duration || currentExercise.duration <= 0}
+                >
+                  <Minus className="w-4 h-4" />
+                </Button>
                 <Input
                   type="number"
                   min={0}
@@ -952,29 +963,20 @@ export default function Exercise() {
                     ...currentExercise,
                     duration: e.target.value ? parseInt(e.target.value) : undefined
                   })}
-                  placeholder="직접 입력"
-                  className="w-24"
+                  placeholder="0"
+                  className="w-20 text-center text-lg font-bold"
                 />
-                <span className="text-muted-foreground">또는</span>
-                {/* 선택 (5분 단위) */}
-                <Select
-                  value={currentExercise.duration?.toString() || ""}
-                  onValueChange={(val) => setCurrentExercise({
+                <span className="text-muted-foreground font-medium">분</span>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setCurrentExercise({
                     ...currentExercise,
-                    duration: val ? parseInt(val) : undefined
+                    duration: (currentExercise.duration || 0) + 5
                   })}
                 >
-                  <SelectTrigger className="w-28">
-                    <SelectValue placeholder="선택" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {DURATION_OPTIONS.map((min) => (
-                      <SelectItem key={min} value={min.toString()}>
-                        {min}분
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  <Plus className="w-4 h-4" />
+                </Button>
               </div>
             </div>
 
@@ -1168,34 +1170,34 @@ export default function Exercise() {
                         )}
                       </div>
                       
-                      {/* 총 운동시간 편집 */}
+                      {/* 총 운동시간 편집 (플러스/마이너스 + 직접입력) */}
                       <div>
                         <label className="text-sm font-medium text-muted-foreground">총 운동시간 (분) - 선택</label>
                         <div className="flex items-center gap-3 mt-1">
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => setEditDetailDuration(Math.max(0, (editDetailDuration || 0) - 5))}
+                            disabled={!editDetailDuration || editDetailDuration <= 0}
+                          >
+                            <Minus className="w-4 h-4" />
+                          </Button>
                           <Input
                             type="number"
                             min={0}
                             value={editDetailDuration ?? ""}
                             onChange={(e) => setEditDetailDuration(e.target.value ? parseInt(e.target.value) : undefined)}
-                            placeholder="직접 입력"
-                            className="w-24"
+                            placeholder="0"
+                            className="w-20 text-center text-lg font-bold"
                           />
-                          <span className="text-muted-foreground">또는</span>
-                          <Select
-                            value={editDetailDuration?.toString() || ""}
-                            onValueChange={(val) => setEditDetailDuration(val ? parseInt(val) : undefined)}
+                          <span className="text-muted-foreground font-medium">분</span>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => setEditDetailDuration((editDetailDuration || 0) + 5)}
                           >
-                            <SelectTrigger className="w-28">
-                              <SelectValue placeholder="선택" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {DURATION_OPTIONS.map((min) => (
-                                <SelectItem key={min} value={min.toString()}>
-                                  {min}분
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                            <Plus className="w-4 h-4" />
+                          </Button>
                         </div>
                       </div>
                       

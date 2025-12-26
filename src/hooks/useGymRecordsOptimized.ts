@@ -29,6 +29,8 @@ export interface GymExercise {
   name: string;
   sets: GymSet[];
   imageUrl?: string;
+  duration?: number;  // 총 운동시간 (분)
+  memo?: string;      // 메모
 }
 
 export interface GymRecordServer {
