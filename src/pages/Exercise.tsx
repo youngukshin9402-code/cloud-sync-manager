@@ -67,7 +67,8 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { ExerciseTagList, ExerciseTag, OverflowTag } from "@/components/exercise/ExerciseTag";
 import { CardTagList } from "@/components/exercise/CardTagList";
 import { GymPhotoUpload } from "@/components/exercise/GymPhotoUpload";
-import { uploadFromBase64 } from '@/lib/unifiedImageUpload';
+import { uploadFromBase64, getPublicUrl, getThumbnailPath } from '@/lib/unifiedImageUpload';
+import { prefetchImagesForDetail } from '@/components/ui/optimized-image';
 
 // 운동 종목 목록 + placeholder + 색상
 const SPORT_TYPES = [
@@ -211,6 +212,18 @@ const getExerciseSummary = (names: string[]): { line1: string; overflow: number 
   return { line1: displayNames, overflow: names.length - 3 };
 };
 
+// Helper to get image URLs from path
+const getImageUrls = (path: string): { original: string; thumbnail: string } => {
+  if (!path) return { original: '', thumbnail: '' };
+  if (path.startsWith('http') || path.startsWith('data:')) {
+    return { original: path, thumbnail: path };
+  }
+  const original = getPublicUrl('gym-photos', path);
+  const thumbnailPath = getThumbnailPath(path);
+  const thumbnail = getPublicUrl('gym-photos', thumbnailPath);
+  return { original, thumbnail };
+};
+
 // 운동 기록 카드 (리스트용) - 고정 높이, 컬러 태그
 // 규칙: 태그 2줄 고정, 태그 단위 줄바꿈, 초과시 외 n개 표시 (측정 기반)
 const ExerciseCard = memo(function ExerciseCard({
@@ -223,6 +236,13 @@ const ExerciseCard = memo(function ExerciseCard({
   // 사진기록인 경우 별도 처리
   const isPhoto = isPhotoRecord(exercise);
   
+  // Prefetch images on hover/touch for faster detail loading
+  const handlePrefetch = () => {
+    if (exercise.images && exercise.images.length > 0) {
+      prefetchImagesForDetail(exercise.images, getImageUrls);
+    }
+  };
+  
   if (isPhoto) {
     const photoCount = exercise.images?.length || 0;
     // 사진기록 제목 추출 (있으면 표시)
@@ -231,6 +251,8 @@ const ExerciseCard = memo(function ExerciseCard({
       <div
         className="bg-card rounded-2xl border border-border p-3 cursor-pointer hover:bg-muted/50 transition-colors h-24 flex flex-col justify-between relative"
         onClick={onClick}
+        onMouseEnter={handlePrefetch}
+        onTouchStart={handlePrefetch}
       >
         {/* 상단: 카메라 아이콘 + 사진기록 (또는 제목) */}
         <div className="flex items-center justify-between gap-2">

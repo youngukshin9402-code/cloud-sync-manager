@@ -2,6 +2,10 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 
+// Global image cache for cross-component access
+const imageCache = new Map<string, boolean>();
+const pendingPreloads = new Map<string, Promise<void>>();
+
 interface OptimizedImageProps {
   src: string | null | undefined;
   thumbnailSrc?: string | null;
@@ -19,10 +23,11 @@ interface OptimizedImageProps {
  * OptimizedImage - Progressive loading image component
  * 
  * Features:
- * - Skeleton placeholder while loading
+ * - Thumbnail loads FIRST and IMMEDIATELY (no lazy loading for thumbnails)
+ * - Skeleton only shows if thumbnail isn't available
  * - Progressive loading (thumbnail → original)
- * - Intersection Observer for lazy loading
- * - Error handling with fallback
+ * - Intersection Observer for lazy loading originals
+ * - Global image cache for cross-device consistency
  * - Fade-in animation on load
  */
 export function OptimizedImage({
@@ -37,13 +42,13 @@ export function OptimizedImage({
   showSkeleton = true,
   fallback,
 }: OptimizedImageProps) {
-  const [isLoaded, setIsLoaded] = useState(false);
-  const [isThumbLoaded, setIsThumbLoaded] = useState(false);
+  const [isLoaded, setIsLoaded] = useState(() => src ? imageCache.has(src) : false);
+  const [isThumbLoaded, setIsThumbLoaded] = useState(() => thumbnailSrc ? imageCache.has(thumbnailSrc) : false);
   const [hasError, setHasError] = useState(false);
   const [isInView, setIsInView] = useState(priority);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Intersection Observer for lazy loading
+  // Intersection Observer for lazy loading ORIGINALS only (thumbnails load immediately)
   useEffect(() => {
     if (priority || isInView) return;
 
@@ -54,7 +59,7 @@ export function OptimizedImage({
           observer.disconnect();
         }
       },
-      { rootMargin: '100px', threshold: 0.1 }
+      { rootMargin: '200px', threshold: 0.01 } // Increased margin for earlier loading
     );
 
     if (containerRef.current) {
@@ -67,11 +72,13 @@ export function OptimizedImage({
   const handleLoad = useCallback(() => {
     setIsLoaded(true);
     setHasError(false);
-  }, []);
+    if (src) imageCache.set(src, true);
+  }, [src]);
 
   const handleThumbLoad = useCallback(() => {
     setIsThumbLoaded(true);
-  }, []);
+    if (thumbnailSrc) imageCache.set(thumbnailSrc, true);
+  }, [thumbnailSrc]);
 
   const handleError = useCallback(() => {
     setHasError(true);
@@ -80,10 +87,12 @@ export function OptimizedImage({
 
   // Reset state when src changes
   useEffect(() => {
-    setIsLoaded(false);
-    setIsThumbLoaded(false);
+    const isSrcCached = src ? imageCache.has(src) : false;
+    const isThumbCached = thumbnailSrc ? imageCache.has(thumbnailSrc) : false;
+    setIsLoaded(isSrcCached);
+    setIsThumbLoaded(isThumbCached);
     setHasError(false);
-  }, [src]);
+  }, [src, thumbnailSrc]);
 
   const aspectRatioClass = {
     square: 'aspect-square',
@@ -91,6 +100,7 @@ export function OptimizedImage({
     auto: '',
   }[aspectRatio];
 
+  // Show skeleton ONLY if neither thumbnail nor original is loaded/cached
   const shouldShowSkeleton = showSkeleton && !isLoaded && !isThumbLoaded && !hasError;
   const shouldShowThumbnail = thumbnailSrc && isThumbLoaded && !isLoaded;
   const shouldShowOriginal = isInView && src && !hasError;
@@ -109,27 +119,29 @@ export function OptimizedImage({
       )}
       onClick={onClick}
     >
-      {/* Skeleton placeholder */}
+      {/* Skeleton placeholder - only when no thumbnail */}
       {shouldShowSkeleton && (
         <Skeleton className="absolute inset-0 w-full h-full" />
       )}
 
-      {/* Thumbnail (blurred background) */}
-      {thumbnailSrc && isInView && (
+      {/* Thumbnail - ALWAYS try to load immediately (no lazy loading) */}
+      {thumbnailSrc && (
         <img
           src={thumbnailSrc}
           alt=""
           aria-hidden="true"
           onLoad={handleThumbLoad}
+          loading="eager" // Force eager loading for thumbnails
+          decoding="async"
           className={cn(
-            'absolute inset-0 w-full h-full object-cover transition-opacity duration-300',
-            isThumbLoaded && !isLoaded ? 'opacity-100 blur-sm scale-105' : 'opacity-0',
+            'absolute inset-0 w-full h-full object-cover transition-opacity duration-200',
+            isThumbLoaded && !isLoaded ? 'opacity-100' : 'opacity-0',
             className
           )}
         />
       )}
 
-      {/* Original image */}
+      {/* Original image - lazy load */}
       {shouldShowOriginal && (
         <img
           src={src}
@@ -139,7 +151,7 @@ export function OptimizedImage({
           loading={priority ? 'eager' : 'lazy'}
           decoding="async"
           className={cn(
-            'absolute inset-0 w-full h-full object-cover transition-opacity duration-300',
+            'absolute inset-0 w-full h-full object-cover transition-opacity duration-200',
             isLoaded ? 'opacity-100' : 'opacity-0',
             className
           )}
@@ -222,18 +234,42 @@ export function ImageGrid({
 }
 
 /**
- * Hook for preloading images
+ * Preload a single image and cache it
+ */
+function preloadImage(url: string): Promise<void> {
+  if (!url || url.startsWith('data:') || imageCache.has(url)) {
+    return Promise.resolve();
+  }
+
+  // Check if already preloading
+  const existing = pendingPreloads.get(url);
+  if (existing) return existing;
+
+  const promise = new Promise<void>((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      imageCache.set(url, true);
+      pendingPreloads.delete(url);
+      resolve();
+    };
+    img.onerror = () => {
+      pendingPreloads.delete(url);
+      resolve();
+    };
+    img.src = url;
+  });
+
+  pendingPreloads.set(url, promise);
+  return promise;
+}
+
+/**
+ * Hook for preloading images with caching
  */
 export function useImagePreloader() {
-  const preloadedUrls = useRef(new Set<string>());
-
   const preload = useCallback((urls: string[]) => {
     urls.forEach((url) => {
-      if (url && !url.startsWith('data:') && !preloadedUrls.current.has(url)) {
-        preloadedUrls.current.add(url);
-        const img = new Image();
-        img.src = url;
-      }
+      if (url) preloadImage(url);
     });
   }, []);
 
@@ -246,5 +282,37 @@ export function useImagePreloader() {
     preload(indices.map((i) => allUrls[i]));
   }, [preload]);
 
-  return { preload, preloadAdjacent };
+  // Preload thumbnails immediately for a list of images
+  const preloadThumbnails = useCallback((thumbnailUrls: string[]) => {
+    // Preload thumbnails with high priority
+    thumbnailUrls.forEach((url) => {
+      if (url) preloadImage(url);
+    });
+  }, []);
+
+  return { preload, preloadAdjacent, preloadThumbnails };
+}
+
+/**
+ * Check if an image is already cached
+ */
+export function isImageCached(url: string): boolean {
+  return imageCache.has(url);
+}
+
+/**
+ * Preload images before entering detail view
+ * Call this when user hovers or is about to click on a card
+ */
+export function prefetchImagesForDetail(
+  imagePaths: string[],
+  getUrls: (path: string) => { original: string; thumbnail: string }
+): void {
+  imagePaths.forEach((path) => {
+    const { original, thumbnail } = getUrls(path);
+    // Preload thumbnail first (higher priority)
+    if (thumbnail) preloadImage(thumbnail);
+    // Then preload original
+    if (original) preloadImage(original);
+  });
 }
