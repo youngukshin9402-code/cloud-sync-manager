@@ -47,6 +47,7 @@ import { usePendingQueueOptimized } from "@/hooks/usePendingQueueOptimized";
 import { useAuth } from "@/contexts/AuthContext";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { ExerciseTagList, ExerciseTag, OverflowTag } from "@/components/exercise/ExerciseTag";
+import { CardTagList } from "@/components/exercise/CardTagList";
 import { GymPhotoUpload } from "@/components/exercise/GymPhotoUpload";
 
 // 운동 종목 목록 + placeholder + 색상
@@ -165,7 +166,7 @@ const getExerciseSummary = (names: string[]): { line1: string; overflow: number 
 };
 
 // 운동 기록 카드 (리스트용) - 고정 높이, 컬러 태그
-// 규칙: 태그 2줄 고정, 태그 단위 줄바꿈, 초과시 외 n개 표시
+// 규칙: 태그 2줄 고정, 태그 단위 줄바꿈, 초과시 외 n개 표시 (측정 기반)
 const ExerciseCard = memo(function ExerciseCard({
   exercise,
   onClick,
@@ -176,20 +177,9 @@ const ExerciseCard = memo(function ExerciseCard({
   const { sportLabel, exerciseNames } = parseExerciseName(exercise.name);
   const shortenedLabel = getShortenedSportLabel(sportLabel);
 
-  // 카드 너비 기준 휴리스틱: 약 2줄에 5개 태그 정도 표시 가능
-  // 초과 시 마지막을 "외 n개"로 대체
-  const maxVisibleTags = 5;
-  const needsOverflow = exerciseNames.length > maxVisibleTags;
-  const displayTags = needsOverflow 
-    ? exerciseNames.slice(0, maxVisibleTags - 1) 
-    : exerciseNames;
-  const overflowCount = needsOverflow 
-    ? exerciseNames.length - (maxVisibleTags - 1) 
-    : 0;
-
   return (
     <div
-      className="bg-card rounded-2xl border border-border p-3 cursor-pointer hover:bg-muted/50 transition-colors h-24 flex flex-col justify-between"
+      className="bg-card rounded-2xl border border-border p-3 cursor-pointer hover:bg-muted/50 transition-colors h-24 flex flex-col justify-between relative"
       onClick={onClick}
     >
       {/* 상단: 종목 + 시간 */}
@@ -200,20 +190,8 @@ const ExerciseCard = memo(function ExerciseCard({
         </span>
       </div>
 
-      {/* 하단: 운동명 태그 영역 (2줄 고정, 태그 단위 줄바꿈) */}
-      <div className="flex flex-wrap items-start gap-1 overflow-hidden h-[2.75rem]">
-        {displayTags.map((name, i) => (
-          <ExerciseTag
-            key={`${name}-${i}`}
-            name={name}
-            index={i}
-            size="xs"
-          />
-        ))}
-        {overflowCount > 0 && (
-          <OverflowTag count={overflowCount} size="xs" />
-        )}
-      </div>
+      {/* 하단: 운동명 태그 영역 (2줄 고정, 측정 기반 오버플로우) */}
+      <CardTagList names={exerciseNames} />
     </div>
   );
 });
