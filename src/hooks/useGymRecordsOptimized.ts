@@ -57,12 +57,22 @@ function parseGymRecord(row: {
   };
 }
 
+// 기록 타입 상수
+export const RECORD_TYPE_PHOTO = 'photo_record'; // 빠른 추가 (사진기록)
+export const RECORD_TYPE_NORMAL = 'normal'; // 일반 운동 추가
+
+// 기록이 사진기록인지 판별
+export function isPhotoRecord(exercise: GymExercise): boolean {
+  return exercise.name === '[📷 사진기록]';
+}
+
 /**
  * Hook for month headers (lightweight calendar view)
+ * Returns record type info for calendar display
  */
 export function useGymMonthHeaders(month: string) {
   const { user } = useAuth();
-  const [headers, setHeaders] = useState<GymRecordHeader[]>([]);
+  const [headers, setHeaders] = useState<(GymRecordHeader & { hasPhotoRecord?: boolean; hasNormalRecord?: boolean })[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchHeaders = useCallback(async () => {
@@ -75,11 +85,11 @@ export function useGymMonthHeaders(month: string) {
     // 1. Show cached first (stale-while-revalidate)
     const cached = await getGymMonthHeaders(month);
     if (cached.length > 0) {
-      setHeaders(cached);
+      setHeaders(cached as any);
       setLoading(false);
     }
 
-    // 2. Fetch fresh from server (only id, date, created_at - no exercises!)
+    // 2. Fetch fresh from server (include exercises for type detection)
     const monthStart = new Date(`${month}-01T00:00:00`);
     const rangeStart = format(startOfMonth(monthStart), 'yyyy-MM-dd');
     const rangeEnd = format(endOfMonth(monthStart), 'yyyy-MM-dd');
@@ -87,7 +97,7 @@ export function useGymMonthHeaders(month: string) {
     try {
       const { data, error } = await supabase
         .from('gym_records')
-        .select('id,date,created_at')
+        .select('id,date,created_at,exercises')
         .eq('user_id', user.id)
         .gte('date', rangeStart)
         .lte('date', rangeEnd)
@@ -95,15 +105,23 @@ export function useGymMonthHeaders(month: string) {
 
       if (error) throw error;
 
-      const newHeaders: GymRecordHeader[] = (data || []).map(row => ({
-        id: row.id,
-        date: row.date,
-        exerciseCount: 0, // We don't have this info from header query
-        created_at: row.created_at || new Date().toISOString(),
-      }));
+      const newHeaders = (data || []).map(row => {
+        const exercises = (Array.isArray(row.exercises) ? row.exercises : []) as unknown as GymExercise[];
+        const hasPhotoRecord = exercises.some(ex => isPhotoRecord(ex));
+        const hasNormalRecord = exercises.some(ex => !isPhotoRecord(ex));
+        
+        return {
+          id: row.id,
+          date: row.date,
+          exerciseCount: exercises.length,
+          created_at: row.created_at || new Date().toISOString(),
+          hasPhotoRecord,
+          hasNormalRecord,
+        };
+      });
 
       setHeaders(newHeaders);
-      await setGymMonthHeaders(month, newHeaders);
+      await setGymMonthHeaders(month, newHeaders as any);
     } catch (err) {
       console.error('Failed to fetch gym headers:', err);
       // Keep cached data if fetch fails

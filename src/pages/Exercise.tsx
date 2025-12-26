@@ -55,10 +55,12 @@ import {
   Droplets,
   TreeDeciduous,
   MoreHorizontal,
+  Camera,
+  Image as ImageIcon,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useGymMonthHeaders, useGymDayRecord, GymExercise, GymSet } from "@/hooks/useGymRecordsOptimized";
+import { useGymMonthHeaders, useGymDayRecord, GymExercise, GymSet, isPhotoRecord } from "@/hooks/useGymRecordsOptimized";
 import { usePendingQueueOptimized } from "@/hooks/usePendingQueueOptimized";
 import { useAuth } from "@/contexts/AuthContext";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -217,6 +219,35 @@ const ExerciseCard = memo(function ExerciseCard({
   exercise: GymExercise;
   onClick: () => void;
 }) {
+  // 사진기록인 경우 별도 처리
+  const isPhoto = isPhotoRecord(exercise);
+  
+  if (isPhoto) {
+    const photoCount = exercise.images?.length || 0;
+    return (
+      <div
+        className="bg-card rounded-2xl border border-border p-3 cursor-pointer hover:bg-muted/50 transition-colors h-24 flex flex-col justify-between relative"
+        onClick={onClick}
+      >
+        {/* 상단: 카메라 아이콘 + 사진기록 */}
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <Camera className="w-4 h-4 shrink-0 text-violet-500" />
+            <span className="font-semibold text-base truncate">📷 사진기록</span>
+          </div>
+        </div>
+
+        {/* 하단: 사진 n장 태그 */}
+        <div className="flex flex-wrap gap-1.5">
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-violet-500/20 text-violet-700 dark:text-violet-300 border border-violet-500/30 rounded-full text-xs">
+            <ImageIcon className="w-3 h-3" />
+            사진 {photoCount}장
+          </span>
+        </div>
+      </div>
+    );
+  }
+
   const { sportType, sportLabel, exerciseNames } = parseExerciseName(exercise.name);
   const shortenedLabel = getShortenedSportLabel(sportLabel);
   const SportIcon = getSportIcon(sportType);
@@ -305,6 +336,12 @@ export default function Exercise() {
   const [editDetailMemo, setEditDetailMemo] = useState("");
   const [editDetailDuration, setEditDetailDuration] = useState<number | undefined>(undefined);
   const [editDetailImages, setEditDetailImages] = useState<string[]>([]);
+  
+  // 빠른 추가 상태
+  const [showQuickAdd, setShowQuickAdd] = useState(false);
+  const [quickAddImages, setQuickAddImages] = useState<string[]>([]);
+  const [isQuickAddSaving, setIsQuickAddSaving] = useState(false);
+  const quickAddFileInputRef = useRef<HTMLInputElement>(null);
 
   // 날짜 표시 포맷: M월 d일 (요일 한 글자)
   const formatDateDisplay = (date: Date) => {
@@ -343,6 +380,17 @@ export default function Exercise() {
   useEffect(() => {
     setPendingExercises([]);
   }, [dateStr]);
+
+  // 날짜별 기록 타입 확인 (캘린더 이모티콘 표시용)
+  const getRecordTypeOnDate = (date: Date): { hasNormal: boolean; hasPhoto: boolean } => {
+    const d = format(date, "yyyy-MM-dd");
+    const header = headers.find((h) => h.date === d);
+    if (!header) return { hasNormal: false, hasPhoto: false };
+    return {
+      hasNormal: header.hasNormalRecord ?? false,
+      hasPhoto: header.hasPhotoRecord ?? false,
+    };
+  };
 
   // 날짜별 기록 여부 (from headers - lightweight)
   const hasRecordOnDate = (date: Date) => {
@@ -721,6 +769,106 @@ export default function Exercise() {
     return sport?.placeholder || "예: 운동 내용";
   };
 
+  // 빠른 추가 시작 (파일 선택 트리거)
+  const startQuickAdd = () => {
+    setQuickAddImages([]);
+    quickAddFileInputRef.current?.click();
+  };
+
+  // 빠른 추가 파일 선택 핸들러
+  const handleQuickAddFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    
+    // 이미지 파일들을 base64로 임시 저장 (미리보기용)
+    const imagePromises = Array.from(files).map(file => {
+      return new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.readAsDataURL(file);
+      });
+    });
+    
+    const base64Images = await Promise.all(imagePromises);
+    setQuickAddImages(base64Images);
+    setShowQuickAdd(true);
+    
+    // input 초기화 (같은 파일 재선택 가능하게)
+    e.target.value = '';
+  };
+
+  // 빠른 추가 저장
+  const saveQuickAdd = async () => {
+    if (!user || quickAddImages.length === 0) return;
+    
+    setIsQuickAddSaving(true);
+    
+    try {
+      // 사진기록 exercise 생성
+      const photoExercise: GymExercise = {
+        id: crypto.randomUUID(),
+        name: '[📷 사진기록]',
+        sets: [],
+        images: quickAddImages, // base64 이미지들 (나중에 storage에 업로드)
+      };
+
+      if (isOnline) {
+        if (todayGymRecord) {
+          const newExercises = [...todayGymRecord.exercises, photoExercise];
+          await update(todayGymRecord.id, newExercises);
+        } else {
+          await add([photoExercise]);
+        }
+        toast({ title: "📷 사진기록 저장 완료!" });
+        refetchHeaders();
+      } else {
+        const localId = await addToPending('gym_record', {
+          user_id: user.id,
+          date: dateStr,
+          exercises: todayGymRecord
+            ? [...todayGymRecord.exercises, photoExercise]
+            : [photoExercise],
+        });
+
+        addOffline(
+          todayGymRecord
+            ? [...todayGymRecord.exercises, photoExercise]
+            : [photoExercise],
+          localId
+        );
+
+        toast({
+          title: "로컬에 저장됨",
+          description: "온라인 복귀 시 자동으로 서버에 업로드됩니다."
+        });
+      }
+
+      setShowQuickAdd(false);
+      setQuickAddImages([]);
+    } catch (error) {
+      console.error('Quick add save error:', error);
+      toast({ title: "저장 실패", description: "다시 시도해주세요", variant: "destructive" });
+    } finally {
+      setIsQuickAddSaving(false);
+    }
+  };
+
+  // 빠른 추가 취소
+  const cancelQuickAdd = () => {
+    setShowQuickAdd(false);
+    setQuickAddImages([]);
+  };
+
+  // 빠른 추가 이미지 삭제
+  const removeQuickAddImage = (index: number) => {
+    setQuickAddImages(prev => prev.filter((_, i) => i !== index));
+  };
+
+  // 빠른 추가에 이미지 추가
+  const addMoreQuickAddImages = () => {
+    quickAddFileInputRef.current?.click();
+  };
+
   return (
     <div className="space-y-6 pb-8">
       {/* 헤더 - 항상 첫 번째, 공용 컴포넌트 사용 */}
@@ -813,7 +961,7 @@ export default function Exercise() {
           </Button>
         </div>
 
-        {/* 캘린더 모달 */}
+        {/* 캘린더 모달 - 이모티콘 표시 */}
         <Dialog open={showCalendar} onOpenChange={setShowCalendar}>
           <DialogContent className="max-w-sm">
             <DialogHeader>
@@ -829,8 +977,33 @@ export default function Exercise() {
                 }
               }}
               modifiers={{ hasRecord: (date) => hasRecordOnDate(date) }}
-              modifiersClassNames={{ hasRecord: "bg-primary/20 font-bold" }}
+              modifiersClassNames={{ hasRecord: "font-bold" }}
               className="rounded-md"
+              components={{
+                DayContent: ({ date }) => {
+                  const { hasNormal, hasPhoto } = getRecordTypeOnDate(date);
+                  const isSelected = selectedDate && isSameDay(date, selectedDate);
+                  const isTodayDate = isSameDay(date, new Date());
+                  
+                  return (
+                    <div className="flex flex-col items-center justify-center w-full h-full">
+                      <span className={cn(
+                        "text-sm",
+                        isTodayDate && "font-bold",
+                        isSelected && "text-primary-foreground"
+                      )}>
+                        {date.getDate()}
+                      </span>
+                      {(hasNormal || hasPhoto) && (
+                        <div className="flex gap-0.5 text-[8px] leading-none mt-0.5">
+                          {hasNormal && <span>🏋️</span>}
+                          {hasPhoto && <span>📷</span>}
+                        </div>
+                      )}
+                    </div>
+                  );
+                }
+              }}
             />
           </DialogContent>
         </Dialog>
@@ -870,11 +1043,112 @@ export default function Exercise() {
           </div>
         )}
 
-        {/* 운동 추가 버튼 */}
-        <Button className="w-full h-14" onClick={startNewExercise}>
-          <Plus className="w-5 h-5 mr-2" />
-          운동 추가
-        </Button>
+        {/* 운동 추가 버튼 + 빠른 추가 버튼 */}
+        <div className="flex gap-2">
+          <Button className="flex-1 h-14" onClick={startNewExercise}>
+            <Plus className="w-5 h-5 mr-2" />
+            운동 추가 🏋️
+          </Button>
+          <Button 
+            variant="outline" 
+            className="h-14 px-3 flex flex-col items-center justify-center text-xs leading-tight"
+            onClick={startQuickAdd}
+          >
+            <span>빠른</span>
+            <span>추가</span>
+          </Button>
+        </div>
+
+        {/* 빠른 추가용 숨김 파일 입력 */}
+        <input
+          ref={quickAddFileInputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          className="hidden"
+          onChange={handleQuickAddFileSelect}
+        />
+
+        {/* 빠른 추가 모달 */}
+        <Dialog open={showQuickAdd} onOpenChange={(open) => !open && cancelQuickAdd()}>
+          <DialogContent className="max-w-md p-0 flex flex-col max-h-[85vh] overflow-hidden">
+            {/* 헤더 */}
+            <DialogHeader className="px-6 pt-6 pb-4 border-b shrink-0">
+              <DialogTitle className="flex items-center gap-2">
+                <Camera className="w-5 h-5 text-violet-500" />
+                📷 빠른 추가
+              </DialogTitle>
+            </DialogHeader>
+
+            {/* 본문 - 사진 미리보기 */}
+            <div className="flex-1 overflow-y-auto px-6 py-4">
+              {quickAddImages.length > 0 ? (
+                <div className="space-y-4">
+                  <p className="text-sm text-muted-foreground">
+                    사진 {quickAddImages.length}장이 선택되었습니다
+                  </p>
+                  <div className="grid grid-cols-3 gap-2">
+                    {quickAddImages.map((img, idx) => (
+                      <div key={idx} className="relative aspect-square">
+                        <img
+                          src={img}
+                          alt={`사진 ${idx + 1}`}
+                          className="w-full h-full object-cover rounded-lg"
+                        />
+                        <button
+                          onClick={() => removeQuickAddImage(idx)}
+                          className="absolute -top-1.5 -right-1.5 w-6 h-6 bg-destructive text-destructive-foreground rounded-full flex items-center justify-center shadow-md"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ))}
+                    {/* 사진 추가 버튼 */}
+                    <button
+                      onClick={addMoreQuickAddImages}
+                      className="aspect-square border-2 border-dashed border-border rounded-lg flex flex-col items-center justify-center text-muted-foreground hover:bg-muted/50 transition-colors"
+                    >
+                      <Plus className="w-6 h-6" />
+                      <span className="text-xs mt-1">추가</span>
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="py-12 text-center text-muted-foreground">
+                  <Camera className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                  <p>사진을 선택해주세요</p>
+                </div>
+              )}
+            </div>
+
+            {/* 하단 액션바 */}
+            <div className="shrink-0 border-t bg-background px-6 py-4 pb-safe">
+              <div className="flex gap-2">
+                <Button 
+                  variant="outline" 
+                  className="flex-1"
+                  onClick={cancelQuickAdd}
+                >
+                  취소
+                </Button>
+                <Button 
+                  className="flex-1"
+                  onClick={saveQuickAdd}
+                  disabled={quickAddImages.length === 0 || isQuickAddSaving}
+                >
+                  {isQuickAddSaving ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      저장 중...
+                    </>
+                  ) : (
+                    "저장하기"
+                  )}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         {/* 운동 추가/수정 모달 - sticky 하단 액션바 */}
         <Dialog open={showAddExercise} onOpenChange={(open) => !open && cancelExercise()}>
@@ -1078,7 +1352,66 @@ export default function Exercise() {
           )}
         >
           {detailExercise && (() => {
+            const isPhoto = isPhotoRecord(detailExercise);
             const { sportLabel, exerciseNames } = parseExerciseName(detailExercise.name);
+            const photoCount = detailExercise.images?.length || 0;
+            
+            // 사진기록인 경우 별도 UI
+            if (isPhoto) {
+              return (
+                <>
+                  {/* 헤더 - 사진기록은 수정 버튼 없음 */}
+                  <SheetHeader className="flex flex-row items-center justify-between px-6 pt-6 pb-4 border-b shrink-0">
+                    <SheetTitle className="flex items-center gap-2">
+                      <Camera className="w-5 h-5 text-violet-500" />
+                      📷 사진기록
+                    </SheetTitle>
+                    <Button 
+                      variant="ghost" 
+                      size="icon"
+                      onClick={() => setShowDetailSheet(false)}
+                    >
+                      <X className="w-5 h-5" />
+                    </Button>
+                  </SheetHeader>
+                  
+                  {/* 스크롤 영역 - 사진 그리드 */}
+                  <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+                    <p className="text-sm text-muted-foreground">
+                      사진 {photoCount}장
+                    </p>
+                    {detailExercise.images && detailExercise.images.length > 0 && (
+                      <div className="grid grid-cols-3 gap-2">
+                        {detailExercise.images.map((img, idx) => (
+                          <div key={idx} className="aspect-square">
+                            <img
+                              src={img}
+                              alt={`사진 ${idx + 1}`}
+                              className="w-full h-full object-cover rounded-lg cursor-pointer hover:opacity-80 transition-opacity"
+                              onClick={() => window.open(img, '_blank')}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* 하단 액션바 - 삭제만 가능 */}
+                  <div className="shrink-0 border-t bg-background px-6 py-4 pb-safe">
+                    <Button 
+                      variant="destructive" 
+                      className="w-full"
+                      onClick={() => deleteExercise(detailExercise.id)}
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      삭제하기
+                    </Button>
+                  </div>
+                </>
+              );
+            }
+            
+            // 일반 운동 기록
             return (
               <>
                 {/* 헤더 - 상단 고정 */}
