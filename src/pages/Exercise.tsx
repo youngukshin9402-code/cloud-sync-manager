@@ -144,6 +144,25 @@ function parseExerciseName(name: string): { sportType: string; sportLabel: strin
   return { sportType, sportLabel, exerciseNames };
 }
 
+// 운동명별 색상 팔레트 (파스텔 톤)
+const EXERCISE_NAME_COLORS = [
+  "bg-sky-500/20 text-sky-700 dark:text-sky-300 border-sky-500/30",
+  "bg-violet-500/20 text-violet-700 dark:text-violet-300 border-violet-500/30",
+  "bg-amber-500/20 text-amber-700 dark:text-amber-300 border-amber-500/30",
+  "bg-rose-500/20 text-rose-700 dark:text-rose-300 border-rose-500/30",
+  "bg-teal-500/20 text-teal-700 dark:text-teal-300 border-teal-500/30",
+  "bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 border-indigo-500/30",
+  "bg-lime-500/20 text-lime-700 dark:text-lime-300 border-lime-500/30",
+  "bg-fuchsia-500/20 text-fuchsia-700 dark:text-fuchsia-300 border-fuchsia-500/30",
+  "bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 border-cyan-500/30",
+  "bg-orange-500/20 text-orange-700 dark:text-orange-300 border-orange-500/30",
+];
+
+// 인덱스에 따라 색상 반환
+const getExerciseNameColor = (index: number) => {
+  return EXERCISE_NAME_COLORS[index % EXERCISE_NAME_COLORS.length];
+};
+
 // 운동 기록 카드 (리스트용)
 const ExerciseCard = memo(function ExerciseCard({
   exercise,
@@ -152,7 +171,7 @@ const ExerciseCard = memo(function ExerciseCard({
   exercise: GymExercise;
   onClick: () => void;
 }) {
-  const { sportType, sportLabel, exerciseNames } = parseExerciseName(exercise.name);
+  const { sportLabel, exerciseNames } = parseExerciseName(exercise.name);
   
   return (
     <div 
@@ -168,15 +187,20 @@ const ExerciseCard = memo(function ExerciseCard({
               className="w-12 h-12 rounded-xl object-cover"
             />
           )}
-          <span className="font-semibold text-lg">[{sportLabel}]</span>
+          <div className="flex items-center gap-2">
+            <span className="font-semibold text-lg">[{sportLabel}]</span>
+            {exercise.duration && (
+              <span className="text-sm text-muted-foreground">{exercise.duration}분</span>
+            )}
+          </div>
         </div>
       </div>
       
-      {/* 운동명 태그 표시 */}
+      {/* 운동명 태그 표시 - 각 태그마다 다른 색상 */}
       {exerciseNames.length > 0 && (
         <div className="flex flex-wrap gap-1.5 mt-2">
           {exerciseNames.map((name, i) => (
-            <Badge key={i} variant="outline" className={cn("text-xs border", getSportColor(sportType))}>
+            <Badge key={i} variant="outline" className={cn("text-xs border", getExerciseNameColor(i))}>
               {name}
             </Badge>
           ))}
@@ -762,22 +786,6 @@ export default function Exercise() {
             갤럭시핏/헬스 연동 준비 중
           </p>
         </div>
-
-        {/* 하단 통계 - 3열 구조로 영양탭과 동일 */}
-        <div className="grid grid-cols-3 gap-2">
-          <div className="bg-white/10 rounded-lg p-2">
-            <p className="text-[10px] text-white/80 mb-0.5">이동 거리</p>
-            <p className="text-xs font-semibold">-- km</p>
-          </div>
-          <div className="bg-white/10 rounded-lg p-2">
-            <p className="text-[10px] text-white/80 mb-0.5">활동 칼로리</p>
-            <p className="text-xs font-semibold">-- kcal</p>
-          </div>
-          <div className="bg-white/10 rounded-lg p-2">
-            <p className="text-[10px] text-white/80 mb-0.5">활동 시간</p>
-            <p className="text-xs font-semibold">-- 분</p>
-          </div>
-        </div>
       </div>
 
       {/* 운동 기록 섹션 */}
@@ -859,7 +867,7 @@ export default function Exercise() {
                     {exerciseNames.length > 0 && (
                       <div className="flex flex-wrap gap-1 mt-2">
                         {exerciseNames.map((name, i) => (
-                          <Badge key={i} variant="outline" className={cn("text-xs border", getSportColor(sportType))}>
+                          <Badge key={i} variant="outline" className={cn("text-xs border", getExerciseNameColor(i))}>
                             {name}
                           </Badge>
                         ))}
@@ -1045,7 +1053,7 @@ export default function Exercise() {
               onClick={() => machineInputRef.current?.click()}
             >
               <Camera className="w-5 h-5 mr-2" />
-              머신 촬영
+              사진 기록
             </Button>
           </div>
         )}
@@ -1113,21 +1121,30 @@ export default function Exercise() {
       }}>
         <SheetContent side="bottom" className="h-auto max-h-[80vh] rounded-t-3xl [&>button]:hidden">
           {detailExercise && (() => {
-            const { sportType, sportLabel, exerciseNames } = parseExerciseName(detailExercise.name);
+            const { sportLabel, exerciseNames } = parseExerciseName(detailExercise.name);
             return (
               <>
-                <SheetHeader className="flex flex-row items-center justify-between pr-8">
+                <SheetHeader className="flex flex-row items-center justify-between pr-0">
                   <SheetTitle>[{sportLabel}] {isDetailEditMode ? "수정" : "상세"}</SheetTitle>
-                  {!isDetailEditMode && (
+                  <div className="flex items-center gap-1">
+                    {!isDetailEditMode && (
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={toggleDetailEditMode}
+                      >
+                        <Pencil className="w-4 h-4 mr-1" />
+                        수정
+                      </Button>
+                    )}
                     <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={toggleDetailEditMode}
+                      variant="ghost" 
+                      size="icon"
+                      onClick={() => setShowDetailSheet(false)}
                     >
-                      <Pencil className="w-4 h-4 mr-1" />
-                      수정
+                      <X className="w-5 h-5" />
                     </Button>
-                  )}
+                  </div>
                 </SheetHeader>
                 
                 <div className="mt-4 space-y-4">
@@ -1261,7 +1278,7 @@ export default function Exercise() {
                           <p className="text-sm text-muted-foreground mb-1">운동명</p>
                           <div className="flex flex-wrap gap-1.5">
                             {exerciseNames.map((name, i) => (
-                              <Badge key={i} variant="outline" className={cn("border", getSportColor(sportType))}>
+                              <Badge key={i} variant="outline" className={cn("border", getExerciseNameColor(i))}>
                                 {name}
                               </Badge>
                             ))}

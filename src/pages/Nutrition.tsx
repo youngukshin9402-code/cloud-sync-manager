@@ -288,7 +288,7 @@ export default function Nutrition() {
   }
 
   return (
-    <div className="space-y-4 pb-8">
+    <div className="space-y-6 pb-8">
       {/* 헤더 */}
       <div>
         <h1 className="text-3xl font-bold text-foreground mb-2">영양양갱</h1>
