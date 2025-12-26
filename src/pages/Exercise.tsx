@@ -25,7 +25,6 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import {
   Calendar as CalendarIcon,
@@ -48,6 +47,7 @@ import { useGymMonthHeaders, useGymDayRecord, GymExercise, GymSet } from "@/hook
 import { usePendingQueueOptimized } from "@/hooks/usePendingQueueOptimized";
 import { useAuth } from "@/contexts/AuthContext";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { ExerciseTagList } from "@/components/exercise/ExerciseTag";
 
 // 운동 종목 목록 + placeholder + 색상
 const SPORT_TYPES = [
@@ -145,25 +145,6 @@ function parseExerciseName(name: string): { sportType: string; sportLabel: strin
   return { sportType, sportLabel, exerciseNames };
 }
 
-// 운동명별 색상 팔레트 (파스텔 톤)
-const EXERCISE_NAME_COLORS = [
-  "bg-sky-500/20 text-sky-700 dark:text-sky-300 border-sky-500/30",
-  "bg-violet-500/20 text-violet-700 dark:text-violet-300 border-violet-500/30",
-  "bg-amber-500/20 text-amber-700 dark:text-amber-300 border-amber-500/30",
-  "bg-rose-500/20 text-rose-700 dark:text-rose-300 border-rose-500/30",
-  "bg-teal-500/20 text-teal-700 dark:text-teal-300 border-teal-500/30",
-  "bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 border-indigo-500/30",
-  "bg-lime-500/20 text-lime-700 dark:text-lime-300 border-lime-500/30",
-  "bg-fuchsia-500/20 text-fuchsia-700 dark:text-fuchsia-300 border-fuchsia-500/30",
-  "bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 border-cyan-500/30",
-  "bg-orange-500/20 text-orange-700 dark:text-orange-300 border-orange-500/30",
-];
-
-// 인덱스에 따라 색상 반환
-const getExerciseNameColor = (index: number) => {
-  return EXERCISE_NAME_COLORS[index % EXERCISE_NAME_COLORS.length];
-};
-
 // 운동 기록 카드 (리스트용)
 const ExerciseCard = memo(function ExerciseCard({
   exercise,
@@ -197,16 +178,8 @@ const ExerciseCard = memo(function ExerciseCard({
         </div>
       </div>
       
-      {/* 운동명 태그 표시 - 각 태그마다 다른 색상 */}
-      {exerciseNames.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 mt-2">
-          {exerciseNames.map((name, i) => (
-            <Badge key={i} variant="outline" className={cn("text-xs border", getExerciseNameColor(i))}>
-              {name}
-            </Badge>
-          ))}
-        </div>
-      )}
+      {/* 운동명 태그 - 공용 컴포넌트 사용 */}
+      <ExerciseTagList names={exerciseNames} className="mt-2" />
     </div>
   );
 });
@@ -865,15 +838,8 @@ export default function Exercise() {
                         </Button>
                       </div>
                     </div>
-                    {exerciseNames.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mt-2">
-                        {exerciseNames.map((name, i) => (
-                          <Badge key={i} variant="outline" className={cn("text-xs border", getExerciseNameColor(i))}>
-                            {name}
-                          </Badge>
-                        ))}
-                      </div>
-                    )}
+                    {/* 운동명 태그 - 공용 컴포넌트 사용 */}
+                    <ExerciseTagList names={exerciseNames} className="mt-2" />
                   </div>
                 );
               })}
@@ -943,26 +909,13 @@ export default function Exercise() {
                 </Button>
               </div>
               
-              {/* 추가된 운동명 목록 (입력칸 아래) */}
-              {addedExerciseNames.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 mt-2">
-                  {addedExerciseNames.map((name, i) => (
-                    <Badge 
-                      key={i} 
-                      variant="secondary" 
-                      className="text-sm gap-1 pr-1"
-                    >
-                      {name}
-                      <button
-                        onClick={() => removeExerciseName(i)}
-                        className="ml-1 hover:bg-muted rounded-full p-0.5"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
-                    </Badge>
-                  ))}
-                </div>
-              )}
+              {/* 추가된 운동명 목록 (입력칸 아래) - 공용 컴포넌트 사용 */}
+              <ExerciseTagList 
+                names={addedExerciseNames} 
+                onRemove={removeExerciseName}
+                size="md"
+                className="mt-2"
+              />
             </div>
 
             {/* 총 운동시간 (플러스/마이너스 + 직접입력) */}
@@ -1183,25 +1136,13 @@ export default function Exercise() {
                             <Plus className="w-5 h-5" />
                           </Button>
                         </div>
-                        {editDetailExerciseNames.length > 0 && (
-                          <div className="flex flex-wrap gap-1.5 mt-2">
-                            {editDetailExerciseNames.map((name, i) => (
-                              <Badge 
-                                key={i} 
-                                variant="secondary" 
-                                className="text-sm gap-1 pr-1"
-                              >
-                                {name}
-                                <button
-                                  onClick={() => removeDetailExerciseName(i)}
-                                  className="ml-1 hover:bg-muted rounded-full p-0.5"
-                                >
-                                  <X className="w-3 h-3" />
-                                </button>
-                              </Badge>
-                            ))}
-                          </div>
-                        )}
+                        {/* 편집 모드 운동명 태그 - 공용 컴포넌트 사용 */}
+                        <ExerciseTagList 
+                          names={editDetailExerciseNames} 
+                          onRemove={removeDetailExerciseName}
+                          size="md"
+                          className="mt-2"
+                        />
                       </div>
                       
                       {/* 총 운동시간 편집 (플러스/마이너스 + 직접입력) */}
@@ -1273,17 +1214,11 @@ export default function Exercise() {
                         <p className="font-medium">{sportLabel}</p>
                       </div>
                       
-                      {/* 운동명 목록 */}
+                      {/* 운동명 목록 - 공용 컴포넌트 사용 */}
                       {exerciseNames.length > 0 && (
                         <div>
                           <p className="text-sm text-muted-foreground mb-1">운동명</p>
-                          <div className="flex flex-wrap gap-1.5">
-                            {exerciseNames.map((name, i) => (
-                              <Badge key={i} variant="outline" className={cn("border", getExerciseNameColor(i))}>
-                                {name}
-                              </Badge>
-                            ))}
-                          </div>
+                          <ExerciseTagList names={exerciseNames} />
                         </div>
                       )}
                       
