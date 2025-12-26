@@ -35,7 +35,6 @@ import {
   ChevronRight,
   Trash2,
   Pencil,
-  Camera,
   X,
   WifiOff,
   CloudOff,
@@ -48,6 +47,7 @@ import { usePendingQueueOptimized } from "@/hooks/usePendingQueueOptimized";
 import { useAuth } from "@/contexts/AuthContext";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { ExerciseTagList } from "@/components/exercise/ExerciseTag";
+import { GymPhotoUpload } from "@/components/exercise/GymPhotoUpload";
 
 // 운동 종목 목록 + placeholder + 색상
 const SPORT_TYPES = [
@@ -123,6 +123,7 @@ interface ExerciseRecord {
   duration?: number;
   memo?: string;
   imageUrl?: string;
+  images?: string[];
 }
 
 // 운동 기록에서 종목과 운동명 목록 추출
@@ -206,7 +207,6 @@ function ExerciseSkeleton() {
 export default function Exercise() {
   const { toast } = useToast();
   const { user } = useAuth();
-  const machineInputRef = useRef<HTMLInputElement>(null);
   const exerciseNameInputRef = useRef<HTMLInputElement>(null);
 
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -228,7 +228,6 @@ export default function Exercise() {
   // 운동 기록 상태
   const [showAddExercise, setShowAddExercise] = useState(false);
   const [currentExercise, setCurrentExercise] = useState<ExerciseRecord | null>(null);
-  const [machineImage, setMachineImage] = useState<string | null>(null);
   const [showMachineSuggestions, setShowMachineSuggestions] = useState(false);
   const [editingExerciseId, setEditingExerciseId] = useState<string | null>(null);
   const [editingPendingIndex, setEditingPendingIndex] = useState<number | null>(null);
@@ -247,6 +246,7 @@ export default function Exercise() {
   const [editDetailNameInput, setEditDetailNameInput] = useState("");
   const [editDetailMemo, setEditDetailMemo] = useState("");
   const [editDetailDuration, setEditDetailDuration] = useState<number | undefined>(undefined);
+  const [editDetailImages, setEditDetailImages] = useState<string[]>([]);
 
   // 날짜 표시 포맷: M월 d일 (요일 한 글자)
   const formatDateDisplay = (date: Date) => {
@@ -292,35 +292,6 @@ export default function Exercise() {
     return headers.some((h) => h.date === d);
   };
 
-  // 머신 이미지 선택
-  const handleMachineImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    e.target.value = "";
-
-    const reader = new FileReader();
-    reader.onload = () => {
-      setMachineImage(reader.result as string);
-      setShowMachineSuggestions(true);
-    };
-    reader.readAsDataURL(file);
-  };
-
-  // 머신명 선택 (헬스용)
-  const selectMachineName = (name: string) => {
-    setAddedExerciseNames([name]);
-    setCurrentExercise({
-      id: crypto.randomUUID(),
-      sportType: "health",
-      name: "",
-      exerciseNames: [name],
-      imageUrl: machineImage || undefined,
-    });
-    setShowMachineSuggestions(false);
-    setMachineImage(null);
-    setShowAddExercise(true);
-  };
-
   // 운동명 추가 (+ 버튼)
   const addExerciseName = () => {
     const trimmed = exerciseNameInput.trim();
@@ -356,6 +327,7 @@ export default function Exercise() {
       name: displayName,
       sets: currentExercise.sets || [],
       imageUrl: currentExercise.imageUrl,
+      images: currentExercise.images || [],
       duration: currentExercise.duration,
       memo: currentExercise.memo,
     };
@@ -579,6 +551,7 @@ export default function Exercise() {
     setEditDetailNameInput("");
     setEditDetailMemo((exercise as any).memo || "");
     setEditDetailDuration((exercise as any).duration);
+    setEditDetailImages((exercise as any).images || []);
   };
 
   // 상세 팝업에서 편집모드 전환
@@ -589,6 +562,7 @@ export default function Exercise() {
     setEditDetailNameInput("");
     setEditDetailMemo((detailExercise as any).memo || "");
     setEditDetailDuration((detailExercise as any).duration);
+    setEditDetailImages((detailExercise as any).images || []);
     setIsDetailEditMode(true);
   };
 
@@ -610,6 +584,7 @@ export default function Exercise() {
       name: displayName,
       duration: editDetailDuration,
       memo: editDetailMemo,
+      images: editDetailImages,
     };
 
     try {
@@ -728,16 +703,6 @@ export default function Exercise() {
           <span>동기화 중...</span>
         </div>
       )}
-
-      {/* Hidden input */}
-      <input
-        type="file"
-        ref={machineInputRef}
-        className="hidden"
-        accept="image/*"
-        capture="environment"
-        onChange={handleMachineImageSelect}
-      />
 
       {/* 걸음수 연동 Placeholder - 영양탭 NutritionSummaryCard와 동일한 높이 */}
       <div className="bg-gradient-to-br from-emerald-500 to-teal-500 rounded-3xl p-4 text-white space-y-3">
@@ -971,23 +936,15 @@ export default function Exercise() {
             </div>
 
             {/* 사진 첨부 */}
-            {currentExercise.imageUrl && (
-              <div className="relative">
-                <img
-                  src={currentExercise.imageUrl}
-                  alt="운동 사진"
-                  className="w-full h-40 object-cover rounded-xl"
+            <div>
+              <label className="text-sm font-medium text-muted-foreground">사진 (선택)</label>
+              <div className="mt-1">
+                <GymPhotoUpload
+                  images={currentExercise.images || []}
+                  onImagesChange={(images) => setCurrentExercise({ ...currentExercise, images })}
                 />
-                <Button
-                  variant="destructive"
-                  size="icon"
-                  className="absolute top-2 right-2 h-8 w-8"
-                  onClick={() => setCurrentExercise({ ...currentExercise, imageUrl: undefined })}
-                >
-                  <X className="w-4 h-4" />
-                </Button>
               </div>
-            )}
+            </div>
 
             {/* 저장하기 버튼 (항상 활성화) */}
             <Button size="lg" className="w-full" onClick={handleSaveExercise}>
@@ -996,52 +953,11 @@ export default function Exercise() {
           </div>
         ) : (
           /* 운동 추가 버튼 */
-          <div className="flex gap-3">
-            <Button className="flex-1 h-14" onClick={startNewExercise}>
-              <Plus className="w-5 h-5 mr-2" />
-              운동 추가
-            </Button>
-            <Button
-              variant="outline"
-              className="h-14"
-              onClick={() => machineInputRef.current?.click()}
-            >
-              <Camera className="w-5 h-5 mr-2" />
-              사진 기록
-            </Button>
-          </div>
+          <Button className="w-full h-14" onClick={startNewExercise}>
+            <Plus className="w-5 h-5 mr-2" />
+            운동 추가
+          </Button>
         )}
-
-        {/* 머신명 추천 모달 */}
-        <Dialog open={showMachineSuggestions} onOpenChange={setShowMachineSuggestions}>
-          <DialogContent className="max-w-sm">
-            <DialogHeader>
-              <DialogTitle>머신 선택</DialogTitle>
-            </DialogHeader>
-            {machineImage && (
-              <img
-                src={machineImage}
-                alt="머신"
-                className="w-full h-40 object-cover rounded-xl mb-4"
-              />
-            )}
-            <p className="text-sm text-muted-foreground mb-3">
-              AI가 추천하는 머신 이름을 선택하세요
-            </p>
-            <div className="grid grid-cols-2 gap-2">
-              {MACHINE_SUGGESTIONS.slice(0, 6).map((name) => (
-                <Button
-                  key={name}
-                  variant="outline"
-                  className="h-12"
-                  onClick={() => selectMachineName(name)}
-                >
-                  {name}
-                </Button>
-              ))}
-            </div>
-          </DialogContent>
-        </Dialog>
 
         {/* 오늘 운동 기록 - Show skeleton while loading */}
         {recordLoading ? (
@@ -1188,6 +1104,17 @@ export default function Exercise() {
                         />
                       </div>
                       
+                      {/* 사진 편집 */}
+                      <div>
+                        <label className="text-sm font-medium text-muted-foreground">사진</label>
+                        <div className="mt-1">
+                          <GymPhotoUpload
+                            images={editDetailImages}
+                            onImagesChange={setEditDetailImages}
+                          />
+                        </div>
+                      </div>
+                      
                       {/* 저장/취소 버튼 */}
                       <div className="flex gap-2">
                         <Button 
@@ -1230,6 +1157,18 @@ export default function Exercise() {
                         </div>
                       )}
                       
+                      {/* 사진 섹션 */}
+                      {detailExercise.images && detailExercise.images.length > 0 && (
+                        <div>
+                          <p className="text-sm text-muted-foreground mb-1">사진</p>
+                          <GymPhotoUpload
+                            images={detailExercise.images}
+                            onImagesChange={() => {}}
+                            readonly
+                          />
+                        </div>
+                      )}
+                      
                       {/* 메모 표시 */}
                       {detailExercise.memo && (
                         <div>
@@ -1252,18 +1191,6 @@ export default function Exercise() {
                               </span>
                             ))}
                           </div>
-                        </div>
-                      )}
-                      
-                      {/* 이미지 */}
-                      {detailExercise.imageUrl && (
-                        <div>
-                          <p className="text-sm text-muted-foreground mb-1">사진</p>
-                          <img
-                            src={detailExercise.imageUrl}
-                            alt="운동 사진"
-                            className="w-full h-40 object-cover rounded-xl"
-                          />
                         </div>
                       )}
                       

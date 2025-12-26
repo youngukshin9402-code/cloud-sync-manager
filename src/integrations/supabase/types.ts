@@ -581,6 +581,7 @@ export type Database = {
           date: string
           exercises: Json
           id: string
+          images: string[] | null
           user_id: string
         }
         Insert: {
@@ -589,6 +590,7 @@ export type Database = {
           date: string
           exercises?: Json
           id?: string
+          images?: string[] | null
           user_id: string
         }
         Update: {
@@ -597,6 +599,7 @@ export type Database = {
           date?: string
           exercises?: Json
           id?: string
+          images?: string[] | null
           user_id?: string
         }
         Relationships: []
