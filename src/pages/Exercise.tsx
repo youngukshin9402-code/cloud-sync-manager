@@ -800,7 +800,9 @@ export default function Exercise() {
     });
     
     const base64Images = await Promise.all(imagePromises);
-    setQuickAddImages(base64Images);
+    
+    // 기존 이미지에 추가 (덮어쓰기 아님)
+    setQuickAddImages(prev => [...prev, ...base64Images]);
     setShowQuickAdd(true);
     
     // input 초기화 (같은 파일 재선택 가능하게)
@@ -1125,11 +1127,11 @@ export default function Exercise() {
         <div className="flex gap-2">
           <Button className="flex-1 h-14" onClick={startNewExercise}>
             <Plus className="w-5 h-5 mr-2" />
-            운동 추가 🏋️
+            운동 추가
           </Button>
           <Button 
             variant="outline" 
-            className="h-14 px-3 flex flex-col items-center justify-center text-xs leading-tight"
+            className="h-14 w-20 flex flex-col items-center justify-center text-sm font-medium leading-tight"
             onClick={startQuickAdd}
           >
             <span>빠른</span>
