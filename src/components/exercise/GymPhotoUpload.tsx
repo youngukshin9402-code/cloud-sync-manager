@@ -1,10 +1,18 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Camera, Plus, X, Loader2, Image as ImageIcon, ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { uploadGymPhoto, getGymPhotoPublicUrl, deleteGymPhoto } from '@/lib/gymPhotoUpload';
+import { 
+  uploadImageWithThumbnail, 
+  getPublicUrl, 
+  getThumbnailPath,
+  deleteImage,
+  preloadAdjacentImages
+} from '@/lib/unifiedImageUpload';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { OptimizedImage, useImagePreloader } from '@/components/ui/optimized-image';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface GymPhotoUploadProps {
   images: string[];
@@ -24,14 +32,20 @@ export function GymPhotoUpload({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const { preloadAdjacent } = useImagePreloader();
 
-  // Get display URL for a path (handles all formats)
-  const getDisplayUrl = (path: string): string => {
-    if (!path) return '';
+  // Get display URLs for path (original + thumbnail)
+  const getDisplayUrls = (path: string): { original: string; thumbnail: string } => {
+    if (!path) return { original: '', thumbnail: '' };
     // Already a full URL or base64
-    if (path.startsWith('http') || path.startsWith('data:')) return path;
-    // Storage path - get public URL
-    return getGymPhotoPublicUrl(path);
+    if (path.startsWith('http') || path.startsWith('data:')) {
+      return { original: path, thumbnail: path };
+    }
+    // Storage path - get public URLs
+    const original = getPublicUrl('gym-photos', path);
+    const thumbnailPath = getThumbnailPath(path);
+    const thumbnail = getPublicUrl('gym-photos', thumbnailPath);
+    return { original, thumbnail };
   };
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -47,8 +61,8 @@ export function GymPhotoUpload({
 
     try {
       for (const file of selectedFiles) {
-        const { path } = await uploadGymPhoto(user.id, file);
-        newPaths.push(path);
+        const { originalPath } = await uploadImageWithThumbnail('gym-photos', user.id, file);
+        newPaths.push(originalPath);
       }
 
       const nextImages = [...images, ...newPaths];
@@ -66,15 +80,24 @@ export function GymPhotoUpload({
     const path = images[index];
     
     // Try to delete from storage (non-blocking)
-    deleteGymPhoto(path).catch(console.error);
+    deleteImage('gym-photos', path).catch(console.error);
     
     // Update local state
     const newImages = images.filter((_, i) => i !== index);
     onImagesChange(newImages);
   };
 
-  // Get all display URLs for lightbox navigation
-  const displayUrls = images.map(path => getDisplayUrl(path)).filter(Boolean);
+  // Get all display URLs for lightbox navigation (original images)
+  const allImageData = images.map(path => getDisplayUrls(path));
+  const originalUrls = allImageData.map(d => d.original).filter(Boolean);
+  const thumbnailUrls = allImageData.map(d => d.thumbnail).filter(Boolean);
+
+  // Preload adjacent images when lightbox index changes
+  useEffect(() => {
+    if (lightboxIndex !== null) {
+      preloadAdjacent(lightboxIndex, originalUrls, 2);
+    }
+  }, [lightboxIndex, originalUrls, preloadAdjacent]);
 
   const openLightbox = (index: number) => {
     setLightboxIndex(index);
@@ -87,13 +110,13 @@ export function GymPhotoUpload({
   const goToPrev = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (lightboxIndex === null) return;
-    setLightboxIndex(lightboxIndex > 0 ? lightboxIndex - 1 : displayUrls.length - 1);
+    setLightboxIndex(lightboxIndex > 0 ? lightboxIndex - 1 : originalUrls.length - 1);
   };
 
   const goToNext = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (lightboxIndex === null) return;
-    setLightboxIndex(lightboxIndex < displayUrls.length - 1 ? lightboxIndex + 1 : 0);
+    setLightboxIndex(lightboxIndex < originalUrls.length - 1 ? lightboxIndex + 1 : 0);
   };
 
   const goToIndex = (e: React.MouseEvent, index: number) => {
@@ -103,35 +126,31 @@ export function GymPhotoUpload({
 
   return (
     <div className={cn("space-y-2", className)}>
-      {/* Photo Grid */}
+      {/* Photo Grid - Uses thumbnails for fast loading */}
       {images.length > 0 && (
         <div className="grid grid-cols-3 gap-2">
           {images.map((path, index) => {
-            const displayUrl = getDisplayUrl(path);
+            const { original, thumbnail } = getDisplayUrls(path);
 
             return (
               <div 
                 key={`${path}-${index}`}
                 className="relative aspect-square rounded-xl overflow-hidden bg-muted"
               >
-                {displayUrl ? (
-                  <img
-                    src={displayUrl}
-                    alt={`운동 사진 ${index + 1}`}
-                    className="w-full h-full object-cover cursor-pointer hover:opacity-80 transition-opacity"
-                    onClick={() => openLightbox(index)}
-                  />
-                ) : (
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <ImageIcon className="w-6 h-6 text-muted-foreground" />
-                  </div>
-                )}
+                <OptimizedImage
+                  src={thumbnail || original}
+                  alt={`운동 사진 ${index + 1}`}
+                  aspectRatio="square"
+                  onClick={() => openLightbox(index)}
+                  containerClassName="w-full h-full cursor-pointer hover:opacity-80 transition-opacity"
+                  priority={index < 6}
+                />
 
                 {/* Remove button */}
                 {!readonly && (
                   <button
                     type="button"
-                    className="absolute top-1 right-1 w-6 h-6 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center hover:bg-destructive/90"
+                    className="absolute top-1 right-1 z-10 w-6 h-6 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center hover:bg-destructive/90"
                     onClick={(e) => {
                       e.stopPropagation();
                       handleRemove(index);
@@ -198,8 +217,8 @@ export function GymPhotoUpload({
         onChange={handleFileSelect}
       />
 
-      {/* Lightbox with navigation */}
-      {lightboxIndex !== null && displayUrls[lightboxIndex] && (
+      {/* Lightbox with navigation - Uses original images */}
+      {lightboxIndex !== null && originalUrls[lightboxIndex] && (
         <div 
           className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center"
           onClick={closeLightbox}
@@ -214,7 +233,7 @@ export function GymPhotoUpload({
           </button>
           
           {/* Previous button */}
-          {displayUrls.length > 1 && (
+          {originalUrls.length > 1 && (
             <button
               type="button"
               className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/70 z-10"
@@ -224,16 +243,16 @@ export function GymPhotoUpload({
             </button>
           )}
           
-          {/* Image */}
+          {/* Image - Shows original high-res image */}
           <img
-            src={displayUrls[lightboxIndex]}
+            src={originalUrls[lightboxIndex]}
             alt="확대된 사진"
             className="max-w-[90vw] max-h-[85vh] object-contain"
             onClick={(e) => e.stopPropagation()}
           />
           
           {/* Next button */}
-          {displayUrls.length > 1 && (
+          {originalUrls.length > 1 && (
             <button
               type="button"
               className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/70 z-10"
@@ -244,9 +263,9 @@ export function GymPhotoUpload({
           )}
           
           {/* Indicator dots */}
-          {displayUrls.length > 1 && (
+          {originalUrls.length > 1 && (
             <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2 z-10">
-              {displayUrls.map((_, idx) => (
+              {originalUrls.map((_, idx) => (
                 <button
                   key={idx}
                   type="button"
