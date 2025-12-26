@@ -1095,7 +1095,7 @@ export default function Exercise() {
         setShowDetailSheet(open);
         if (!open) setIsDetailEditMode(false);
       }}>
-        <SheetContent side="bottom" className="h-auto max-h-[80vh] rounded-t-3xl">
+        <SheetContent side="bottom" className="h-auto max-h-[80vh] rounded-t-3xl [&>button]:hidden">
           {detailExercise && (() => {
             const { sportLabel, exerciseNames } = parseExerciseName(detailExercise.name);
             return (
@@ -1254,18 +1254,18 @@ export default function Exercise() {
                       )}
                       
                       {/* 총 운동시간 */}
-                      {(detailExercise as any).duration && (
+                      {detailExercise.duration && (
                         <div>
                           <p className="text-sm text-muted-foreground mb-1">총 운동시간</p>
-                          <p className="font-medium">{(detailExercise as any).duration}분</p>
+                          <p className="font-medium">{detailExercise.duration}분</p>
                         </div>
                       )}
                       
                       {/* 메모 표시 */}
-                      {(detailExercise as any).memo && (
+                      {detailExercise.memo && (
                         <div>
                           <p className="text-sm text-muted-foreground mb-1">메모</p>
-                          <p className="font-medium whitespace-pre-wrap">{(detailExercise as any).memo}</p>
+                          <p className="font-medium whitespace-pre-wrap">{detailExercise.memo}</p>
                         </div>
                       )}
                       
