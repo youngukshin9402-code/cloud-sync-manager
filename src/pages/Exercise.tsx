@@ -40,6 +40,22 @@ import {
   CloudOff,
   Footprints,
   Save,
+  Dumbbell,
+  Mountain,
+  PersonStanding,
+  Bike,
+  Disc3,
+  Flower2,
+  CircleDot,
+  Waves,
+  Feather,
+  Target,
+  Timer,
+  Sparkles,
+  Droplets,
+  TreeDeciduous,
+  MoreHorizontal,
+  type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useGymMonthHeaders, useGymDayRecord, GymExercise, GymSet } from "@/hooks/useGymRecordsOptimized";
@@ -77,6 +93,33 @@ const SPORT_TYPES = [
 const getSportColor = (sportValue: string) => {
   const sport = SPORT_TYPES.find(s => s.value === sportValue);
   return sport?.color || "bg-secondary text-secondary-foreground";
+};
+
+// 종목 value로 아이콘 가져오기
+const SPORT_ICONS: Record<string, LucideIcon> = {
+  walking: Footprints,
+  health: Dumbbell,
+  hiking: Mountain,
+  running: PersonStanding,
+  cycling: Bike,
+  spinning: Disc3,
+  yoga: Flower2,
+  pilates: CircleDot,
+  swimming: Waves,
+  badminton: Feather,
+  soccer: Target,
+  futsal: Target,
+  golf: Target,
+  tabletennis: Timer,
+  gateball: Target,
+  gymnastics: Sparkles,
+  aquarobics: Droplets,
+  barefoot: TreeDeciduous,
+  other: MoreHorizontal,
+};
+
+const getSportIcon = (sportValue: string): LucideIcon => {
+  return SPORT_ICONS[sportValue] || MoreHorizontal;
 };
 
 // 운동명에서 종목 value 추출
@@ -174,17 +217,21 @@ const ExerciseCard = memo(function ExerciseCard({
   exercise: GymExercise;
   onClick: () => void;
 }) {
-  const { sportLabel, exerciseNames } = parseExerciseName(exercise.name);
+  const { sportType, sportLabel, exerciseNames } = parseExerciseName(exercise.name);
   const shortenedLabel = getShortenedSportLabel(sportLabel);
+  const SportIcon = getSportIcon(sportType);
 
   return (
     <div
       className="bg-card rounded-2xl border border-border p-3 cursor-pointer hover:bg-muted/50 transition-colors h-24 flex flex-col justify-between relative"
       onClick={onClick}
     >
-      {/* 상단: 종목 + 시간 */}
+      {/* 상단: 아이콘 + 종목 + 시간 */}
       <div className="flex items-center justify-between gap-2">
-        <span className="font-semibold text-base truncate">{shortenedLabel}</span>
+        <div className="flex items-center gap-1.5 min-w-0">
+          <SportIcon className="w-4 h-4 shrink-0 text-primary" />
+          <span className="font-semibold text-base truncate">{shortenedLabel}</span>
+        </div>
         <span className="text-sm text-muted-foreground shrink-0">
           {exercise.duration ? `${exercise.duration}분` : ""}
         </span>
