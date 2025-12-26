@@ -4,7 +4,32 @@ import { compressImage } from './imageUpload';
 const BUCKET_NAME = 'gym-photos';
 
 /**
+ * Get public URL for a gym photo path
+ */
+export function getGymPhotoPublicUrl(path: string): string {
+  if (!path) return '';
+  
+  // Already a full URL (legacy data or external)
+  if (path.startsWith('http://') || path.startsWith('https://')) {
+    return path;
+  }
+  
+  // Base64 data (legacy - should be migrated)
+  if (path.startsWith('data:')) {
+    return path;
+  }
+  
+  // Get public URL from Supabase
+  const { data } = supabase.storage
+    .from(BUCKET_NAME)
+    .getPublicUrl(path);
+  
+  return data.publicUrl;
+}
+
+/**
  * Upload gym photo to Supabase Storage
+ * Returns path for storage in DB (not URL - URLs are generated on demand)
  */
 export async function uploadGymPhoto(
   userId: string,
@@ -26,51 +51,49 @@ export async function uploadGymPhoto(
     throw new Error(`이미지 업로드 실패: ${error.message}`);
   }
 
-  // Generate a signed URL (valid for 1 hour) for immediate use
-  const { data: signedUrlData, error: signedError } = await supabase.storage
-    .from(BUCKET_NAME)
-    .createSignedUrl(data.path, 3600);
-
-  if (signedError || !signedUrlData?.signedUrl) {
-    console.error('Failed to create signed URL:', signedError);
-    // Return path for later resolution
-    return { url: data.path, path: data.path };
-  }
-
-  return { url: signedUrlData.signedUrl, path: data.path };
+  // Return public URL for immediate display
+  const publicUrl = getGymPhotoPublicUrl(data.path);
+  
+  return { url: publicUrl, path: data.path };
 }
 
 /**
- * Get a signed URL for a gym photo path
+ * Upload gym photo from base64 data
+ */
+export async function uploadGymPhotoFromBase64(
+  userId: string,
+  base64Data: string
+): Promise<string> {
+  // Extract the actual base64 content
+  const base64Match = base64Data.match(/^data:image\/\w+;base64,(.+)$/);
+  if (!base64Match) {
+    throw new Error('Invalid base64 image data');
+  }
+  
+  // Convert base64 to blob
+  const binaryStr = atob(base64Match[1]);
+  const bytes = new Uint8Array(binaryStr.length);
+  for (let i = 0; i < binaryStr.length; i++) {
+    bytes[i] = binaryStr.charCodeAt(i);
+  }
+  const blob = new Blob([bytes], { type: 'image/jpeg' });
+  
+  const { path } = await uploadGymPhoto(userId, blob);
+  return path;
+}
+
+/**
+ * Get a signed URL for a gym photo path (legacy support)
+ * @deprecated Use getGymPhotoPublicUrl instead - bucket is now public
  */
 export async function getGymPhotoSignedUrl(
   path: string,
   expiresIn: number = 3600
 ): Promise<string | null> {
-  if (!path || path.startsWith('data:')) {
-    return path || null;
-  }
+  if (!path) return null;
   
-  // If it's already a full URL (signed or public), return as-is
-  if (path.startsWith('http://') || path.startsWith('https://')) {
-    return path;
-  }
-
-  try {
-    const { data, error } = await supabase.storage
-      .from(BUCKET_NAME)
-      .createSignedUrl(path, expiresIn);
-
-    if (error || !data?.signedUrl) {
-      console.error('Failed to get signed URL:', error);
-      return null;
-    }
-
-    return data.signedUrl;
-  } catch (err) {
-    console.error('Error getting signed URL:', err);
-    return null;
-  }
+  // Use public URL instead of signed URL
+  return getGymPhotoPublicUrl(path) || null;
 }
 
 /**
@@ -114,6 +137,27 @@ export async function uploadGymPhotos(
     } catch (error) {
       console.error('Failed to upload photo:', error);
       // Continue with other uploads
+    }
+  }
+  
+  return results;
+}
+
+/**
+ * Upload multiple gym photos from base64 data
+ */
+export async function uploadGymPhotosFromBase64(
+  userId: string,
+  base64Images: string[]
+): Promise<string[]> {
+  const results: string[] = [];
+  
+  for (const base64 of base64Images) {
+    try {
+      const path = await uploadGymPhotoFromBase64(userId, base64);
+      results.push(path);
+    } catch (error) {
+      console.error('Failed to upload photo from base64:', error);
     }
   }
   

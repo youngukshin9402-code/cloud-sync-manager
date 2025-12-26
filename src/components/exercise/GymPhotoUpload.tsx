@@ -1,8 +1,8 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Camera, Plus, X, Loader2, Image as ImageIcon, ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { uploadGymPhoto, getGymPhotoSignedUrl, deleteGymPhoto } from '@/lib/gymPhotoUpload';
+import { uploadGymPhoto, getGymPhotoPublicUrl, deleteGymPhoto } from '@/lib/gymPhotoUpload';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 
@@ -23,38 +23,16 @@ export function GymPhotoUpload({
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
-  const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
-  const [loadingUrls, setLoadingUrls] = useState<Record<string, boolean>>({});
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
-  // Get signed URL for a path
-  const getSignedUrl = async (path: string) => {
-    if (signedUrls[path]) return signedUrls[path];
+  // Get display URL for a path (handles all formats)
+  const getDisplayUrl = (path: string): string => {
+    if (!path) return '';
+    // Already a full URL or base64
     if (path.startsWith('http') || path.startsWith('data:')) return path;
-    
-    setLoadingUrls(prev => ({ ...prev, [path]: true }));
-    try {
-      const url = await getGymPhotoSignedUrl(path);
-      if (url) {
-        setSignedUrls(prev => ({ ...prev, [path]: url }));
-        return url;
-      }
-    } catch (error) {
-      console.error('Failed to get signed URL:', error);
-    } finally {
-      setLoadingUrls(prev => ({ ...prev, [path]: false }));
-    }
-    return null;
+    // Storage path - get public URL
+    return getGymPhotoPublicUrl(path);
   };
-
-  // Load signed URLs on mount and when images change
-  useEffect(() => {
-    images.forEach(path => {
-      if (!signedUrls[path] && !path.startsWith('http') && !path.startsWith('data:')) {
-        getSignedUrl(path);
-      }
-    });
-  }, [images]);
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const fileList = e.target.files;
@@ -69,10 +47,8 @@ export function GymPhotoUpload({
 
     try {
       for (const file of selectedFiles) {
-        const { path, url } = await uploadGymPhoto(user.id, file);
+        const { path } = await uploadGymPhoto(user.id, file);
         newPaths.push(path);
-        // Store signed URL immediately
-        setSignedUrls(prev => ({ ...prev, [path]: url }));
       }
 
       const nextImages = [...images, ...newPaths];
@@ -95,22 +71,10 @@ export function GymPhotoUpload({
     // Update local state
     const newImages = images.filter((_, i) => i !== index);
     onImagesChange(newImages);
-    
-    // Remove from signed URLs cache
-    setSignedUrls(prev => {
-      const next = { ...prev };
-      delete next[path];
-      return next;
-    });
-  };
-
-  const getDisplayUrl = (path: string) => {
-    if (path.startsWith('http') || path.startsWith('data:')) return path;
-    return signedUrls[path] || null;
   };
 
   // Get all display URLs for lightbox navigation
-  const displayUrls = images.map(path => getDisplayUrl(path)).filter(Boolean) as string[];
+  const displayUrls = images.map(path => getDisplayUrl(path)).filter(Boolean);
 
   const openLightbox = (index: number) => {
     setLightboxIndex(index);
@@ -144,27 +108,18 @@ export function GymPhotoUpload({
         <div className="grid grid-cols-3 gap-2">
           {images.map((path, index) => {
             const displayUrl = getDisplayUrl(path);
-            const isLoading = loadingUrls[path];
 
             return (
               <div 
                 key={`${path}-${index}`}
                 className="relative aspect-square rounded-xl overflow-hidden bg-muted"
               >
-                {isLoading ? (
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-                  </div>
-                ) : displayUrl ? (
+                {displayUrl ? (
                   <img
                     src={displayUrl}
                     alt={`운동 사진 ${index + 1}`}
                     className="w-full h-full object-cover cursor-pointer hover:opacity-80 transition-opacity"
                     onClick={() => openLightbox(index)}
-                    onError={() => {
-                      // Retry getting signed URL
-                      getSignedUrl(path);
-                    }}
                   />
                 ) : (
                   <div className="absolute inset-0 flex items-center justify-center">
@@ -252,7 +207,7 @@ export function GymPhotoUpload({
           {/* Close button */}
           <button
             type="button"
-            className="absolute top-4 right-4 w-12 h-12 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-white/20 z-10"
+            className="absolute top-4 right-4 w-12 h-12 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/70 z-10"
             onClick={closeLightbox}
           >
             <X className="w-6 h-6" />
