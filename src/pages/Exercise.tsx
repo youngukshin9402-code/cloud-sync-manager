@@ -67,7 +67,7 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { ExerciseTagList, ExerciseTag, OverflowTag } from "@/components/exercise/ExerciseTag";
 import { CardTagList } from "@/components/exercise/CardTagList";
 import { GymPhotoUpload } from "@/components/exercise/GymPhotoUpload";
-import { uploadGymPhotosFromBase64 } from "@/lib/gymPhotoUpload";
+import { uploadFromBase64 } from '@/lib/unifiedImageUpload';
 
 // 운동 종목 목록 + placeholder + 색상
 const SPORT_TYPES = [
@@ -817,8 +817,12 @@ export default function Exercise() {
     setIsQuickAddSaving(true);
     
     try {
-      // base64 이미지들을 Storage에 업로드
-      const uploadedPaths = await uploadGymPhotosFromBase64(user.id, quickAddImages);
+      // base64 이미지들을 Storage에 업로드 (썸네일 포함)
+      const uploadedPaths: string[] = [];
+      for (const base64 of quickAddImages) {
+        const { originalPath } = await uploadFromBase64('gym-photos', user.id, base64, true);
+        uploadedPaths.push(originalPath);
+      }
       
       if (uploadedPaths.length === 0) {
         throw new Error('사진 업로드 실패');
