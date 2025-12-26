@@ -63,7 +63,8 @@ export const RECORD_TYPE_NORMAL = 'normal'; // 일반 운동 추가
 
 // 기록이 사진기록인지 판별
 export function isPhotoRecord(exercise: GymExercise): boolean {
-  return exercise.name === '[📷 사진기록]';
+  // "[사진기록]" 또는 "[📷 사진기록]" 또는 "[사진기록] 제목" 형태 모두 매칭
+  return exercise.name.startsWith('[사진기록]') || exercise.name === '[📷 사진기록]';
 }
 
 /**

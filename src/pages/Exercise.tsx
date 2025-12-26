@@ -224,16 +224,20 @@ const ExerciseCard = memo(function ExerciseCard({
   
   if (isPhoto) {
     const photoCount = exercise.images?.length || 0;
+    // 사진기록 제목 추출 (있으면 표시)
+    const photoTitle = exercise.name?.replace("[사진기록]", "").trim() || "";
     return (
       <div
         className="bg-card rounded-2xl border border-border p-3 cursor-pointer hover:bg-muted/50 transition-colors h-24 flex flex-col justify-between relative"
         onClick={onClick}
       >
-        {/* 상단: 카메라 아이콘 + 사진기록 */}
+        {/* 상단: 카메라 아이콘 + 사진기록 (또는 제목) */}
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-1.5 min-w-0">
             <Camera className="w-4 h-4 shrink-0 text-violet-500" />
-            <span className="font-semibold text-base truncate">📷 사진기록</span>
+            <span className="font-semibold text-base truncate">
+              {photoTitle || "사진기록"}
+            </span>
           </div>
         </div>
 
@@ -342,6 +346,12 @@ export default function Exercise() {
   const [quickAddImages, setQuickAddImages] = useState<string[]>([]);
   const [isQuickAddSaving, setIsQuickAddSaving] = useState(false);
   const quickAddFileInputRef = useRef<HTMLInputElement>(null);
+  
+  // 사진기록 수정 상태
+  const [isPhotoEditMode, setIsPhotoEditMode] = useState(false);
+  const [editPhotoTitle, setEditPhotoTitle] = useState("");
+  const [editPhotoImages, setEditPhotoImages] = useState<string[]>([]);
+  const photoEditFileInputRef = useRef<HTMLInputElement>(null);
 
   // 날짜 표시 포맷: M월 d일 (요일 한 글자)
   const formatDateDisplay = (date: Date) => {
@@ -807,7 +817,7 @@ export default function Exercise() {
       // 사진기록 exercise 생성
       const photoExercise: GymExercise = {
         id: crypto.randomUUID(),
-        name: '[📷 사진기록]',
+        name: '[사진기록]',
         sets: [],
         images: quickAddImages, // base64 이미지들 (나중에 storage에 업로드)
       };
@@ -867,6 +877,74 @@ export default function Exercise() {
   // 빠른 추가에 이미지 추가
   const addMoreQuickAddImages = () => {
     quickAddFileInputRef.current?.click();
+  };
+
+  // 사진기록 수정 모드 시작
+  const startPhotoEdit = () => {
+    if (!detailExercise) return;
+    const title = detailExercise.name?.replace("[사진기록]", "").trim() || "";
+    setEditPhotoTitle(title);
+    setEditPhotoImages(detailExercise.images || []);
+    setIsPhotoEditMode(true);
+  };
+
+  // 사진기록 수정 저장
+  const savePhotoEdit = async () => {
+    if (!detailExercise || !todayGymRecord) return;
+    
+    const displayName = editPhotoTitle.trim()
+      ? `[사진기록] ${editPhotoTitle.trim()}`
+      : "[사진기록]";
+    
+    const updatedExercise: GymExercise = {
+      ...detailExercise,
+      name: displayName,
+      images: editPhotoImages,
+    };
+
+    try {
+      const newExercises = todayGymRecord.exercises.map((ex) =>
+        ex.id === detailExercise.id ? updatedExercise : ex
+      );
+      await update(todayGymRecord.id, newExercises);
+      toast({ title: "수정 완료!" });
+      
+      setDetailExercise(updatedExercise);
+      setIsPhotoEditMode(false);
+    } catch (error) {
+      console.error('Save error:', error);
+      toast({ title: "저장 실패", variant: "destructive" });
+    }
+  };
+
+  // 사진기록 수정 취소
+  const cancelPhotoEdit = () => {
+    setIsPhotoEditMode(false);
+    setEditPhotoTitle("");
+    setEditPhotoImages([]);
+  };
+
+  // 사진기록 수정 - 사진 추가
+  const handlePhotoEditFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    
+    const imagePromises = Array.from(files).map(file => {
+      return new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.readAsDataURL(file);
+      });
+    });
+    
+    const base64Images = await Promise.all(imagePromises);
+    setEditPhotoImages(prev => [...prev, ...base64Images]);
+    e.target.value = '';
+  };
+
+  // 사진기록 수정 - 사진 삭제
+  const removePhotoEditImage = (index: number) => {
+    setEditPhotoImages(prev => prev.filter((_, i) => i !== index));
   };
 
   return (
@@ -1076,7 +1154,7 @@ export default function Exercise() {
             <DialogHeader className="px-6 pt-6 pb-4 border-b shrink-0">
               <DialogTitle className="flex items-center gap-2">
                 <Camera className="w-5 h-5 text-violet-500" />
-                📷 빠른 추가
+                빠른 추가
               </DialogTitle>
             </DialogHeader>
 
@@ -1342,71 +1420,169 @@ export default function Exercise() {
       {/* 상세 팝업 (Sheet) - 편집모드시 sticky 하단 적용 */}
       <Sheet open={showDetailSheet} onOpenChange={(open) => {
         setShowDetailSheet(open);
-        if (!open) setIsDetailEditMode(false);
+        if (!open) {
+          setIsDetailEditMode(false);
+          setIsPhotoEditMode(false);
+        }
       }}>
         <SheetContent 
           side="bottom" 
           className={cn(
             "rounded-t-3xl [&>button]:hidden p-0 flex flex-col",
-            isDetailEditMode ? "h-[85vh]" : "h-auto max-h-[80vh]"
+            (isDetailEditMode || isPhotoEditMode) ? "h-[85vh]" : "h-auto max-h-[80vh]"
           )}
         >
           {detailExercise && (() => {
             const isPhoto = isPhotoRecord(detailExercise);
             const { sportLabel, exerciseNames } = parseExerciseName(detailExercise.name);
             const photoCount = detailExercise.images?.length || 0;
+            const photoTitle = detailExercise.name?.replace("[사진기록]", "").trim() || "";
             
             // 사진기록인 경우 별도 UI
             if (isPhoto) {
               return (
                 <>
-                  {/* 헤더 - 사진기록은 수정 버튼 없음 */}
+                  {/* 헤더 */}
                   <SheetHeader className="flex flex-row items-center justify-between px-6 pt-6 pb-4 border-b shrink-0">
                     <SheetTitle className="flex items-center gap-2">
                       <Camera className="w-5 h-5 text-violet-500" />
-                      📷 사진기록
+                      {isPhotoEditMode ? "사진기록 수정" : (photoTitle || "사진기록")}
                     </SheetTitle>
                     <Button 
                       variant="ghost" 
                       size="icon"
-                      onClick={() => setShowDetailSheet(false)}
+                      onClick={() => {
+                        if (isPhotoEditMode) {
+                          cancelPhotoEdit();
+                        } else {
+                          setShowDetailSheet(false);
+                        }
+                      }}
                     >
                       <X className="w-5 h-5" />
                     </Button>
                   </SheetHeader>
                   
-                  {/* 스크롤 영역 - 사진 그리드 */}
-                  <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
-                    <p className="text-sm text-muted-foreground">
-                      사진 {photoCount}장
-                    </p>
-                    {detailExercise.images && detailExercise.images.length > 0 && (
-                      <div className="grid grid-cols-3 gap-2">
-                        {detailExercise.images.map((img, idx) => (
-                          <div key={idx} className="aspect-square">
-                            <img
-                              src={img}
-                              alt={`사진 ${idx + 1}`}
-                              className="w-full h-full object-cover rounded-lg cursor-pointer hover:opacity-80 transition-opacity"
-                              onClick={() => window.open(img, '_blank')}
-                            />
+                  {isPhotoEditMode ? (
+                    /* 사진기록 수정 모드 */
+                    <>
+                      <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+                        {/* 제목 입력 */}
+                        <div>
+                          <label className="text-sm font-medium text-muted-foreground">제목 (선택)</label>
+                          <Input
+                            value={editPhotoTitle}
+                            onChange={(e) => setEditPhotoTitle(e.target.value)}
+                            placeholder="사진기록 제목을 입력하세요"
+                            className="mt-1"
+                          />
+                        </div>
+                        
+                        {/* 사진 그리드 + 추가/삭제 */}
+                        <div>
+                          <label className="text-sm font-medium text-muted-foreground">사진</label>
+                          <div className="grid grid-cols-3 gap-2 mt-2">
+                            {editPhotoImages.map((img, idx) => (
+                              <div key={idx} className="relative aspect-square">
+                                <img
+                                  src={img}
+                                  alt={`사진 ${idx + 1}`}
+                                  className="w-full h-full object-cover rounded-lg"
+                                />
+                                <button
+                                  onClick={() => removePhotoEditImage(idx)}
+                                  className="absolute -top-1.5 -right-1.5 w-6 h-6 bg-destructive text-destructive-foreground rounded-full flex items-center justify-center shadow-md"
+                                >
+                                  <X className="w-3 h-3" />
+                                </button>
+                              </div>
+                            ))}
+                            {/* 사진 추가 버튼 */}
+                            <button
+                              onClick={() => photoEditFileInputRef.current?.click()}
+                              className="aspect-square border-2 border-dashed border-border rounded-lg flex flex-col items-center justify-center text-muted-foreground hover:bg-muted/50 transition-colors"
+                            >
+                              <Plus className="w-6 h-6" />
+                              <span className="text-xs mt-1">추가</span>
+                            </button>
                           </div>
-                        ))}
+                        </div>
+                        
+                        {/* 숨김 파일 입력 */}
+                        <input
+                          ref={photoEditFileInputRef}
+                          type="file"
+                          accept="image/*"
+                          multiple
+                          className="hidden"
+                          onChange={handlePhotoEditFileSelect}
+                        />
                       </div>
-                    )}
-                  </div>
-                  
-                  {/* 하단 액션바 - 삭제만 가능 */}
-                  <div className="shrink-0 border-t bg-background px-6 py-4 pb-safe">
-                    <Button 
-                      variant="destructive" 
-                      className="w-full"
-                      onClick={() => deleteExercise(detailExercise.id)}
-                    >
-                      <Trash2 className="w-4 h-4 mr-2" />
-                      삭제하기
-                    </Button>
-                  </div>
+                      
+                      {/* 하단 액션바 - 취소/저장 */}
+                      <div className="shrink-0 border-t bg-background px-6 py-4 pb-safe">
+                        <div className="flex gap-3">
+                          <Button 
+                            variant="outline" 
+                            className="flex-1 h-14 text-base"
+                            onClick={cancelPhotoEdit}
+                          >
+                            취소
+                          </Button>
+                          <Button 
+                            className="flex-1 h-14 text-base"
+                            onClick={savePhotoEdit}
+                            disabled={editPhotoImages.length === 0}
+                          >
+                            저장하기
+                          </Button>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    /* 사진기록 보기 모드 */
+                    <>
+                      <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+                        <p className="text-sm text-muted-foreground">
+                          사진 {photoCount}장
+                        </p>
+                        {detailExercise.images && detailExercise.images.length > 0 && (
+                          <div className="grid grid-cols-3 gap-2">
+                            {detailExercise.images.map((img, idx) => (
+                              <div key={idx} className="aspect-square">
+                                <img
+                                  src={img}
+                                  alt={`사진 ${idx + 1}`}
+                                  className="w-full h-full object-cover rounded-lg cursor-pointer hover:opacity-80 transition-opacity"
+                                  onClick={() => window.open(img, '_blank')}
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* 하단 액션바 - 가로 배치 큰 버튼 2개 */}
+                      <div className="shrink-0 border-t bg-background px-6 py-4 pb-safe">
+                        <div className="flex gap-3">
+                          <Button 
+                            variant="outline" 
+                            className="flex-1 h-14 text-base font-medium"
+                            onClick={startPhotoEdit}
+                          >
+                            수정하기
+                          </Button>
+                          <Button 
+                            variant="destructive" 
+                            className="flex-1 h-14 text-base font-medium"
+                            onClick={() => deleteExercise(detailExercise.id)}
+                          >
+                            삭제하기
+                          </Button>
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </>
               );
             }
