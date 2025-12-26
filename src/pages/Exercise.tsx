@@ -48,28 +48,44 @@ import { useGymMonthHeaders, useGymDayRecord, GymExercise, GymSet } from "@/hook
 import { usePendingQueueOptimized } from "@/hooks/usePendingQueueOptimized";
 import { useAuth } from "@/contexts/AuthContext";
 
-// 운동 종목 목록 + placeholder
+// 운동 종목 목록 + placeholder + 색상
 const SPORT_TYPES = [
-  { value: "walking", label: "걷기", placeholder: "예: 3km" },
-  { value: "health", label: "헬스(근력운동)", placeholder: "예: 벤치프레스" },
-  { value: "hiking", label: "등산", placeholder: "예: 금정산(왕복)" },
-  { value: "running", label: "러닝/조깅", placeholder: "예: 5km" },
-  { value: "cycling", label: "자전거", placeholder: "예: 야외 라이딩 20km" },
-  { value: "spinning", label: "스피닝", placeholder: "예: 스피닝 GX 수업" },
-  { value: "yoga", label: "요가", placeholder: "예: 하타요가" },
-  { value: "pilates", label: "필라테스", placeholder: "예: 기구 필라테스" },
-  { value: "swimming", label: "수영", placeholder: "예: 자유형 500m" },
-  { value: "badminton", label: "배드민턴", placeholder: "예: 복식 경기" },
-  { value: "soccer", label: "축구", placeholder: "예: 조기축구 3경기" },
-  { value: "futsal", label: "풋살", placeholder: "예: 5대5 매치" },
-  { value: "golf", label: "골프/파크골프", placeholder: "예: 스크린 골프 18홀" },
-  { value: "tabletennis", label: "탁구", placeholder: "예: 단식" },
-  { value: "gateball", label: "게이트볼", placeholder: "예: 1경기" },
-  { value: "gymnastics", label: "체조/맨손운동", placeholder: "예: 실버체조 또는 스트레칭" },
-  { value: "aquarobics", label: "아쿠아로빅", placeholder: "예: 수중 에어로빅" },
-  { value: "barefoot", label: "맨발 걷기", placeholder: "예: 황톳길 맨발 걷기" },
-  { value: "other", label: "기타", placeholder: "예: 운동 내용" },
+  { value: "walking", label: "걷기", placeholder: "예: 3km", color: "bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border-emerald-500/30" },
+  { value: "health", label: "헬스(근력운동)", placeholder: "예: 벤치프레스", color: "bg-orange-500/20 text-orange-700 dark:text-orange-300 border-orange-500/30" },
+  { value: "hiking", label: "등산", placeholder: "예: 금정산(왕복)", color: "bg-green-600/20 text-green-700 dark:text-green-300 border-green-600/30" },
+  { value: "running", label: "러닝/조깅", placeholder: "예: 5km", color: "bg-blue-500/20 text-blue-700 dark:text-blue-300 border-blue-500/30" },
+  { value: "cycling", label: "자전거", placeholder: "예: 야외 라이딩 20km", color: "bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 border-cyan-500/30" },
+  { value: "spinning", label: "스피닝", placeholder: "예: 스피닝 GX 수업", color: "bg-red-500/20 text-red-700 dark:text-red-300 border-red-500/30" },
+  { value: "yoga", label: "요가", placeholder: "예: 하타요가", color: "bg-purple-500/20 text-purple-700 dark:text-purple-300 border-purple-500/30" },
+  { value: "pilates", label: "필라테스", placeholder: "예: 기구 필라테스", color: "bg-pink-500/20 text-pink-700 dark:text-pink-300 border-pink-500/30" },
+  { value: "swimming", label: "수영", placeholder: "예: 자유형 500m", color: "bg-sky-500/20 text-sky-700 dark:text-sky-300 border-sky-500/30" },
+  { value: "badminton", label: "배드민턴", placeholder: "예: 복식 경기", color: "bg-lime-500/20 text-lime-700 dark:text-lime-300 border-lime-500/30" },
+  { value: "soccer", label: "축구", placeholder: "예: 조기축구 3경기", color: "bg-green-500/20 text-green-700 dark:text-green-300 border-green-500/30" },
+  { value: "futsal", label: "풋살", placeholder: "예: 5대5 매치", color: "bg-teal-500/20 text-teal-700 dark:text-teal-300 border-teal-500/30" },
+  { value: "golf", label: "골프/파크골프", placeholder: "예: 스크린 골프 18홀", color: "bg-amber-500/20 text-amber-700 dark:text-amber-300 border-amber-500/30" },
+  { value: "tabletennis", label: "탁구", placeholder: "예: 단식", color: "bg-rose-500/20 text-rose-700 dark:text-rose-300 border-rose-500/30" },
+  { value: "gateball", label: "게이트볼", placeholder: "예: 1경기", color: "bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 border-indigo-500/30" },
+  { value: "gymnastics", label: "체조/맨손운동", placeholder: "예: 실버체조 또는 스트레칭", color: "bg-violet-500/20 text-violet-700 dark:text-violet-300 border-violet-500/30" },
+  { value: "aquarobics", label: "아쿠아로빅", placeholder: "예: 수중 에어로빅", color: "bg-blue-400/20 text-blue-600 dark:text-blue-300 border-blue-400/30" },
+  { value: "barefoot", label: "맨발 걷기", placeholder: "예: 황톳길 맨발 걷기", color: "bg-yellow-600/20 text-yellow-700 dark:text-yellow-300 border-yellow-600/30" },
+  { value: "other", label: "기타", placeholder: "예: 운동 내용", color: "bg-gray-500/20 text-gray-700 dark:text-gray-300 border-gray-500/30" },
 ];
+
+// 종목 value로 색상 가져오기
+const getSportColor = (sportValue: string) => {
+  const sport = SPORT_TYPES.find(s => s.value === sportValue);
+  return sport?.color || "bg-secondary text-secondary-foreground";
+};
+
+// 운동명에서 종목 value 추출
+const getSportValueFromName = (exerciseName: string) => {
+  for (const sport of SPORT_TYPES) {
+    if (exerciseName.startsWith(`[${sport.label}]`)) {
+      return sport.value;
+    }
+  }
+  return "other";
+};
 
 
 // Mock 머신명 후보 (헬스용)
@@ -136,7 +152,7 @@ const ExerciseCard = memo(function ExerciseCard({
   exercise: GymExercise;
   onClick: () => void;
 }) {
-  const { sportLabel, exerciseNames } = parseExerciseName(exercise.name);
+  const { sportType, sportLabel, exerciseNames } = parseExerciseName(exercise.name);
   
   return (
     <div 
@@ -160,7 +176,7 @@ const ExerciseCard = memo(function ExerciseCard({
       {exerciseNames.length > 0 && (
         <div className="flex flex-wrap gap-1.5 mt-2">
           {exerciseNames.map((name, i) => (
-            <Badge key={i} variant="secondary" className="text-xs">
+            <Badge key={i} variant="outline" className={cn("text-xs border", getSportColor(sportType))}>
               {name}
             </Badge>
           ))}
@@ -826,7 +842,7 @@ export default function Exercise() {
             </div>
             <div className="space-y-2">
               {pendingExercises.map((exercise, index) => {
-                const { sportLabel, exerciseNames } = parseExerciseName(exercise.name);
+                const { sportType, sportLabel, exerciseNames } = parseExerciseName(exercise.name);
                 return (
                   <div key={exercise.id} className="bg-card rounded-xl p-3">
                     <div className="flex items-center justify-between">
@@ -843,7 +859,7 @@ export default function Exercise() {
                     {exerciseNames.length > 0 && (
                       <div className="flex flex-wrap gap-1 mt-2">
                         {exerciseNames.map((name, i) => (
-                          <Badge key={i} variant="secondary" className="text-xs">
+                          <Badge key={i} variant="outline" className={cn("text-xs border", getSportColor(sportType))}>
                             {name}
                           </Badge>
                         ))}
@@ -1097,7 +1113,7 @@ export default function Exercise() {
       }}>
         <SheetContent side="bottom" className="h-auto max-h-[80vh] rounded-t-3xl [&>button]:hidden">
           {detailExercise && (() => {
-            const { sportLabel, exerciseNames } = parseExerciseName(detailExercise.name);
+            const { sportType, sportLabel, exerciseNames } = parseExerciseName(detailExercise.name);
             return (
               <>
                 <SheetHeader className="flex flex-row items-center justify-between pr-8">
@@ -1245,7 +1261,7 @@ export default function Exercise() {
                           <p className="text-sm text-muted-foreground mb-1">운동명</p>
                           <div className="flex flex-wrap gap-1.5">
                             {exerciseNames.map((name, i) => (
-                              <Badge key={i} variant="secondary">
+                              <Badge key={i} variant="outline" className={cn("border", getSportColor(sportType))}>
                                 {name}
                               </Badge>
                             ))}
