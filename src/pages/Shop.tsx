@@ -178,14 +178,6 @@ export default function Shop() {
       {/* Header */}
       <div className="bg-gradient-to-r from-primary to-yanggaeng-amber text-primary-foreground p-6">
         <div className="flex items-center gap-3 mb-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => step === "info" ? navigate(-1) : setStep("info")}
-            className="text-primary-foreground hover:bg-primary-foreground/20"
-          >
-            <ArrowLeft className="h-6 w-6" />
-          </Button>
           <h1 className="text-2xl font-bold">프리미엄 서비스</h1>
         </div>
         <p className="text-primary-foreground/90">전문가와 함께하는 맞춤 건강 관리</p>
