@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDailyData } from "@/contexts/DailyDataContext";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
   User,
@@ -17,14 +17,12 @@ import {
   Shield,
   Download,
   MessageCircle,
-  ArrowLeft,
 } from "lucide-react";
 import { CheckinSheet } from "@/components/CheckinSheet";
 
 export default function Profile() {
   const { profile, signOut } = useAuth();
   const { currentPoints, refreshPoints } = useDailyData();
-  const navigate = useNavigate();
 
   // 페이지 진입 시 포인트 동기화
   useEffect(() => {
@@ -91,18 +89,8 @@ export default function Profile() {
 
   return (
     <div className="space-y-6">
-      {/* 뒤로가기 버튼 */}
-      <div className="flex items-center gap-2">
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          onClick={() => navigate(-1)}
-          className="rounded-full"
-        >
-          <ArrowLeft className="w-5 h-5" />
-        </Button>
-        <h1 className="text-xl font-bold">마이페이지</h1>
-      </div>
+      {/* 페이지 타이틀 */}
+      <h1 className="text-xl font-bold">마이페이지</h1>
 
       {/* 프로필 카드 */}
       <div className="bg-card rounded-3xl border border-border p-6">

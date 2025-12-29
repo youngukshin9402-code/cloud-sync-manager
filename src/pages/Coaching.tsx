@@ -193,15 +193,7 @@ export default function Coaching() {
       <div className="min-h-screen bg-background pb-24">
         {/* Header */}
         <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => navigate(-1)}
-              className="text-white hover:bg-white/20"
-            >
-              <ArrowLeft className="h-6 w-6" />
-            </Button>
+        <div className="flex items-center gap-3 mb-4">
             <h1 className="text-2xl font-bold">1:1 코칭</h1>
           </div>
           <p className="text-white/90">전문 코치와 함께 건강을 관리하세요</p>
@@ -300,14 +292,6 @@ export default function Coaching() {
       {/* Header */}
       <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-6">
         <div className="flex items-center gap-3 mb-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => navigate(-1)}
-            className="text-white hover:bg-white/20"
-          >
-            <ArrowLeft className="h-6 w-6" />
-          </Button>
           <h1 className="text-2xl font-bold">1:1 코칭</h1>
           <Badge className="bg-amber-500 text-white ml-auto">
             <Crown className="h-3 w-3 mr-1" />
