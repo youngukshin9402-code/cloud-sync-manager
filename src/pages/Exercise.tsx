@@ -1169,11 +1169,11 @@ export default function Exercise() {
           </Button>
           <Button 
             variant="default" 
-            className="h-14 w-20 flex flex-col items-center justify-center text-base font-semibold leading-tight"
+            className="h-14 w-20 flex items-center justify-center"
             onClick={startQuickAdd}
+            aria-label="빠른 추가"
           >
-            <span>빠른</span>
-            <span>추가</span>
+            <span className="text-2xl">📷</span>
           </Button>
         </div>
 
