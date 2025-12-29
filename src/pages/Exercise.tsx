@@ -257,7 +257,7 @@ const ExerciseCard = memo(function ExerciseCard({
         {/* 상단: 카메라 아이콘 + 사진기록 (또는 제목) */}
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-1.5 min-w-0">
-            <Camera className="w-4 h-4 shrink-0 text-orange-500" />
+            <Camera className="w-4 h-4 shrink-0" style={{ color: '#FFA500' }} />
             <span className="font-semibold text-base truncate">
               {photoTitle || "사진기록"}
             </span>
@@ -1193,7 +1193,7 @@ export default function Exercise() {
             {/* 헤더 */}
             <DialogHeader className="px-6 pt-6 pb-4 border-b shrink-0">
               <DialogTitle className="flex items-center gap-2">
-                <Camera className="w-5 h-5 text-orange-500" />
+                <Camera className="w-5 h-5" style={{ color: '#FFA500' }} />
                 빠른 추가
               </DialogTitle>
             </DialogHeader>
@@ -1233,7 +1233,7 @@ export default function Exercise() {
                 </div>
               ) : (
                 <div className="py-12 text-center text-muted-foreground">
-                  <Camera className="w-12 h-12 mx-auto mb-3 opacity-50 text-orange-500" />
+                  <Camera className="w-12 h-12 mx-auto mb-3 opacity-50" style={{ color: '#FFA500' }} />
                   <p>사진을 선택해주세요</p>
                 </div>
               )}
@@ -1485,7 +1485,7 @@ export default function Exercise() {
                   {/* 헤더 */}
                   <SheetHeader className="flex flex-row items-center justify-between px-6 pt-6 pb-4 border-b shrink-0">
                     <SheetTitle className="flex items-center gap-2">
-                      <Camera className="w-5 h-5 text-orange-500" />
+                      <Camera className="w-5 h-5" style={{ color: '#FFA500' }} />
                       {isPhotoEditMode ? "사진기록 수정" : (photoTitle || "사진기록")}
                     </SheetTitle>
                     <Button 
