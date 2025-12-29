@@ -394,6 +394,16 @@ export default function Shop() {
               {isSubmitting ? "신청 중..." : "상담 신청하기"}
             </Button>
 
+            <Button 
+              size="lg" 
+              variant="outline"
+              className="w-full h-14" 
+              onClick={() => setStep("info")}
+              disabled={isSubmitting}
+            >
+              취소
+            </Button>
+
             <p className="text-xs text-center text-muted-foreground">
               상담 신청은 무료이며, 결제가 진행되지 않습니다.
             </p>
