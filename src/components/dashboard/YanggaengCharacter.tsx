@@ -4,14 +4,13 @@ interface YanggaengCharacterProps {
   achievementCount: number; // 0-4
 }
 
-// 스케일 정규화 (3단계 기준)
-// 에셋 내 양갱 본체 크기가 다르므로 시각적으로 동일하게 보이도록 조정
+// 스케일 정규화 (3단계 기준) - 새 에셋은 크기가 균일하여 모두 1.0
 const SCALE_FACTORS: Record<number, number> = {
-  1: 1.08,  // 1단계 양갱이 작아서 확대
-  2: 1.04,  // 2단계 약간 확대
-  3: 1.0,   // 3단계 = 기준
-  4: 1.0,   // 4단계 동일
-  5: 0.96,  // 5단계 약간 축소
+  1: 1.0,
+  2: 1.0,
+  3: 1.0,
+  4: 1.0,
+  5: 1.0,
 };
 
 export default function YanggaengCharacter({ achievementCount }: YanggaengCharacterProps) {
@@ -46,7 +45,7 @@ export default function YanggaengCharacter({ achievementCount }: YanggaengCharac
   }, [stage, displayedStage]);
 
   const scaleFactor = SCALE_FACTORS[displayedStage] || 1.0;
-  const imageSrc = `/yanggaeng/stage-${displayedStage}.png`;
+  const imageSrc = `/yanggaeng/stage-${displayedStage}.png?v=4`;
 
   return (
     <div className="flex justify-center items-center py-4">
