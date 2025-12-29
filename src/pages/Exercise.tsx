@@ -1161,7 +1161,7 @@ export default function Exercise() {
         <div className="flex gap-2">
           <Button 
             variant="outline" 
-            className="flex-1 h-14 border-2 border-[hsl(25,95%,48%)] bg-transparent text-foreground hover:bg-[hsl(25,95%,48%)]/10"
+            className="flex-1 h-14 border-2 border-[hsl(25,70%,70%)] bg-transparent text-muted-foreground hover:bg-[hsl(25,70%,70%)]/10 hover:text-foreground"
             onClick={startNewExercise}
           >
             <Plus className="w-5 h-5 mr-2" />
