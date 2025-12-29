@@ -1164,8 +1164,8 @@ export default function Exercise() {
             운동 추가
           </Button>
           <Button 
-            variant="outline" 
-            className="h-14 w-20 flex flex-col items-center justify-center text-sm font-medium leading-tight"
+            variant="default" 
+            className="h-14 w-20 flex flex-col items-center justify-center text-base font-semibold leading-tight bg-[hsl(25,95%,48%)] hover:bg-[hsl(25,95%,42%)] text-primary-foreground"
             onClick={startQuickAdd}
           >
             <span>빠른</span>
