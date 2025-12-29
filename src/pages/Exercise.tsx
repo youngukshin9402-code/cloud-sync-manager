@@ -1160,8 +1160,8 @@ export default function Exercise() {
         {/* 운동 추가 버튼 + 빠른 추가 버튼 */}
         <div className="flex gap-2">
           <Button 
-            variant="outline" 
-            className="flex-1 h-14 border-2 border-[hsl(25,70%,70%)] bg-transparent text-muted-foreground hover:bg-[hsl(25,70%,70%)]/10 hover:text-foreground"
+            variant="default" 
+            className="flex-1 h-14 bg-[#FFB442] hover:bg-[#FFB442]/90 text-white"
             onClick={startNewExercise}
           >
             <Plus className="w-5 h-5 mr-2" />
