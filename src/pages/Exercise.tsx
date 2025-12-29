@@ -1161,15 +1161,15 @@ export default function Exercise() {
         <div className="flex gap-2">
           <Button 
             variant="default" 
-            className="flex-1 h-14 bg-[#FFB442] hover:bg-[#FFB442]/90 text-white"
+            className="flex-1 h-14 text-white"
             onClick={startNewExercise}
           >
             <Plus className="w-5 h-5 mr-2" />
             운동 추가
           </Button>
           <Button 
-            variant="default" 
-            className="h-14 w-20 flex items-center justify-center"
+            variant="outline" 
+            className="h-14 w-20 flex items-center justify-center bg-white hover:bg-gray-50 border-2 border-primary"
             onClick={startQuickAdd}
             aria-label="빠른 추가"
           >
