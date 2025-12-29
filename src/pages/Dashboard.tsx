@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDailyData } from "@/contexts/DailyDataContext";
@@ -17,6 +17,7 @@ import {
   Heart,
 } from "lucide-react";
 import { getTodayString } from "@/lib/localStorage";
+import YanggaengCharacter from "@/components/dashboard/YanggaengCharacter";
 
 export default function Dashboard() {
   const { profile } = useAuth();
@@ -83,6 +84,16 @@ export default function Dashboard() {
   const actualAge = healthAgeResult?.actualAge;
   const healthAge = healthAgeResult?.healthAge;
 
+  // 영양갱 달성 개수 계산 (실시간 반영)
+  const achievementCount = useMemo(() => {
+    let count = 0;
+    if (hasHealthAge) count++;           // 건강나이 등록됨
+    if (caloriesMet) count++;            // 칼로리 목표 달성
+    if (todayWater >= waterGoal) count++; // 물 목표 달성
+    // 걸음수는 연동 준비중이므로 제외 (추후 추가 가능)
+    return count;
+  }, [hasHealthAge, caloriesMet, todayWater, waterGoal]);
+
   return (
     <div className="flex flex-col h-full pb-4">
       {/* Header */}
@@ -94,6 +105,9 @@ export default function Dashboard() {
           <p className="text-muted-foreground">오늘도 건강한 하루 보내세요 🌟</p>
         </div>
       </div>
+
+      {/* 영양갱 캐릭터 */}
+      <YanggaengCharacter achievementCount={achievementCount} />
 
       {/* Today's Summary KPIs */}
       <div className="flex-1 flex flex-col">
