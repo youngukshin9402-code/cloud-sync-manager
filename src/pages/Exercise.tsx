@@ -257,7 +257,7 @@ const ExerciseCard = memo(function ExerciseCard({
         {/* 상단: 카메라 아이콘 + 사진기록 (또는 제목) */}
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-1.5 min-w-0">
-            <Camera className="w-4 h-4 shrink-0 text-violet-500" />
+            <Camera className="w-4 h-4 shrink-0 text-orange-500" />
             <span className="font-semibold text-base truncate">
               {photoTitle || "사진기록"}
             </span>
@@ -266,7 +266,7 @@ const ExerciseCard = memo(function ExerciseCard({
 
         {/* 하단: 사진 n장 태그 */}
         <div className="flex flex-wrap gap-1.5">
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-violet-500/20 text-violet-700 dark:text-violet-300 border border-violet-500/30 rounded-full text-xs">
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-orange-500/20 text-orange-700 dark:text-orange-300 border border-orange-500/30 rounded-full text-xs">
             <ImageIcon className="w-3 h-3" />
             사진 {photoCount}장
           </span>
@@ -1173,7 +1173,7 @@ export default function Exercise() {
             onClick={startQuickAdd}
             aria-label="빠른 추가"
           >
-            <span className="text-2xl">📷</span>
+            <Camera className="w-7 h-7 text-primary" />
           </Button>
         </div>
 
@@ -1485,7 +1485,7 @@ export default function Exercise() {
                   {/* 헤더 */}
                   <SheetHeader className="flex flex-row items-center justify-between px-6 pt-6 pb-4 border-b shrink-0">
                     <SheetTitle className="flex items-center gap-2">
-                      <Camera className="w-5 h-5 text-violet-500" />
+                      <Camera className="w-5 h-5 text-orange-500" />
                       {isPhotoEditMode ? "사진기록 수정" : (photoTitle || "사진기록")}
                     </SheetTitle>
                     <Button 
