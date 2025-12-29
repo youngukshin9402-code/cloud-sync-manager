@@ -1193,7 +1193,7 @@ export default function Exercise() {
             {/* 헤더 */}
             <DialogHeader className="px-6 pt-6 pb-4 border-b shrink-0">
               <DialogTitle className="flex items-center gap-2">
-                <Camera className="w-5 h-5 text-violet-500" />
+                <Camera className="w-5 h-5 text-orange-500" />
                 빠른 추가
               </DialogTitle>
             </DialogHeader>
@@ -1233,7 +1233,7 @@ export default function Exercise() {
                 </div>
               ) : (
                 <div className="py-12 text-center text-muted-foreground">
-                  <Camera className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                  <Camera className="w-12 h-12 mx-auto mb-3 opacity-50 text-orange-500" />
                   <p>사진을 선택해주세요</p>
                 </div>
               )}
