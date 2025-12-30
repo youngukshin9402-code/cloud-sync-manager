@@ -361,8 +361,13 @@ export default function Auth() {
     e.preventDefault();
     setLoading(true);
 
+    // @ 없으면 @yanggaeng.local 붙이기
+    const emailToUse = loginEmail.includes('@') 
+      ? loginEmail 
+      : `${loginEmail.trim()}@yanggaeng.local`;
+
     const { data, error } = await supabase.auth.signInWithPassword({
-      email: loginEmail,
+      email: emailToUse,
       password: loginPassword,
     });
 
@@ -371,7 +376,7 @@ export default function Auth() {
         title: "로그인 실패",
         description:
           error.message === "Invalid login credentials"
-            ? "이메일 또는 비밀번호가 올바르지 않아요."
+            ? "아이디 또는 비밀번호가 올바르지 않아요."
             : "다시 시도해주세요.",
         variant: "destructive",
       });
@@ -581,14 +586,14 @@ export default function Auth() {
               <form onSubmit={handleLogin} className="space-y-6">
                 <div className="space-y-2">
                   <Label htmlFor="login-email" className="text-lg">
-                    이메일
+                    아이디
                   </Label>
                   <Input
                     id="login-email"
-                    type="email"
+                    type="text"
                     value={loginEmail}
                     onChange={(e) => setLoginEmail(e.target.value)}
-                    placeholder="email@example.com"
+                    placeholder="아이디를 입력하세요"
                     required
                     className="h-14 text-lg"
                   />

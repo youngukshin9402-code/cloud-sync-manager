@@ -26,7 +26,7 @@ import { useGuardianConnection } from "@/hooks/useGuardianConnection";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
 
-// 보호자 열람 범위: 오늘 요약 카드 4개만 (칼로리, 물, 운동, 미션)
+// 보호자 열람 범위: 오늘 요약 카드 4개만 (칼로리, 물, 운동, 건강나이)
 interface ConnectedUserTodaySummary {
   userId: string;
   nickname: string;
@@ -34,8 +34,7 @@ interface ConnectedUserTodaySummary {
   calorieGoal: number;
   todayWater: number;
   waterGoal: number;
-  missionsCompleted: number;
-  missionTotal: number;
+  healthAge: number | null;
   hasExercise: boolean;
   exerciseCount: number;
   lastUpdated: Date;
@@ -137,16 +136,17 @@ export default function Guardian() {
 
         const waterGoal = waterSettings?.daily_goal || 2000;
 
-        // 오늘 미션 조회
-        const { data: missionData } = await supabase
-          .from('daily_logs')
-          .select('is_completed')
+        // 건강나이 조회 (가장 최근 건강기록에서)
+        const { data: healthData } = await supabase
+          .from('health_records')
+          .select('health_age')
           .eq('user_id', targetUserId)
-          .eq('log_date', today)
-          .eq('log_type', 'mission');
+          .not('health_age', 'is', null)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
 
-        const missionsCompleted = (missionData || []).filter(m => m.is_completed).length;
-        const missionTotal = (missionData || []).length || 3;
+        const healthAge = healthData?.health_age || null;
 
         // 오늘 운동 기록 조회
         const { data: exerciseData } = await supabase
@@ -168,8 +168,7 @@ export default function Guardian() {
           calorieGoal,
           todayWater,
           waterGoal,
-          missionsCompleted,
-          missionTotal,
+          healthAge,
           hasExercise,
           exerciseCount,
           lastUpdated: new Date(),
@@ -413,20 +412,20 @@ export default function Guardian() {
                         )}
                       </div>
 
-                      {/* 미션 카드 */}
-                      <div className="p-4 bg-gradient-to-br from-green-50 to-green-100/50 dark:from-green-950/30 dark:to-green-900/20 rounded-xl space-y-2">
+                      {/* 건강나이 카드 */}
+                      <div className="p-4 bg-gradient-to-br from-rose-50 to-rose-100/50 dark:from-rose-950/30 dark:to-rose-900/20 rounded-xl space-y-2">
                         <div className="flex items-center gap-2">
-                          <CheckCircle className="w-4 h-4 text-green-500" />
-                          <span className="text-sm font-medium">오늘 할 일</span>
+                          <Heart className="w-4 h-4 text-rose-500" />
+                          <span className="text-sm font-medium">건강나이</span>
                         </div>
-                        <p className="text-2xl font-bold text-foreground">
-                          {summary.missionsCompleted}
-                          <span className="text-sm font-normal text-muted-foreground ml-1">/ {summary.missionTotal}</span>
-                        </p>
-                        <Progress 
-                          value={summary.missionTotal > 0 ? (summary.missionsCompleted / summary.missionTotal) * 100 : 0} 
-                          className="h-2" 
-                        />
+                        {summary.healthAge !== null ? (
+                          <p className="text-2xl font-bold text-foreground">
+                            {summary.healthAge}
+                            <span className="text-sm font-normal text-muted-foreground ml-1">세</span>
+                          </p>
+                        ) : (
+                          <p className="text-lg font-semibold text-muted-foreground">기록 없음</p>
+                        )}
                       </div>
                     </div>
 
