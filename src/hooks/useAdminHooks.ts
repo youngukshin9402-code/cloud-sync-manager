@@ -190,23 +190,40 @@ export function useTicketsAdmin() {
 
   const fetchTickets = useCallback(async () => {
     try {
-      const { data, error } = await supabase
+      // 외래 키가 없으므로 조인 없이 가져온 후 별도로 프로필 조회
+      const { data: ticketsData, error: ticketsError } = await supabase
         .from('support_tickets')
-        .select(`
-          *,
-          profiles:user_id(nickname),
-          replies:support_ticket_replies(*)
-        `)
+        .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (ticketsError) throw ticketsError;
 
-      const mapped = (data || []).map((t: any) => ({
-        ...t,
-        user_nickname: t.profiles?.nickname || '알 수 없음',
-        replies: t.replies || []
-      }));
-      setTickets(mapped);
+      // 각 티켓에 대해 답글과 사용자 닉네임을 가져오기
+      const ticketsWithDetails = await Promise.all(
+        (ticketsData || []).map(async (ticket: any) => {
+          // 답글 조회
+          const { data: repliesData } = await supabase
+            .from('support_ticket_replies')
+            .select('*')
+            .eq('ticket_id', ticket.id)
+            .order('created_at', { ascending: true });
+
+          // 사용자 닉네임 조회
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select('nickname')
+            .eq('id', ticket.user_id)
+            .single();
+
+          return {
+            ...ticket,
+            user_nickname: profileData?.nickname || '알 수 없음',
+            replies: repliesData || []
+          };
+        })
+      );
+
+      setTickets(ticketsWithDetails);
     } catch (error) {
       console.error('Error fetching tickets:', error);
     } finally {

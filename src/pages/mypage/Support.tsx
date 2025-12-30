@@ -77,8 +77,10 @@ export default function SupportPage() {
   
   // 수정/삭제 상태
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [editingTicketId, setEditingTicketId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState("");
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [deleteConfirmType, setDeleteConfirmType] = useState<'ticket' | 'reply' | null>(null);
 
   const fetchTickets = useCallback(async () => {
     if (!user) return;
@@ -292,14 +294,85 @@ export default function SupportPage() {
     fetchThreadMessages(ticket.id);
   };
 
-  const startEditing = (message: ThreadMessage) => {
+  // 답글 수정 시작
+  const startEditingReply = (message: ThreadMessage) => {
     setEditingMessageId(message.id);
+    setEditingTicketId(null);
     setEditingText(message.message);
+  };
+
+  // 원본 문의 수정 시작
+  const startEditingTicket = () => {
+    if (!selectedTicket) return;
+    setEditingTicketId(selectedTicket.id);
+    setEditingMessageId(null);
+    setEditingText(selectedTicket.message);
   };
 
   const cancelEditing = () => {
     setEditingMessageId(null);
+    setEditingTicketId(null);
     setEditingText("");
+  };
+
+  // 원본 문의 수정
+  const handleEditTicket = async () => {
+    if (!user || !selectedTicket || !editingText.trim()) return;
+
+    setSubmitting(true);
+    const { error } = await supabase
+      .from("support_tickets")
+      .update({ 
+        message: editingText.trim(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", selectedTicket.id);
+
+    if (error) {
+      toast({ title: "수정에 실패했습니다", variant: "destructive" });
+    } else {
+      toast({ title: "문의가 수정되었습니다" });
+      setSelectedTicket({ ...selectedTicket, message: editingText.trim() });
+      cancelEditing();
+      fetchTickets();
+    }
+    setSubmitting(false);
+  };
+
+  // 원본 문의 삭제 (soft delete)
+  const handleDeleteTicket = async () => {
+    if (!user || !selectedTicket) return;
+
+    setSubmitting(true);
+    const { error } = await supabase
+      .from("support_tickets")
+      .update({ 
+        is_deleted: true,
+        deleted_at: new Date().toISOString(),
+      })
+      .eq("id", selectedTicket.id);
+
+    if (error) {
+      toast({ title: "삭제에 실패했습니다", variant: "destructive" });
+    } else {
+      toast({ title: "문의가 삭제되었습니다" });
+      setSelectedTicket(null);
+      setDeleteConfirmId(null);
+      setDeleteConfirmType(null);
+      fetchTickets();
+    }
+    setSubmitting(false);
+  };
+
+  // 삭제 확인 핸들러
+  const handleConfirmDelete = async () => {
+    if (deleteConfirmType === 'ticket') {
+      await handleDeleteTicket();
+    } else if (deleteConfirmType === 'reply' && deleteConfirmId) {
+      await handleDeleteMessage(deleteConfirmId);
+    }
+    setDeleteConfirmId(null);
+    setDeleteConfirmType(null);
   };
 
   const getStatusBadge = (status: string) => {
@@ -342,15 +415,73 @@ export default function SupportPage() {
         </div>
 
         <div className="p-4 space-y-4">
-          {/* 원본 문의 (수정 불가) */}
-          <div className="bg-card rounded-2xl border border-border p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-sm font-medium">내 문의</span>
-              <span className="text-xs text-muted-foreground">
-                {new Date(selectedTicket.created_at).toLocaleDateString("ko-KR")}
-              </span>
+          {/* 원본 문의 (수정/삭제 가능) */}
+          <div className="bg-card rounded-2xl border border-border p-4 relative group">
+            <div className="flex items-center justify-between gap-2 mb-2">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium">내 문의</span>
+                <span className="text-xs text-muted-foreground">
+                  {new Date(selectedTicket.created_at).toLocaleDateString("ko-KR")}
+                </span>
+                {selectedTicket.updated_at !== selectedTicket.created_at && (
+                  <span className="text-xs text-muted-foreground">(수정됨)</span>
+                )}
+              </div>
+              
+              {/* 수정/삭제 버튼 */}
+              {!editingTicketId && selectedTicket.status !== "closed" && (
+                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={startEditingTicket}
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-destructive hover:text-destructive"
+                    onClick={() => {
+                      setDeleteConfirmId(selectedTicket.id);
+                      setDeleteConfirmType('ticket');
+                    }}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+              )}
             </div>
-            <p className="whitespace-pre-wrap">{selectedTicket.message}</p>
+
+            {/* 수정 모드 */}
+            {editingTicketId === selectedTicket.id ? (
+              <div className="space-y-2">
+                <Textarea
+                  value={editingText}
+                  onChange={(e) => setEditingText(e.target.value)}
+                  rows={3}
+                />
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    onClick={handleEditTicket}
+                    disabled={submitting || !editingText.trim()}
+                  >
+                    저장
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={cancelEditing}
+                  >
+                    취소
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <p className="whitespace-pre-wrap">{selectedTicket.message}</p>
+            )}
           </div>
 
           {/* 스레드 메시지 */}
@@ -383,7 +514,7 @@ export default function SupportPage() {
                       variant="ghost"
                       size="icon"
                       className="h-7 w-7"
-                      onClick={() => startEditing(msg)}
+                      onClick={() => startEditingReply(msg)}
                     >
                       <Pencil className="w-3.5 h-3.5" />
                     </Button>
@@ -391,7 +522,10 @@ export default function SupportPage() {
                       variant="ghost"
                       size="icon"
                       className="h-7 w-7 text-destructive hover:text-destructive"
-                      onClick={() => setDeleteConfirmId(msg.id)}
+                      onClick={() => {
+                        setDeleteConfirmId(msg.id);
+                        setDeleteConfirmType('reply');
+                      }}
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </Button>
@@ -452,22 +586,27 @@ export default function SupportPage() {
         </div>
 
         {/* 삭제 확인 다이얼로그 */}
-        <AlertDialog open={!!deleteConfirmId} onOpenChange={() => setDeleteConfirmId(null)}>
+        <AlertDialog open={!!deleteConfirmType} onOpenChange={() => {
+          setDeleteConfirmId(null);
+          setDeleteConfirmType(null);
+        }}>
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle className="flex items-center gap-2">
                 <AlertCircle className="w-5 h-5 text-destructive" />
-                메시지 삭제
+                {deleteConfirmType === 'ticket' ? '문의 삭제' : '메시지 삭제'}
               </AlertDialogTitle>
               <AlertDialogDescription>
-                이 메시지를 삭제하시겠습니까? 삭제된 메시지는 복구할 수 없습니다.
+                {deleteConfirmType === 'ticket' 
+                  ? '이 문의를 삭제하시겠습니까? 삭제된 문의는 복구할 수 없습니다.'
+                  : '이 메시지를 삭제하시겠습니까? 삭제된 메시지는 복구할 수 없습니다.'}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>취소</AlertDialogCancel>
               <AlertDialogAction
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                onClick={() => deleteConfirmId && handleDeleteMessage(deleteConfirmId)}
+                onClick={handleConfirmDelete}
               >
                 삭제
               </AlertDialogAction>
