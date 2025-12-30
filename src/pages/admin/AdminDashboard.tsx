@@ -1,9 +1,9 @@
-import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Link } from "react-router-dom";
 import { useAdminData } from "@/hooks/useAdminData";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { CheckinReportTimeline } from "@/components/coach/CheckinReportTimeline";
 import {
   Users,
   UserCog,
@@ -18,6 +18,7 @@ import {
   Video,
   MessageSquare,
   Brain,
+  ClipboardCheck,
 } from "lucide-react";
 
 export default function AdminDashboard() {
@@ -188,6 +189,15 @@ export default function AdminDashboard() {
             </div>
             <p className="text-2xl font-bold">{stats.premiumUsers}</p>
           </div>
+        </div>
+
+        {/* 체크인 리포트 타임라인 */}
+        <div>
+          <div className="flex items-center gap-2 mb-4">
+            <ClipboardCheck className="w-5 h-5 text-primary" />
+            <h2 className="text-xl font-semibold">체크인 리포트</h2>
+          </div>
+          <CheckinReportTimeline limit={20} />
         </div>
 
         {/* 메뉴 그리드 */}
