@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
+import { createClient } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -8,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, HelpCircle, MessageSquare, Send, Plus, Clock, CheckCircle, Loader2, Pencil, Trash2, AlertCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import type { Database } from "@/integrations/supabase/types";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,6 +20,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+
 
 const faqs = [
   {
@@ -66,8 +69,9 @@ interface ThreadMessage {
 
 export default function SupportPage() {
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, session } = useAuth();
   const [activeTab, setActiveTab] = useState<"faq" | "tickets" | "new">("faq");
+
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [threadMessages, setThreadMessages] = useState<ThreadMessage[]>([]);
@@ -271,30 +275,74 @@ export default function SupportPage() {
     setSubmitting(true);
 
     // 🔍 DEBUG: 삭제 대상 메시지 찾기
-    const msg = threadMessages.find(m => m.id === messageId);
-    
-    // 🔍 DEBUG: Supabase 세션 정보
-    const { data: { session } } = await supabase.auth.getSession();
-    console.log('🔍 [DELETE DEBUG] session.user.id:', session?.user?.id);
-    console.log('🔍 [DELETE DEBUG] context user.id:', user?.id);
-    console.log('🔍 [DELETE DEBUG] msg.id:', msg?.id);
-    console.log('🔍 [DELETE DEBUG] msg.user_id:', msg?.user_id);
-    console.log('🔍 [DELETE DEBUG] msg.sender_type:', msg?.sender_type);
-    
+    const msg = threadMessages.find((m) => m.id === messageId);
+
+    // 🔍 DEBUG: 세션(토큰) 정보
+    const {
+      data: { session: liveSession },
+    } = await supabase.auth.getSession();
+
+    const accessToken = session?.access_token ?? liveSession?.access_token ?? null;
+
+    console.log("🔍 [DELETE DEBUG] session.user.id:", liveSession?.user?.id);
+    console.log("🔍 [DELETE DEBUG] context user.id:", user?.id);
+    console.log("🔍 [DELETE DEBUG] access_token exists:", Boolean(accessToken));
+    console.log("🔍 [DELETE DEBUG] msg.id:", msg?.id);
+    console.log("🔍 [DELETE DEBUG] msg.user_id:", msg?.user_id);
+    console.log("🔍 [DELETE DEBUG] msg.sender_type:", msg?.sender_type);
+
     const updatePayload = {
       is_deleted: true,
       deleted_at: new Date().toISOString(),
     };
-    console.log('🔍 [DELETE DEBUG] update payload:', updatePayload);
+    console.log("🔍 [DELETE DEBUG] update payload:", updatePayload);
 
+    // 1) 기본 supabase 클라이언트로 1회 시도
     // RLS가 auth.uid() = user_id를 이미 보장하므로 .eq("id", messageId)만 사용
-    const { error } = await supabase
+    let { error } = await supabase
       .from("support_ticket_replies")
       .update(updatePayload)
       .eq("id", messageId);
 
+    // 2) 같은 쿼리를 Authorization 헤더 강제 주입 클라이언트로 1회 더 시도 (토큰 미전달 여부 판정용)
+    if (error?.code === "42501" && accessToken) {
+      const supabaseAuthed = createClient<Database>(
+        import.meta.env.VITE_SUPABASE_URL,
+        import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        {
+          global: {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+          },
+          auth: {
+            persistSession: false,
+            autoRefreshToken: false,
+          },
+        }
+      );
+
+      const { error: authedError } = await supabaseAuthed
+        .from("support_ticket_replies")
+        .update(updatePayload)
+        .eq("id", messageId);
+
+      console.log("🔍 [DELETE DEBUG] authed client result:", {
+        ok: !authedError,
+        code: authedError?.code,
+        message: authedError?.message,
+        details: authedError?.details,
+        hint: authedError?.hint,
+      });
+
+      // authed 클라이언트로 성공하면, '토큰 미전달' 케이스로 판단하고 성공 처리
+      if (!authedError) {
+        error = null;
+      }
+    }
+
     if (error) {
-      console.error('❌ [DELETE DEBUG] Error:', {
+      console.error("❌ [DELETE DEBUG] Error:", {
         code: error.code,
         message: error.message,
         details: error.details,
@@ -306,7 +354,7 @@ export default function SupportPage() {
         variant: "destructive",
       });
     } else {
-      console.log('✅ [DELETE DEBUG] Success!');
+      console.log("✅ [DELETE DEBUG] Success!");
       toast({ title: "메시지가 삭제되었습니다" });
       setDeleteConfirmId(null);
       if (selectedTicket) {
