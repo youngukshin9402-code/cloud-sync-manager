@@ -160,6 +160,16 @@ export function useCoachingAdmin() {
 // Admin Tickets Hook
 // ========================
 
+interface AdminTicketReply {
+  id: string;
+  message: string;
+  is_admin: boolean;
+  sender_type: string;
+  created_at: string;
+  updated_at: string | null;
+  is_deleted: boolean;
+}
+
 interface AdminTicket {
   id: string;
   user_id: string;
@@ -168,12 +178,8 @@ interface AdminTicket {
   message: string;
   status: string;
   created_at: string;
-  replies?: {
-    id: string;
-    message: string;
-    is_admin: boolean;
-    created_at: string;
-  }[];
+  is_deleted: boolean;
+  replies?: AdminTicketReply[];
 }
 
 export function useTicketsAdmin() {
@@ -211,7 +217,7 @@ export function useTicketsAdmin() {
   useEffect(() => {
     fetchTickets();
 
-    // Realtime 구독: 문의/답변 변경 시 자동 갱신
+    // Realtime 구독: 문의/답변 INSERT/UPDATE/DELETE 시 자동 갱신
     const channel = supabase
       .channel('admin-tickets-realtime')
       .on(
@@ -221,7 +227,7 @@ export function useTicketsAdmin() {
       )
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'support_ticket_replies' },
+        { event: '*', schema: 'public', table: 'support_ticket_replies' },
         () => fetchTickets()
       )
       .subscribe();
@@ -258,18 +264,13 @@ export function useTicketsAdmin() {
           ticket_id: ticketId,
           user_id: user.id,
           message,
-          is_admin: true
+          is_admin: true,
+          sender_type: 'admin'
         })
         .select()
         .single();
 
       if (error) throw error;
-
-      setTickets(prev => prev.map(t => 
-        t.id === ticketId 
-          ? { ...t, replies: [...(t.replies || []), data] }
-          : t
-      ));
 
       // Update status to in_progress if it was open
       const ticket = tickets.find(t => t.id === ticketId);
@@ -284,7 +285,117 @@ export function useTicketsAdmin() {
     }
   };
 
-  return { tickets, loading, updateStatus, addReply, refetch: fetchTickets };
+  // 문의 원본 메시지 수정 (티켓 자체)
+  const updateTicketMessage = async (ticketId: string, newMessage: string) => {
+    if (!user) return;
+
+    try {
+      const ticket = tickets.find(t => t.id === ticketId);
+      if (!ticket) return;
+
+      // 기존 메시지 히스토리 저장 (support_ticket_message_history 대신 별도 처리)
+      const { error } = await supabase
+        .from('support_tickets')
+        .update({ 
+          message: newMessage,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', ticketId);
+
+      if (error) throw error;
+
+      toast({ title: '문의가 수정되었습니다' });
+    } catch (error) {
+      console.error('Error updating ticket:', error);
+      toast({ title: '문의 수정 실패', variant: 'destructive' });
+    }
+  };
+
+  // 문의 삭제 (soft delete)
+  const deleteTicket = async (ticketId: string) => {
+    try {
+      const { error } = await supabase
+        .from('support_tickets')
+        .update({ 
+          is_deleted: true,
+          deleted_at: new Date().toISOString()
+        })
+        .eq('id', ticketId);
+
+      if (error) throw error;
+
+      toast({ title: '문의가 삭제되었습니다' });
+    } catch (error) {
+      console.error('Error deleting ticket:', error);
+      toast({ title: '문의 삭제 실패', variant: 'destructive' });
+    }
+  };
+
+  // 답글 수정
+  const updateReply = async (replyId: string, newMessage: string) => {
+    if (!user) return;
+
+    try {
+      // 히스토리에 이전 메시지 저장
+      const reply = tickets.flatMap(t => t.replies || []).find(r => r.id === replyId);
+      if (reply) {
+        await supabase
+          .from('support_ticket_message_history')
+          .insert({
+            message_id: replyId,
+            previous_message: reply.message,
+            edited_by: user.id
+          });
+      }
+
+      const { error } = await supabase
+        .from('support_ticket_replies')
+        .update({ 
+          message: newMessage,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', replyId);
+
+      if (error) throw error;
+
+      toast({ title: '답글이 수정되었습니다' });
+    } catch (error) {
+      console.error('Error updating reply:', error);
+      toast({ title: '답글 수정 실패', variant: 'destructive' });
+    }
+  };
+
+  // 답글 삭제 (soft delete)
+  const deleteReply = async (replyId: string) => {
+    try {
+      const { error } = await supabase
+        .from('support_ticket_replies')
+        .update({ 
+          is_deleted: true,
+          deleted_at: new Date().toISOString()
+        })
+        .eq('id', replyId);
+
+      if (error) throw error;
+
+      toast({ title: '답글이 삭제되었습니다' });
+    } catch (error) {
+      console.error('Error deleting reply:', error);
+      toast({ title: '답글 삭제 실패', variant: 'destructive' });
+    }
+  };
+
+  return { 
+    tickets, 
+    loading, 
+    updateStatus, 
+    addReply, 
+    updateTicketMessage,
+    deleteTicket,
+    updateReply,
+    deleteReply,
+    refetch: fetchTickets 
+  };
 }
 
 // ========================
