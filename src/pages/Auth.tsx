@@ -105,42 +105,21 @@ export default function Auth() {
     setUserIdAvailable(false);
   }, [userId]);
 
-  // Check for auth state changes (for OAuth callbacks)
+  // Check for auth state changes (for OAuth callbacks only)
+  // Navigation is handled by AuthProvider + AuthenticatedRedirect
   useEffect(() => {
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      // Sync callback only - no async operations here
       if (event === "SIGNED_IN" && session) {
-        toast({
-          title: "환영합니다!",
-          description: "로그인에 성공했어요.",
-        });
-        
-        // 역할 확인 후 적절한 페이지로 리다이렉트
-        setTimeout(async () => {
-          const { data: roles } = await supabase
-            .from("user_roles")
-            .select("role")
-            .eq("user_id", session.user.id);
-          
-          const hasAdminRole = roles?.some(r => r.role === "admin");
-          
-          if (hasAdminRole) {
-            navigate("/admin/dashboard", { replace: true });
-          } else {
-            const hasCoachRole = roles?.some(r => r.role === "coach");
-            if (hasCoachRole) {
-              navigate("/coach/dashboard", { replace: true });
-            } else {
-              navigate(from, { replace: true });
-            }
-          }
-        }, 0);
+        // Simply navigate to root, let AuthenticatedRedirect handle role-based routing
+        navigate("/", { replace: true });
       }
     });
 
     return () => subscription.unsubscribe();
-  }, [navigate, toast, from]);
+  }, [navigate]);
 
   const handleKakaoLogin = async () => {
     setKakaoLoading(true);
@@ -361,51 +340,46 @@ export default function Auth() {
     e.preventDefault();
     setLoading(true);
 
-    // @ 없으면 @yanggaeng.local 붙이기
-    const emailToUse = loginEmail.includes('@') 
-      ? loginEmail 
-      : `${loginEmail.trim()}@yanggaeng.local`;
+    try {
+      // @ 없으면 @yanggaeng.local 붙이기
+      const emailToUse = loginEmail.includes('@') 
+        ? loginEmail 
+        : `${loginEmail.trim()}@yanggaeng.local`;
 
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: emailToUse,
-      password: loginPassword,
-    });
+      const { error } = await supabase.auth.signInWithPassword({
+        email: emailToUse,
+        password: loginPassword,
+      });
 
-    if (error) {
+      if (error) {
+        toast({
+          title: "로그인 실패",
+          description:
+            error.message === "Invalid login credentials"
+              ? "아이디 또는 비밀번호가 올바르지 않아요."
+              : "다시 시도해주세요.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
       toast({
-        title: "로그인 실패",
-        description:
-          error.message === "Invalid login credentials"
-            ? "아이디 또는 비밀번호가 올바르지 않아요."
-            : "다시 시도해주세요.",
+        title: "환영합니다!",
+        description: "로그인에 성공했어요.",
+      });
+
+      // Simply navigate to root, let AuthenticatedRedirect handle role-based routing
+      navigate("/", { replace: true });
+    } catch (err) {
+      console.error("Login error:", err);
+      toast({
+        title: "로그인 오류",
+        description: "다시 시도해주세요.",
         variant: "destructive",
       });
+    } finally {
       setLoading(false);
-      return;
     }
-    
-    toast({
-      title: "환영합니다!",
-      description: "로그인에 성공했어요.",
-    });
-
-    const { data: roles } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", data.user.id);
-    
-    const hasAdminRole = roles?.some(r => r.role === "admin");
-    const hasCoachRole = roles?.some(r => r.role === "coach");
-    
-    if (hasAdminRole) {
-      navigate("/admin/dashboard", { replace: true });
-    } else if (hasCoachRole) {
-      navigate("/coach/dashboard", { replace: true });
-    } else {
-      navigate(from, { replace: true });
-    }
-    
-    setLoading(false);
   };
 
   const handleSignup = async (e: React.FormEvent) => {
@@ -421,46 +395,46 @@ export default function Auth() {
 
     setLoading(true);
 
-    // 아이디를 내부적으로 이메일 형식으로 변환
-    const fakeEmail = `${userId.trim()}@yanggaeng.local`;
-    const redirectUrl = `${window.location.origin}/`;
+    try {
+      // 아이디를 내부적으로 이메일 형식으로 변환
+      const fakeEmail = `${userId.trim()}@yanggaeng.local`;
+      const redirectUrl = `${window.location.origin}/`;
 
-    const { error } = await supabase.auth.signUp({
-      email: fakeEmail,
-      password,
-      phone: phone.trim() ? formatPhoneToE164(phone) : undefined,
-      options: {
-        emailRedirectTo: redirectUrl,
-        data: {
-          nickname: nickname,
-          user_type: selectedUserType,
-          gender: gender,
-          height_cm: Number(height),
-          current_weight: Number(currentWeight),
-          goal_weight: Number(goalWeight),
-          age: Number(age),
-          activity_level: activityLevel,
-          conditions: conditions.trim() || null,
-          phone: phone.trim() ? phone.replace(/\D/g, "") : null,
+      const { error } = await supabase.auth.signUp({
+        email: fakeEmail,
+        password,
+        phone: phone.trim() ? formatPhoneToE164(phone) : undefined,
+        options: {
+          emailRedirectTo: redirectUrl,
+          data: {
+            nickname: nickname,
+            user_type: selectedUserType,
+            gender: gender,
+            height_cm: Number(height),
+            current_weight: Number(currentWeight),
+            goal_weight: Number(goalWeight),
+            age: Number(age),
+            activity_level: activityLevel,
+            conditions: conditions.trim() || null,
+            phone: phone.trim() ? phone.replace(/\D/g, "") : null,
+          },
         },
-      },
-    });
-
-    if (error) {
-      let message = "회원가입에 실패했어요.";
-      if (error.message.includes("already registered")) {
-        message = "이미 가입된 아이디예요.";
-        setUserIdChecked(false);
-        setUserIdAvailable(false);
-      }
-      toast({
-        title: "회원가입 실패",
-        description: message,
-        variant: "destructive",
       });
-    } else {
-      // nutrition_settings에 신체 정보 저장은 AuthContext에서 처리되거나
-      // 여기서 직접 처리해야 함 - 일단 user metadata에 저장했으므로 OK
+
+      if (error) {
+        let message = "회원가입에 실패했어요.";
+        if (error.message.includes("already registered")) {
+          message = "이미 가입된 아이디예요.";
+          setUserIdChecked(false);
+          setUserIdAvailable(false);
+        }
+        toast({
+          title: "회원가입 실패",
+          description: message,
+          variant: "destructive",
+        });
+        return;
+      }
       
       toast({
         title: "회원가입 완료!",
@@ -485,8 +459,16 @@ export default function Auth() {
       setOtpSent(false);
       setUserIdChecked(false);
       setUserIdAvailable(false);
+    } catch (err) {
+      console.error("Signup error:", err);
+      toast({
+        title: "회원가입 오류",
+        description: "다시 시도해주세요.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const UserTypeSelector = () => (
