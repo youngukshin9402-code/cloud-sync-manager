@@ -20,14 +20,14 @@ import {
   Droplets,
   CheckCircle,
   Dumbbell,
-  Scale,
   RefreshCw,
 } from "lucide-react";
 import { useGuardianConnection } from "@/hooks/useGuardianConnection";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
 
-interface ConnectedUserSummary {
+// 보호자 열람 범위: 오늘 요약 카드 4개만 (칼로리, 물, 운동, 미션)
+interface ConnectedUserTodaySummary {
   userId: string;
   nickname: string;
   todayCalories: number;
@@ -38,24 +38,7 @@ interface ConnectedUserSummary {
   missionTotal: number;
   hasExercise: boolean;
   exerciseCount: number;
-  latestWeight: number | null;
-  goalWeight: number | null;
   lastUpdated: Date;
-  // 영양 상세
-  todayProtein: number;
-  proteinGoal: number;
-  todayCarbs: number;
-  carbGoal: number;
-  todayFat: number;
-  fatGoal: number;
-  // 건강검진
-  latestHealthCheckup: {
-    id: string;
-    date: string;
-    status: string;
-    hasAIAnalysis: boolean;
-    hasComment: boolean;
-  } | null;
 }
 
 export default function Guardian() {
@@ -69,26 +52,24 @@ export default function Guardian() {
     connectWithPhoneVerification,
   } = useGuardianConnection();
   
-  // 사용자 휴대전화 입력 상태
   const [myPhone, setMyPhone] = useState("");
-
   const [inputCode, setInputCode] = useState("");
   const [targetPhone, setTargetPhone] = useState("");
   const [isConnecting, setIsConnecting] = useState(false);
   const [copied, setCopied] = useState(false);
   
-  // 보호자용: 연결된 사용자 데이터
-  const [connectedUsersSummary, setConnectedUsersSummary] = useState<ConnectedUserSummary[]>([]);
+  // 보호자용: 연결된 사용자 오늘 요약 데이터 (제한된 범위)
+  const [connectedUsersSummary, setConnectedUsersSummary] = useState<ConnectedUserTodaySummary[]>([]);
   const [loadingUserData, setLoadingUserData] = useState(false);
   const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
 
   const isGuardian = profile?.user_type === "guardian";
 
-  // 보호자일 경우 연결된 사용자 데이터 가져오기 (+ Supabase Realtime 실시간 동기화)
+  // 보호자일 경우 연결된 사용자 "오늘" 데이터만 가져오기 (KST 기준)
   useEffect(() => {
     if (!isGuardian || !user) return;
 
-    const fetchConnectedUserData = async () => {
+    const fetchConnectedUserTodayData = async () => {
       setLoadingUserData(true);
       
       const activeConnections = connections.filter(
@@ -101,8 +82,14 @@ export default function Guardian() {
         return;
       }
 
-      const today = new Date().toISOString().split('T')[0];
-      const summaries: ConnectedUserSummary[] = [];
+      // KST 기준 오늘 날짜
+      const now = new Date();
+      const kstOffset = 9 * 60;
+      const utcOffset = now.getTimezoneOffset();
+      const kstDate = new Date(now.getTime() + (kstOffset + utcOffset) * 60 * 1000);
+      const today = kstDate.toISOString().split('T')[0];
+      
+      const summaries: ConnectedUserTodaySummary[] = [];
 
       for (const conn of activeConnections) {
         const targetUserId = conn.user_id;
@@ -114,19 +101,19 @@ export default function Guardian() {
           .eq('id', targetUserId)
           .single();
 
-        // 오늘 칼로리 조회 (foods 포함)
+        // 오늘 칼로리 조회 (오늘 데이터만)
         const { data: mealData } = await supabase
           .from('meal_records')
-          .select('total_calories, foods')
+          .select('total_calories')
           .eq('user_id', targetUserId)
           .eq('date', today);
 
         const todayCalories = (mealData || []).reduce((sum, r) => sum + (r.total_calories || 0), 0);
 
-        // 영양 설정 조회
+        // 영양 설정 조회 (목표값만)
         const { data: nutritionSettings } = await supabase
           .from('nutrition_settings')
-          .select('calorie_goal, protein_goal_g, carb_goal_g, fat_goal_g')
+          .select('calorie_goal')
           .eq('user_id', targetUserId)
           .maybeSingle();
 
@@ -150,7 +137,7 @@ export default function Guardian() {
 
         const waterGoal = waterSettings?.daily_goal || 2000;
 
-        // 오늘 미션 조회 (daily_logs에서 mission 타입)
+        // 오늘 미션 조회
         const { data: missionData } = await supabase
           .from('daily_logs')
           .select('is_completed')
@@ -174,70 +161,6 @@ export default function Guardian() {
           return sum + (Array.isArray(exercises) ? exercises.length : 0);
         }, 0);
 
-        // 최근 체중 조회
-        const { data: weightData } = await supabase
-          .from('weight_records')
-          .select('weight')
-          .eq('user_id', targetUserId)
-          .order('date', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
-        // 목표 체중 조회
-        const { data: goalData } = await supabase
-          .from('weight_goals')
-          .select('target_weight')
-          .eq('user_id', targetUserId)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
-        // 영양 세부 정보 계산 (meal_records.foods에서 추출)
-        let todayProtein = 0;
-        let todayCarbs = 0;
-        let todayFat = 0;
-        (mealData || []).forEach((meal: any) => {
-          const foods = meal.foods as any[];
-          if (Array.isArray(foods)) {
-            foods.forEach((food: any) => {
-              todayProtein += food.protein || 0;
-              todayCarbs += food.carbs || 0;
-              todayFat += food.fat || 0;
-            });
-          }
-        });
-
-        const proteinGoal = nutritionSettings?.protein_goal_g || 60;
-        const carbGoal = nutritionSettings?.carb_goal_g || 300;
-        const fatGoal = nutritionSettings?.fat_goal_g || 65;
-
-        // 최근 건강검진 조회
-        const { data: healthRecord } = await supabase
-          .from('health_records')
-          .select('id, created_at, status, coach_comment')
-          .eq('user_id', targetUserId)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
-        let latestHealthCheckup = null;
-        if (healthRecord) {
-          // AI 분석 여부 확인
-          const { data: aiReport } = await supabase
-            .from('ai_health_reports')
-            .select('id')
-            .eq('source_record_id', healthRecord.id)
-            .maybeSingle();
-
-          latestHealthCheckup = {
-            id: healthRecord.id,
-            date: healthRecord.created_at,
-            status: healthRecord.status || 'pending',
-            hasAIAnalysis: !!aiReport,
-            hasComment: !!healthRecord.coach_comment,
-          };
-        }
-
         summaries.push({
           userId: targetUserId,
           nickname: profileData?.nickname || '사용자',
@@ -249,16 +172,7 @@ export default function Guardian() {
           missionTotal,
           hasExercise,
           exerciseCount,
-          latestWeight: weightData?.weight || null,
-          goalWeight: goalData?.target_weight || null,
           lastUpdated: new Date(),
-          todayProtein,
-          proteinGoal,
-          todayCarbs,
-          carbGoal,
-          todayFat,
-          fatGoal,
-          latestHealthCheckup,
         });
       }
 
@@ -267,7 +181,7 @@ export default function Guardian() {
       setLastRefreshed(new Date());
     };
 
-    fetchConnectedUserData();
+    fetchConnectedUserTodayData();
 
     // 연결된 사용자 ID 목록
     const connectedUserIds = connections
@@ -276,54 +190,33 @@ export default function Guardian() {
 
     if (connectedUserIds.length === 0) return;
 
-    // Supabase Realtime 구독: 물, 식사, 미션 테이블 변경 감지
+    // Supabase Realtime 구독
     const channel = supabase
       .channel('guardian-realtime')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'water_logs',
-        },
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'water_logs' },
         (payload: any) => {
           if (connectedUserIds.includes(payload.new?.user_id || payload.old?.user_id)) {
-            fetchConnectedUserData();
+            fetchConnectedUserTodayData();
           }
         }
       )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'meal_records',
-        },
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'meal_records' },
         (payload: any) => {
           if (connectedUserIds.includes(payload.new?.user_id || payload.old?.user_id)) {
-            fetchConnectedUserData();
+            fetchConnectedUserTodayData();
           }
         }
       )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'daily_logs',
-        },
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'daily_logs' },
         (payload: any) => {
           if (connectedUserIds.includes(payload.new?.user_id || payload.old?.user_id)) {
-            fetchConnectedUserData();
+            fetchConnectedUserTodayData();
           }
         }
       )
       .subscribe();
 
-    // 포커스 시 데이터 리프레시
-    const handleFocus = () => {
-      fetchConnectedUserData();
-    };
+    const handleFocus = () => fetchConnectedUserTodayData();
     window.addEventListener('focus', handleFocus);
 
     return () => {
@@ -341,15 +234,12 @@ export default function Guardian() {
   };
 
   const handleGenerateCode = async () => {
-    if (!myPhone || myPhone.length < 10) {
-      return;
-    }
+    if (!myPhone || myPhone.length < 10) return;
     await generatePhoneVerificationCode(myPhone);
   };
 
   const handleConnect = async () => {
     if (!inputCode.trim() || inputCode.length !== 6 || !targetPhone || targetPhone.length < 10) return;
-
     setIsConnecting(true);
     await connectWithPhoneVerification(targetPhone, inputCode);
     setInputCode("");
@@ -357,11 +247,8 @@ export default function Guardian() {
     setIsConnecting(false);
   };
 
-  const formatPhoneNumber = (value: string) => {
-    return value.replace(/\D/g, "").slice(0, 11);
-  };
+  const formatPhoneNumber = (value: string) => value.replace(/\D/g, "").slice(0, 11);
 
-  // Get active connections (excluding pending ones)
   const activeConnections = connections.filter(
     (c) => c.guardian_id && c.user_id !== c.guardian_id
   );
@@ -381,7 +268,7 @@ export default function Guardian() {
         <h1 className="text-3xl font-bold text-foreground mb-2">가족 연결</h1>
         <p className="text-lg text-muted-foreground">
           {isGuardian
-            ? "부모님과 연결하여 건강을 함께 관리하세요"
+            ? "부모님의 오늘 건강 현황을 확인하세요"
             : "보호자와 연결하여 건강을 공유하세요"}
         </p>
       </div>
@@ -419,7 +306,7 @@ export default function Guardian() {
         </div>
       )}
 
-      {/* 보호자용: 연결된 사용자 건강 요약 - 카드형 UI */}
+      {/* 보호자용: 오늘 요약 카드 4개만 표시 */}
       {isGuardian && activeConnections.length > 0 && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
@@ -435,11 +322,7 @@ export default function Guardian() {
                 variant="ghost" 
                 size="icon" 
                 className="h-8 w-8"
-                onClick={() => {
-                  setLoadingUserData(true);
-                  // Trigger refetch by re-running useEffect
-                  window.dispatchEvent(new Event('focus'));
-                }}
+                onClick={() => window.dispatchEvent(new Event('focus'))}
                 disabled={loadingUserData}
               >
                 <RefreshCw className={`w-4 h-4 ${loadingUserData ? 'animate-spin' : ''}`} />
@@ -448,33 +331,28 @@ export default function Guardian() {
           </div>
 
           {loadingUserData ? (
-            <div className="space-y-4">
-              <Skeleton className="h-64 w-full rounded-2xl" />
-            </div>
+            <Skeleton className="h-64 w-full rounded-2xl" />
           ) : connectedUsersSummary.length === 0 ? (
             <Card className="rounded-2xl">
               <CardContent className="py-12 text-center">
                 <Users className="w-12 h-12 mx-auto mb-4 text-muted-foreground/30" />
-                <p className="text-muted-foreground mb-4">연결된 가족의 데이터가 없습니다</p>
+                <p className="text-muted-foreground">연결된 가족의 데이터가 없습니다</p>
               </CardContent>
             </Card>
           ) : (
             connectedUsersSummary.map((summary) => {
               const caloriePercent = Math.min(100, Math.round((summary.todayCalories / summary.calorieGoal) * 100));
               const waterPercent = Math.min(100, Math.round((summary.todayWater / summary.waterGoal) * 100));
-              const calorieStatus = caloriePercent < 50 ? '부족' : caloriePercent <= 100 ? '적정' : '초과';
-              const waterStatus = waterPercent < 50 ? '부족' : waterPercent <= 100 ? '적정' : '초과';
               
               return (
                 <Card key={summary.userId} className="rounded-2xl overflow-hidden">
-                  {/* Card Header */}
                   <CardHeader className="pb-3 bg-gradient-to-r from-primary/5 to-transparent">
                     <div className="flex items-center justify-between">
                       <CardTitle className="text-lg flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
                           <Users className="w-5 h-5 text-primary" />
                         </div>
-                        {summary.nickname}님
+                        {summary.nickname}님의 오늘
                       </CardTitle>
                       <Badge variant="outline" className="text-xs">
                         <span className="w-2 h-2 bg-green-500 rounded-full mr-1.5 animate-pulse" />
@@ -483,61 +361,35 @@ export default function Guardian() {
                     </div>
                   </CardHeader>
                   
-                  <CardContent className="pt-2 space-y-3">
-                    {/* 2열 그리드 */}
+                  <CardContent className="pt-2">
+                    {/* 오늘 요약 카드 4개 */}
                     <div className="grid grid-cols-2 gap-3">
                       {/* 칼로리 카드 */}
                       <div className="p-4 bg-gradient-to-br from-orange-50 to-orange-100/50 dark:from-orange-950/30 dark:to-orange-900/20 rounded-xl space-y-2">
                         <div className="flex items-center gap-2">
                           <Flame className="w-4 h-4 text-orange-500" />
-                          <span className="text-sm font-medium">섭취 칼로리</span>
+                          <span className="text-sm font-medium">오늘 칼로리</span>
                         </div>
                         <p className="text-2xl font-bold text-foreground">
                           {summary.todayCalories.toLocaleString()}
-                          <span className="text-sm font-normal text-muted-foreground ml-1">
-                            / {summary.calorieGoal.toLocaleString()}
-                          </span>
+                          <span className="text-sm font-normal text-muted-foreground ml-1">kcal</span>
                         </p>
                         <Progress value={caloriePercent} className="h-2" />
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs text-muted-foreground">{caloriePercent}%</span>
-                          <Badge 
-                            variant="secondary" 
-                            className={`text-xs ${
-                              calorieStatus === '적정' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
-                              calorieStatus === '부족' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' :
-                              'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
-                            }`}
-                          >
-                            {calorieStatus}
-                          </Badge>
-                        </div>
+                        <span className="text-xs text-muted-foreground">목표 대비 {caloriePercent}%</span>
                       </div>
 
                       {/* 물 카드 */}
                       <div className="p-4 bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-950/30 dark:to-blue-900/20 rounded-xl space-y-2">
                         <div className="flex items-center gap-2">
                           <Droplets className="w-4 h-4 text-blue-500" />
-                          <span className="text-sm font-medium">물 섭취</span>
+                          <span className="text-sm font-medium">오늘 물</span>
                         </div>
                         <p className="text-2xl font-bold text-foreground">
                           {summary.todayWater.toLocaleString()}
                           <span className="text-sm font-normal text-muted-foreground ml-1">ml</span>
                         </p>
                         <Progress value={waterPercent} className="h-2" />
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs text-muted-foreground">{waterPercent}%</span>
-                          <Badge 
-                            variant="secondary" 
-                            className={`text-xs ${
-                              waterStatus === '적정' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
-                              waterStatus === '부족' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' :
-                              'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
-                            }`}
-                          >
-                            {waterStatus}
-                          </Badge>
-                        </div>
+                        <span className="text-xs text-muted-foreground">목표 대비 {waterPercent}%</span>
                       </div>
 
                       {/* 운동 카드 */}
@@ -561,109 +413,27 @@ export default function Guardian() {
                         )}
                       </div>
 
-                      {/* 체중 카드 */}
-                      <div className="p-4 bg-gradient-to-br from-emerald-50 to-emerald-100/50 dark:from-emerald-950/30 dark:to-emerald-900/20 rounded-xl space-y-2">
-                        <div className="flex items-center gap-2">
-                          <Scale className="w-4 h-4 text-emerald-500" />
-                          <span className="text-sm font-medium">체중</span>
-                        </div>
-                        {summary.latestWeight ? (
-                          <>
-                            <p className="text-2xl font-bold text-foreground">
-                              {summary.latestWeight}
-                              <span className="text-sm font-normal text-muted-foreground ml-1">kg</span>
-                            </p>
-                            {summary.goalWeight && (
-                              <p className="text-xs text-muted-foreground">
-                                목표: {summary.goalWeight}kg
-                              </p>
-                            )}
-                          </>
-                        ) : (
-                          <p className="text-lg font-semibold text-muted-foreground">기록 없음</p>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* 영양 요약 (탄단지) */}
-                    <div className="p-4 bg-gradient-to-br from-amber-50 to-amber-100/50 dark:from-amber-950/30 dark:to-amber-900/20 rounded-xl">
-                      <div className="flex items-center gap-2 mb-3">
-                        <Flame className="w-4 h-4 text-amber-500" />
-                        <span className="text-sm font-medium">영양 요약</span>
-                      </div>
-                      <div className="grid grid-cols-3 gap-2 text-center">
-                        <div>
-                          <p className="text-xs text-muted-foreground">탄수화물</p>
-                          <p className="text-sm font-semibold">{Math.round(summary.todayCarbs)}g</p>
-                          <p className="text-xs text-muted-foreground">/ {summary.carbGoal}g</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">단백질</p>
-                          <p className="text-sm font-semibold">{Math.round(summary.todayProtein)}g</p>
-                          <p className="text-xs text-muted-foreground">/ {summary.proteinGoal}g</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">지방</p>
-                          <p className="text-sm font-semibold">{Math.round(summary.todayFat)}g</p>
-                          <p className="text-xs text-muted-foreground">/ {summary.fatGoal}g</p>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* 건강검진 최신 상태 */}
-                    {summary.latestHealthCheckup && (
-                      <div className="p-4 bg-gradient-to-br from-rose-50 to-rose-100/50 dark:from-rose-950/30 dark:to-rose-900/20 rounded-xl">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <Heart className="w-4 h-4 text-rose-500" />
-                            <span className="text-sm font-medium">건강검진</span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            {summary.latestHealthCheckup.hasAIAnalysis && (
-                              <Badge variant="secondary" className="text-xs bg-primary/10 text-primary">
-                                AI분석
-                              </Badge>
-                            )}
-                            {summary.latestHealthCheckup.hasComment && (
-                              <Badge variant="secondary" className="text-xs bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
-                                코멘트
-                              </Badge>
-                            )}
-                          </div>
-                        </div>
-                        <p className="text-sm mt-2">
-                          {format(new Date(summary.latestHealthCheckup.date), 'M월 d일', { locale: ko })} 업로드
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          상태: {summary.latestHealthCheckup.status === 'completed' ? '분석 완료' : 
-                                summary.latestHealthCheckup.status === 'analyzing' ? '분석 중' : '대기 중'}
-                        </p>
-                      </div>
-                    )}
-
-                    {/* 미션 진행 */}
-                    <div className="p-4 bg-gradient-to-br from-green-50 to-green-100/50 dark:from-green-950/30 dark:to-green-900/20 rounded-xl">
-                      <div className="flex items-center justify-between mb-2">
+                      {/* 미션 카드 */}
+                      <div className="p-4 bg-gradient-to-br from-green-50 to-green-100/50 dark:from-green-950/30 dark:to-green-900/20 rounded-xl space-y-2">
                         <div className="flex items-center gap-2">
                           <CheckCircle className="w-4 h-4 text-green-500" />
                           <span className="text-sm font-medium">오늘 할 일</span>
                         </div>
-                        <Badge 
-                          variant="secondary"
-                          className={`${
-                            summary.missionsCompleted === summary.missionTotal && summary.missionTotal > 0
-                              ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-                              : 'bg-muted'
-                          }`}
-                        >
-                          {summary.missionsCompleted} / {summary.missionTotal} 완료
-                        </Badge>
+                        <p className="text-2xl font-bold text-foreground">
+                          {summary.missionsCompleted}
+                          <span className="text-sm font-normal text-muted-foreground ml-1">/ {summary.missionTotal}</span>
+                        </p>
+                        <Progress 
+                          value={summary.missionTotal > 0 ? (summary.missionsCompleted / summary.missionTotal) * 100 : 0} 
+                          className="h-2" 
+                        />
                       </div>
-                      <Progress 
-                        value={summary.missionTotal > 0 ? (summary.missionsCompleted / summary.missionTotal) * 100 : 0} 
-                        className="h-2" 
-                      />
                     </div>
+
+                    {/* 안내 문구 */}
+                    <p className="text-xs text-muted-foreground text-center mt-4">
+                      오늘의 요약 정보만 확인할 수 있습니다
+                    </p>
                   </CardContent>
                 </Card>
               );
@@ -807,43 +577,6 @@ export default function Guardian() {
           </div>
         </div>
       )}
-
-      {/* 연결 혜택 안내 */}
-      <div className="bg-muted rounded-3xl p-6">
-        <h3 className="font-semibold mb-4">연결하면 좋은 점</h3>
-        <ul className="space-y-3">
-          <li className="flex items-start gap-3">
-            <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
-              <Heart className="w-3 h-3 text-primary" />
-            </div>
-            <span className="text-muted-foreground">
-              {isGuardian
-                ? "부모님의 건강검진 결과를 함께 확인할 수 있어요"
-                : "보호자가 건강 상태를 함께 확인할 수 있어요"}
-            </span>
-          </li>
-          <li className="flex items-start gap-3">
-            <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
-              <Heart className="w-3 h-3 text-primary" />
-            </div>
-            <span className="text-muted-foreground">
-              {isGuardian
-                ? "부모님의 미션 수행 현황을 확인할 수 있어요"
-                : "보호자에게 건강 리포트를 공유할 수 있어요"}
-            </span>
-          </li>
-          <li className="flex items-start gap-3">
-            <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
-              <Heart className="w-3 h-3 text-primary" />
-            </div>
-            <span className="text-muted-foreground">
-              {isGuardian
-                ? "프리미엄 서비스를 대신 결제할 수 있어요"
-                : "프리미엄 서비스를 보호자가 결제할 수 있어요"}
-            </span>
-          </li>
-        </ul>
-      </div>
     </div>
   );
 }
