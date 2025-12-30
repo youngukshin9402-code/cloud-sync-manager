@@ -74,7 +74,8 @@ const queryClient = new QueryClient();
 
 // 사용자 유형에 따른 리다이렉트 컴포넌트
 function AuthenticatedRedirect() {
-  const { profile, loading, isAdmin, isCoach } = useAuth();
+  const { user, profile, loading, isAdmin, isCoach, signOut, refreshProfile } = useAuth();
+  const [retrying, setRetrying] = React.useState(false);
 
   if (loading) {
     return (
@@ -84,8 +85,50 @@ function AuthenticatedRedirect() {
     );
   }
 
-  if (!profile) {
+  // Not authenticated
+  if (!user) {
     return <Navigate to="/auth" replace />;
+  }
+
+  // Authenticated but profile not available (usually backend policy/creation issue)
+  if (!profile) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-6">
+        <div className="text-center max-w-md">
+          <h1 className="text-xl font-bold text-foreground mb-3">프로필을 불러올 수 없어요</h1>
+          <p className="text-muted-foreground mb-6">
+            로그인은 되었지만 프로필 데이터에 접근할 수 없습니다. 다시 시도하거나 로그아웃 후 재로그인 해주세요.
+          </p>
+          <div className="flex flex-col gap-3">
+            <button
+              type="button"
+              disabled={retrying}
+              onClick={async () => {
+                setRetrying(true);
+                try {
+                  await refreshProfile();
+                } finally {
+                  setRetrying(false);
+                }
+              }}
+              className="bg-primary text-primary-foreground px-6 py-3 rounded-xl font-medium disabled:opacity-60"
+            >
+              {retrying ? "다시 불러오는 중..." : "다시 시도"}
+            </button>
+            <button
+              type="button"
+              onClick={async () => {
+                await signOut();
+                window.location.href = "/auth";
+              }}
+              className="bg-secondary text-secondary-foreground px-6 py-3 rounded-xl font-medium"
+            >
+              로그아웃
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   // 사용자 유형에 따라 적절한 대시보드로 리다이렉트
