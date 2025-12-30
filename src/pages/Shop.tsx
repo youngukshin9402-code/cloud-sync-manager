@@ -268,7 +268,7 @@ export default function Shop() {
                   </div>
                   <div>
                     <p className="font-medium">정기 리포트 & 목표관리</p>
-                    <p className="text-sm text-muted-foreground whitespace-pre-line">{"주간/월간 리포트로 생활습관 회고\n및 지속적인 목표 관리"}</p>
+                    <p className="text-sm text-muted-foreground whitespace-pre-line">{"주간/월간 리포트로 생활습관\n회고 및 지속적인 목표 관리"}</p>
                   </div>
                 </div>
               </div>
