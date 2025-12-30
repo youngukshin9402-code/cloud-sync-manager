@@ -54,8 +54,9 @@ export default function Shop() {
   const [isPaid, setIsPaid] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [checkingPayment, setCheckingPayment] = useState(true);
+  const [hasCoachAssigned, setHasCoachAssigned] = useState(false);
 
-  // 4주 코칭 패키지 상품 조회 및 결제 상태 확인
+  // 4주 코칭 패키지 상품 조회 및 결제 상태 확인, 코치 배정 여부 확인
   useEffect(() => {
     const loadProductAndPaymentStatus = async () => {
       if (!user) {
@@ -82,6 +83,15 @@ export default function Shop() {
           const hasPaid = await checkProductPayment(productData.id);
           setIsPaid(hasPaid);
         }
+
+        // 코치 배정 여부 확인
+        const { data: profileData } = await supabase
+          .from("profiles")
+          .select("assigned_coach_id")
+          .eq("id", user.id)
+          .maybeSingle();
+
+        setHasCoachAssigned(!!profileData?.assigned_coach_id);
       } catch (error) {
         console.error("Error loading product:", error);
       } finally {
@@ -277,24 +287,24 @@ export default function Shop() {
               </div>
             )}
 
-            {/* 상담 절차 안내 */}
+            {/* 체험 절차 안내 */}
             <div className="bg-muted/50 rounded-xl p-4 space-y-2">
               <p className="text-sm font-medium flex items-center gap-2">
                 <Clock className="w-4 h-4" />
-                상담 절차 안내
+                체험 절차 안내
               </p>
               <ul className="space-y-1 text-sm text-muted-foreground">
                 <li className="flex items-start gap-2">
                   <Check className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
-                  <span>상담 신청 후 담당자가 연락드립니다</span>
+                  <span>체험 신청 후 담당자가 연락드립니다</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <Check className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
-                  <span>무료 상담 후 프로그램을 결정하실 수 있습니다</span>
+                  <span className="whitespace-pre-line">{"2주 무료체험 후 프로그램 연장을\n결정하실 수 있습니다."}</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <Check className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
-                  <span>결제는 상담 후 별도로 안내됩니다</span>
+                  <span>결제는 무료체험 후 별도로 안내됩니다</span>
                 </li>
               </ul>
             </div>
@@ -307,17 +317,17 @@ export default function Shop() {
                 onClick={() => setStep("request")}
               >
                 <MessageSquare className="w-5 h-5 mr-2" />
-                무료 상담 신청하기
+                2주 무료체험하기
               </Button>
 
-              {/* 결제하기 버튼 - 항상 "결제하기" 표시, 로딩 중에는 비활성화만 */}
+              {/* 결제하기 버튼 - 코치 배정 완료 시에만 활성화 */}
               {!isPaid && (
                 <Button 
                   size="lg" 
                   variant="outline"
-                  className="w-full h-14 text-lg border-primary text-primary hover:bg-primary hover:text-primary-foreground"
-                  onClick={handleStartPayment}
-                  disabled={paymentLoading || checkingPayment || !coachingProduct}
+                  className={`w-full h-14 text-lg border-primary text-primary hover:bg-primary hover:text-primary-foreground ${!hasCoachAssigned ? "opacity-50 cursor-not-allowed" : ""}`}
+                  onClick={hasCoachAssigned ? handleStartPayment : undefined}
+                  disabled={paymentLoading || checkingPayment || !coachingProduct || !hasCoachAssigned}
                 >
                   <CreditCard className="w-5 h-5 mr-2" />
                   {paymentLoading ? "처리 중..." : "결제하기"}
