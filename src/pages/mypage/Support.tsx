@@ -270,23 +270,43 @@ export default function SupportPage() {
 
     setSubmitting(true);
 
+    // 🔍 DEBUG: 삭제 대상 메시지 찾기
+    const msg = threadMessages.find(m => m.id === messageId);
+    
+    // 🔍 DEBUG: Supabase 세션 정보
+    const { data: { session } } = await supabase.auth.getSession();
+    console.log('🔍 [DELETE DEBUG] session.user.id:', session?.user?.id);
+    console.log('🔍 [DELETE DEBUG] context user.id:', user?.id);
+    console.log('🔍 [DELETE DEBUG] msg.id:', msg?.id);
+    console.log('🔍 [DELETE DEBUG] msg.user_id:', msg?.user_id);
+    console.log('🔍 [DELETE DEBUG] msg.sender_type:', msg?.sender_type);
+    
+    const updatePayload = {
+      is_deleted: true,
+      deleted_at: new Date().toISOString(),
+    };
+    console.log('🔍 [DELETE DEBUG] update payload:', updatePayload);
+
     const { error } = await supabase
       .from("support_ticket_replies")
-      .update({
-        is_deleted: true,
-        deleted_at: new Date().toISOString(),
-      })
+      .update(updatePayload)
       .eq("id", messageId)
       .eq("user_id", user.id);
 
     if (error) {
-      console.error('Error deleting reply:', error);
+      console.error('❌ [DELETE DEBUG] Error:', {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+      });
       toast({
         title: "삭제에 실패했습니다",
-        description: error.message,
+        description: `${error.code}: ${error.message}`,
         variant: "destructive",
       });
     } else {
+      console.log('✅ [DELETE DEBUG] Success!');
       toast({ title: "메시지가 삭제되었습니다" });
       setDeleteConfirmId(null);
       if (selectedTicket) {
