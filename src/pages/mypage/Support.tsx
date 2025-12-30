@@ -8,7 +8,6 @@ import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, HelpCircle, MessageSquare, Send, Plus, Clock, CheckCircle, Loader2, Pencil, Trash2, AlertCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import type { Database } from "@/integrations/supabase/types";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -54,37 +53,30 @@ interface Ticket {
   is_deleted: boolean;
 }
 
-interface ThreadMessage {
+// 관리자 답변만 표시할 용도 (사용자 추가문의 제외)
+interface AdminReply {
   id: string;
   ticket_id: string;
-  user_id: string;
   message: string;
-  is_admin: boolean;
-  sender_type: string;
   created_at: string;
-  updated_at: string;
-  is_deleted: boolean;
 }
 
 export default function SupportPage() {
   const { toast } = useToast();
-  const { user, session } = useAuth();
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<"faq" | "tickets" | "new">("faq");
 
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
-  const [threadMessages, setThreadMessages] = useState<ThreadMessage[]>([]);
+  const [adminReplies, setAdminReplies] = useState<AdminReply[]>([]);
   const [loading, setLoading] = useState(false);
   const [newTicket, setNewTicket] = useState({ subject: "", message: "" });
-  const [newReply, setNewReply] = useState("");
   const [submitting, setSubmitting] = useState(false);
   
-  // 수정/삭제 상태
-  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  // 원본 문의 수정/삭제 상태
   const [editingTicketId, setEditingTicketId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState("");
-  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
-  const [deleteConfirmType, setDeleteConfirmType] = useState<'ticket' | 'reply' | null>(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
   const fetchTickets = useCallback(async () => {
     if (!user) return;
@@ -108,25 +100,27 @@ export default function SupportPage() {
     }
   }, [user, fetchTickets]);
 
-  const fetchThreadMessages = useCallback(async (ticketId: string) => {
+  // 관리자 답변만 조회 (사용자 추가문의 제외)
+  const fetchAdminReplies = useCallback(async (ticketId: string) => {
     const { data, error } = await supabase
       .from("support_ticket_replies")
-      .select("*")
+      .select("id, ticket_id, message, created_at")
       .eq("ticket_id", ticketId)
+      .eq("sender_type", "admin")
       .eq("is_deleted", false)
       .order("created_at", { ascending: true });
 
     if (!error && data) {
-      setThreadMessages(data as ThreadMessage[]);
+      setAdminReplies(data as AdminReply[]);
     }
   }, []);
 
-  // 실시간 구독
+  // 실시간 구독 (관리자 답변만)
   useEffect(() => {
     if (!selectedTicket) return;
 
     const channel = supabase
-      .channel(`ticket-${selectedTicket.id}`)
+      .channel(`ticket-admin-${selectedTicket.id}`)
       .on(
         'postgres_changes',
         {
@@ -136,7 +130,7 @@ export default function SupportPage() {
           filter: `ticket_id=eq.${selectedTicket.id}`,
         },
         () => {
-          fetchThreadMessages(selectedTicket.id);
+          fetchAdminReplies(selectedTicket.id);
         }
       )
       .subscribe();
@@ -144,7 +138,7 @@ export default function SupportPage() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [selectedTicket, fetchThreadMessages]);
+  }, [selectedTicket, fetchAdminReplies]);
 
   const handleCreateTicket = async () => {
     if (!user || !newTicket.subject || !newTicket.message) {
@@ -177,39 +171,8 @@ export default function SupportPage() {
     setSubmitting(false);
   };
 
-  // 사용자 답글 추가 (support_ticket_replies 테이블 사용)
-  const handleAddReply = async () => {
-    if (!user || !selectedTicket || !newReply.trim()) return;
-
-    setSubmitting(true);
-    
-    const { error } = await supabase
-      .from("support_ticket_replies")
-      .insert({
-        ticket_id: selectedTicket.id,
-        user_id: user.id,
-        message: newReply.trim(),
-        is_admin: false,
-        sender_type: 'user',
-      });
-
-    if (error) {
-      console.error('Error adding reply:', error);
-      toast({ title: "메시지 등록에 실패했습니다", variant: "destructive" });
-    } else {
-      setNewReply("");
-      toast({ title: "메시지가 추가되었습니다" });
-      fetchThreadMessages(selectedTicket.id);
-      
-      // 알림 생성 (관리자에게)
-      await createNotificationForAdmin(selectedTicket.id, "새 문의 답글이 등록되었습니다");
-    }
-    setSubmitting(false);
-  };
-
   // 관리자 알림 생성
   const createNotificationForAdmin = async (ticketId: string, message: string) => {
-    // 관리자 역할을 가진 사용자들에게 알림 생성
     const { data: adminUsers } = await supabase
       .from("user_roles")
       .select("user_id")
@@ -229,154 +192,19 @@ export default function SupportPage() {
     }
   };
 
-  // 메시지 수정
-  const handleEditMessage = async (messageId: string) => {
-    if (!user || !editingText.trim()) return;
-
-    setSubmitting(true);
-
-    // 1. 이전 내용을 히스토리에 저장
-    const currentMessage = threadMessages.find(m => m.id === messageId);
-    if (currentMessage) {
-      await supabase.from("support_ticket_message_history").insert({
-        message_id: messageId,
-        previous_message: currentMessage.message,
-        edited_by: user.id,
-      });
-    }
-
-    // 2. 메시지 업데이트
-    const { error } = await supabase
-      .from("support_ticket_replies")
-      .update({ 
-        message: editingText.trim(),
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", messageId);
-
-    if (error) {
-      toast({ title: "수정에 실패했습니다", variant: "destructive" });
-    } else {
-      toast({ title: "메시지가 수정되었습니다" });
-      setEditingMessageId(null);
-      setEditingText("");
-      if (selectedTicket) {
-        fetchThreadMessages(selectedTicket.id);
-      }
-    }
-    setSubmitting(false);
-  };
-
-  // 메시지 삭제 (soft delete)
-  const handleDeleteMessage = async (messageId: string) => {
-    if (!user) return;
-
-    setSubmitting(true);
-
-    // 🔍 DEBUG: 삭제 대상 메시지 찾기
-    const msg = threadMessages.find((m) => m.id === messageId);
-
-    // 🔍 DEBUG: 세션(토큰) 정보
-    const {
-      data: { session: liveSession },
-    } = await supabase.auth.getSession();
-
-    const nowSec = Math.floor(Date.now() / 1000);
-    console.log("🔍 [DELETE DEBUG] now (sec):", nowSec);
-    console.log("🔍 [DELETE DEBUG] session.expires_at (sec):", liveSession?.expires_at ?? null);
-    console.log(
-      "🔍 [DELETE DEBUG] session expired?:",
-      liveSession?.expires_at ? liveSession.expires_at <= nowSec : null
-    );
-
-    // 만료/임박 케이스 확인을 위해 refresh 시도
-    const refreshResult = await supabase.auth.refreshSession();
-    console.log("🔍 [DELETE DEBUG] refreshSession result:", {
-      hasSession: Boolean(refreshResult.data.session),
-      error: refreshResult.error
-        ? {
-            message: refreshResult.error.message,
-            status: (refreshResult.error as any).status,
-          }
-        : null,
-    });
-
-    const {
-      data: { session: refreshedSession },
-    } = await supabase.auth.getSession();
-
-    console.log("🔍 [DELETE DEBUG] refreshed.expires_at (sec):", refreshedSession?.expires_at ?? null);
-    console.log("🔍 [DELETE DEBUG] session.user.id:", refreshedSession?.user?.id);
-    console.log("🔍 [DELETE DEBUG] context user.id:", user?.id);
-    console.log("🔍 [DELETE DEBUG] msg.id:", msg?.id);
-    console.log("🔍 [DELETE DEBUG] msg.user_id:", msg?.user_id);
-    console.log("🔍 [DELETE DEBUG] msg.sender_type:", msg?.sender_type);
-
-    const updatePayload = {
-      is_deleted: true,
-      deleted_at: new Date().toISOString(),
-    };
-    console.log("🔍 [DELETE DEBUG] update payload:", updatePayload);
-
-    // 삭제 쿼리는 단순 유지: update 1회 + id만 필터
-    const result = await supabase
-      .from("support_ticket_replies")
-      .update(updatePayload)
-      .eq("id", messageId)
-      .select();
-
-    console.log("[DELETE DEBUG] full result:", result);
-    console.log("[DELETE DEBUG] error JSON:", JSON.stringify(result.error, null, 2));
-    console.log("[DELETE DEBUG] data JSON:", JSON.stringify(result.data, null, 2));
-
-    const error = result.error;
-
-    if (error) {
-      console.error("❌ [DELETE DEBUG] Error:", {
-        code: error.code,
-        message: error.message,
-        details: error.details,
-        hint: error.hint,
-      });
-      toast({
-        title: "삭제에 실패했습니다",
-        description: `${error.code}: ${error.message}`,
-        variant: "destructive",
-      });
-    } else {
-      console.log("✅ [DELETE DEBUG] Success!");
-      toast({ title: "메시지가 삭제되었습니다" });
-      setDeleteConfirmId(null);
-      if (selectedTicket) {
-        fetchThreadMessages(selectedTicket.id);
-      }
-    }
-    setSubmitting(false);
-  };
-
   const openTicketDetail = (ticket: Ticket) => {
     setSelectedTicket(ticket);
-    fetchThreadMessages(ticket.id);
-  };
-
-  // 답글 수정 시작
-  const startEditingReply = (message: ThreadMessage) => {
-    if (!user || message.user_id !== user.id) return;
-    setEditingMessageId(message.id);
-    setEditingTicketId(null);
-    setEditingText(message.message);
+    fetchAdminReplies(ticket.id);
   };
 
   // 원본 문의 수정 시작
   const startEditingTicket = () => {
     if (!selectedTicket) return;
     setEditingTicketId(selectedTicket.id);
-    setEditingMessageId(null);
     setEditingText(selectedTicket.message);
   };
 
   const cancelEditing = () => {
-    setEditingMessageId(null);
     setEditingTicketId(null);
     setEditingText("");
   };
@@ -423,26 +251,10 @@ export default function SupportPage() {
     } else {
       toast({ title: "문의가 삭제되었습니다" });
       setSelectedTicket(null);
-      setDeleteConfirmId(null);
-      setDeleteConfirmType(null);
+      setDeleteConfirmOpen(false);
       fetchTickets();
     }
     setSubmitting(false);
-  };
-
-  // 삭제 확인 핸들러
-  const handleConfirmDelete = async (
-    type: 'ticket' | 'reply',
-    id?: string
-  ) => {
-    if (type === 'ticket') {
-      await handleDeleteTicket();
-    } else if (type === 'reply' && id) {
-      await handleDeleteMessage(id);
-    }
-
-    setDeleteConfirmId(null);
-    setDeleteConfirmType(null);
   };
 
   const getStatusBadge = (status: string) => {
@@ -470,7 +282,7 @@ export default function SupportPage() {
     }
   };
 
-  // 티켓 상세 보기 (스레드 형태)
+  // 티켓 상세 보기
   if (selectedTicket) {
     return (
       <div className="min-h-screen bg-background pb-24">
@@ -498,7 +310,7 @@ export default function SupportPage() {
                 )}
               </div>
               
-              {/* 수정/삭제 버튼 - 항상 보이게 */}
+              {/* 수정/삭제 버튼 */}
               {!editingTicketId && selectedTicket.status !== "closed" && (
                 <div className="flex items-center gap-1">
                   <Button
@@ -513,10 +325,7 @@ export default function SupportPage() {
                     variant="ghost"
                     size="icon"
                     className="h-7 w-7 text-destructive hover:text-destructive"
-                    onClick={() => {
-                      setDeleteConfirmId(selectedTicket.id);
-                      setDeleteConfirmType('ticket');
-                    }}
+                    onClick={() => setDeleteConfirmOpen(true)}
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </Button>
@@ -554,140 +363,49 @@ export default function SupportPage() {
             )}
           </div>
 
-          {/* 스레드 메시지 */}
-          {threadMessages.map((msg) => (
+          {/* 관리자 답변만 표시 (읽기 전용) */}
+          {adminReplies.map((reply) => (
             <div
-              key={msg.id}
-              className={`rounded-2xl border p-4 ${
-                msg.sender_type === 'admin' 
-                  ? "bg-primary/5 border-primary/20 ml-4" 
-                  : "bg-card border-border mr-4"
-              }`}
+              key={reply.id}
+              className="rounded-2xl border p-4 bg-primary/5 border-primary/20 ml-4"
             >
-              <div className="flex items-center justify-between gap-2 mb-2">
-                <div className="flex items-center gap-2">
-                  <span className={`text-sm font-medium ${msg.sender_type === 'admin' ? 'text-primary' : ''}`}>
-                    {msg.sender_type === 'admin' ? '관리자 답변' : '내 추가 문의'}
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    {new Date(msg.created_at).toLocaleDateString("ko-KR")}
-                  </span>
-                  {msg.updated_at !== msg.created_at && (
-                    <span className="text-xs text-muted-foreground">(수정됨)</span>
-                  )}
-                </div>
-                
-                {/* 사용자 본인 메시지만 수정/삭제 가능 */}
-                {msg.sender_type === 'user' && msg.user_id === user?.id && !editingMessageId && (
-                  <div className="flex items-center gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7"
-                      onClick={() => startEditingReply(msg)}
-                    >
-                      <Pencil className="w-3.5 h-3.5" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 text-destructive hover:text-destructive"
-                      onClick={() => {
-                        setDeleteConfirmId(msg.id);
-                        setDeleteConfirmType('reply');
-                      }}
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </Button>
-                  </div>
-                )}
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-sm font-medium text-primary">관리자 답변</span>
+                <span className="text-xs text-muted-foreground">
+                  {new Date(reply.created_at).toLocaleDateString("ko-KR")}
+                </span>
               </div>
-
-              {/* 수정 모드 */}
-              {editingMessageId === msg.id ? (
-                <div className="space-y-2">
-                  <Textarea
-                    value={editingText}
-                    onChange={(e) => setEditingText(e.target.value)}
-                    rows={3}
-                  />
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      onClick={() => handleEditMessage(msg.id)}
-                      disabled={submitting || !editingText.trim()}
-                    >
-                      저장
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={cancelEditing}
-                    >
-                      취소
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <p className="whitespace-pre-wrap">{msg.message}</p>
-              )}
+              <p className="whitespace-pre-wrap">{reply.message}</p>
             </div>
           ))}
 
-          {/* 새 답글 입력 */}
+          {/* 추가 문의 안내 문구 */}
           {selectedTicket.status !== "closed" && (
-            <div className="bg-card rounded-2xl border border-border p-4 space-y-3">
-              <Textarea
-                placeholder="추가 문의 내용을 입력하세요"
-                value={newReply}
-                onChange={(e) => setNewReply(e.target.value)}
-                rows={3}
-              />
-              <Button
-                className="w-full"
-                onClick={handleAddReply}
-                disabled={submitting || !newReply.trim()}
-              >
-                <Send className="w-4 h-4 mr-2" />
-                추가 문의 보내기
-              </Button>
+            <div className="bg-muted/50 rounded-2xl border border-border p-4 text-center">
+              <p className="text-sm text-muted-foreground">
+                추가 문의가 필요하시면 새 문의를 작성해주세요.
+              </p>
             </div>
           )}
         </div>
 
-        {/* 삭제 확인 다이얼로그 */}
-        <AlertDialog
-          open={!!deleteConfirmType}
-          onOpenChange={(open) => {
-            if (!open) {
-              setDeleteConfirmId(null);
-              setDeleteConfirmType(null);
-            }
-          }}
-        >
+        {/* 문의 삭제 확인 다이얼로그 */}
+        <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle className="flex items-center gap-2">
                 <AlertCircle className="w-5 h-5 text-destructive" />
-                {deleteConfirmType === 'ticket' ? '문의 삭제' : '메시지 삭제'}
+                문의 삭제
               </AlertDialogTitle>
               <AlertDialogDescription>
-                {deleteConfirmType === 'ticket'
-                  ? '이 문의를 삭제하시겠습니까? 삭제된 문의는 복구할 수 없습니다.'
-                  : '이 메시지를 삭제하시겠습니까? 삭제된 메시지는 복구할 수 없습니다.'}
+                이 문의를 삭제하시겠습니까? 삭제된 문의는 복구할 수 없습니다.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>취소</AlertDialogCancel>
               <AlertDialogAction
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                onClick={() => {
-                  // Radix가 먼저 닫히면서 onOpenChange가 상태를 초기화할 수 있어
-                  // 클릭 시점의 값을 캡처해서 넘깁니다.
-                  const type = deleteConfirmType;
-                  const id = deleteConfirmId;
-                  if (type) handleConfirmDelete(type, id ?? undefined);
-                }}
+                onClick={handleDeleteTicket}
               >
                 삭제
               </AlertDialogAction>
