@@ -1,6 +1,4 @@
-import { useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { useDailyData } from "@/contexts/DailyDataContext";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,23 +9,15 @@ import {
   HelpCircle,
   LogOut,
   ChevronRight,
-  Coins,
   Video,
   ShoppingBag,
   Shield,
-  Download,
   MessageCircle,
 } from "lucide-react";
 import { CheckinSheet } from "@/components/CheckinSheet";
 
 export default function Profile() {
   const { profile, signOut } = useAuth();
-  const { currentPoints, refreshPoints } = useDailyData();
-
-  // 페이지 진입 시 포인트 동기화
-  useEffect(() => {
-    refreshPoints();
-  }, [refreshPoints]);
 
   if (!profile) return null;
 
@@ -39,12 +29,6 @@ export default function Profile() {
       icon: User,
       label: "내 정보 수정",
       path: "/profile/edit",
-    },
-    {
-      icon: Coins,
-      label: "포인트 내역",
-      path: "/profile/points",
-      badge: `${currentPoints.toLocaleString()}P`,
     },
     {
       icon: Link2,
@@ -69,11 +53,6 @@ export default function Profile() {
       icon: Bell,
       label: "알림 설정",
       path: "/profile/notifications",
-    },
-    {
-      icon: Download,
-      label: "데이터 내보내기",
-      path: "/data-export",
     },
     {
       icon: HelpCircle,
@@ -126,18 +105,6 @@ export default function Profile() {
           <span className="text-sm font-medium text-primary">직접관리 (고정)</span>
         </div>
 
-        {/* 포인트 - 서버 데이터 사용 */}
-        <div className="mt-4 p-4 bg-primary/5 rounded-2xl flex items-center justify-between">
-          <div>
-            <p className="text-sm text-muted-foreground">보유 포인트</p>
-            <p className="text-2xl font-bold text-primary">
-              {currentPoints.toLocaleString()}P
-            </p>
-          </div>
-          <Button variant="outline" size="sm" asChild>
-            <Link to="/shop">사용하기</Link>
-          </Button>
-        </div>
 
         {/* 코치 채팅 버튼 */}
         <Button 
@@ -169,11 +136,6 @@ export default function Profile() {
             <span className="flex-1 text-lg text-foreground">
               {item.label}
             </span>
-            {item.badge && (
-              <span className="text-sm font-medium text-primary">
-                {item.badge}
-              </span>
-            )}
             <ChevronRight className="w-5 h-5 text-muted-foreground" />
           </Link>
         ))}

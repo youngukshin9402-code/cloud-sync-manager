@@ -11,10 +11,6 @@ import { useAuth } from "@/contexts/AuthContext";
 
 const faqs = [
   {
-    q: "포인트는 어떻게 적립하나요?",
-    a: "매일 3개의 미션을 모두 완료하면 100포인트가 적립됩니다. 식사 기록, 운동 기록 등 다양한 활동으로도 포인트를 얻을 수 있습니다."
-  },
-  {
     q: "프리미엄 서비스는 무엇인가요?",
     a: "프리미엄 서비스에 가입하시면 전문 의사, 트레이너, 영양사와의 1:1 코칭을 받으실 수 있습니다."
   },
@@ -328,13 +324,13 @@ export default function SupportPage() {
           <Accordion type="single" collapsible className="bg-card rounded-2xl border border-border">
             {faqs.map((faq, index) => (
               <AccordionItem key={index} value={`item-${index}`} className="border-border">
-                <AccordionTrigger className="px-4 hover:no-underline">
-                  <span className="text-left flex items-center gap-2">
+                <AccordionTrigger className="px-4 py-3 hover:no-underline">
+                  <span className="text-left flex items-center gap-2 min-w-0">
                     <HelpCircle className="w-4 h-4 text-primary shrink-0" />
-                    {faq.q}
+                    <span className="truncate text-sm">{faq.q}</span>
                   </span>
                 </AccordionTrigger>
-                <AccordionContent className="px-4 pb-4 text-muted-foreground">
+                <AccordionContent className="px-4 pb-4 text-muted-foreground text-sm">
                   {faq.a}
                 </AccordionContent>
               </AccordionItem>

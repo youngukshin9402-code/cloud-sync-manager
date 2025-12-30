@@ -1,6 +1,5 @@
 import { Outlet, useLocation, Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { useDailyData } from "@/contexts/DailyDataContext";
 import { NotificationDropdown } from "@/components/notifications/NotificationDropdown";
 import {
   Home,
@@ -25,7 +24,6 @@ const navItems = [
 export function AppLayout() {
   const location = useLocation();
   const { profile, signOut } = useAuth();
-  const { currentPoints } = useDailyData();
 
   // 하단 탭이 있는 사용자인지 확인
   const hasBottomNav = profile && (profile.user_type === "user" || profile.user_type === "guardian");
@@ -59,9 +57,6 @@ export function AppLayout() {
               <div className="text-right">
                 <p className="text-sm font-medium text-foreground">
                   {profile.nickname}님
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {currentPoints.toLocaleString()} 포인트
                 </p>
               </div>
             )}
