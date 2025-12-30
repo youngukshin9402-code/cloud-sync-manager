@@ -217,8 +217,8 @@ export default function Shop() {
                     <MessageSquare className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                   </div>
                   <div>
-                    <p className="font-medium">1:1 화상 코칭</p>
-                    <p className="text-sm text-muted-foreground">주 1회 전문가와 화상 상담</p>
+                    <p className="font-medium">1:1 전화 코칭</p>
+                    <p className="text-sm text-muted-foreground whitespace-pre-line">{"주 1회 전화 상담으로\n컨디션/습관 점검 및 방향 설정"}</p>
                   </div>
                 </div>
                 
@@ -228,7 +228,7 @@ export default function Shop() {
                   </div>
                   <div>
                     <p className="font-medium">맞춤 건강 플랜</p>
-                    <p className="text-sm text-muted-foreground">개인별 식단/운동 프로그램 설계</p>
+                    <p className="text-sm text-muted-foreground whitespace-pre-line">{"목표·생활패턴 기반\n식단/운동 프로그램 설계"}</p>
                   </div>
                 </div>
                 
@@ -237,8 +237,8 @@ export default function Shop() {
                     <Shield className="w-5 h-5 text-purple-600 dark:text-purple-400" />
                   </div>
                   <div>
-                    <p className="font-medium whitespace-nowrap">건강검진 분석</p>
-                    <p className="text-sm text-muted-foreground whitespace-nowrap">전문가의 상세 건강검진 결과 해석</p>
+                    <p className="font-medium">건강검진 분석 & 생활 적용</p>
+                    <p className="text-sm text-muted-foreground whitespace-pre-line">{"검진 결과 해석 후\n식단/운동 루틴 반영"}</p>
                   </div>
                 </div>
                 
@@ -247,8 +247,18 @@ export default function Shop() {
                     <Heart className="w-5 h-5 text-orange-600 dark:text-orange-400" />
                   </div>
                   <div>
-                    <p className="font-medium">무제한 질문</p>
-                    <p className="text-sm text-muted-foreground whitespace-pre-line">{"코치 가능 시간 (10:00-20:00)에\n언제든 질문 가능"}</p>
+                    <p className="font-medium">채팅 피드백</p>
+                    <p className="text-sm text-muted-foreground">전화 코칭 외 채팅 질문/피드백 제공</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-rose-100 dark:bg-rose-900 flex items-center justify-center flex-shrink-0">
+                    <Target className="w-5 h-5 text-rose-600 dark:text-rose-400" />
+                  </div>
+                  <div>
+                    <p className="font-medium">정기 리포트 & 목표관리</p>
+                    <p className="text-sm text-muted-foreground whitespace-pre-line">{"주간/월간 리포트로 생활습관 회고 및\n지속적인 목표 관리"}</p>
                   </div>
                 </div>
               </div>
