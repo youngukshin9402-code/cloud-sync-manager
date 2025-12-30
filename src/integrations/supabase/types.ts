@@ -1278,29 +1278,73 @@ export type Database = {
           },
         ]
       }
+      support_ticket_message_history: {
+        Row: {
+          edited_at: string
+          edited_by: string
+          id: string
+          message_id: string
+          previous_message: string
+        }
+        Insert: {
+          edited_at?: string
+          edited_by: string
+          id?: string
+          message_id: string
+          previous_message: string
+        }
+        Update: {
+          edited_at?: string
+          edited_by?: string
+          id?: string
+          message_id?: string
+          previous_message?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_ticket_message_history_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "support_ticket_replies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       support_ticket_replies: {
         Row: {
           created_at: string
+          deleted_at: string | null
           id: string
           is_admin: boolean
+          is_deleted: boolean
           message: string
+          sender_type: string
           ticket_id: string
+          updated_at: string | null
           user_id: string
         }
         Insert: {
           created_at?: string
+          deleted_at?: string | null
           id?: string
           is_admin?: boolean
+          is_deleted?: boolean
           message: string
+          sender_type?: string
           ticket_id: string
+          updated_at?: string | null
           user_id: string
         }
         Update: {
           created_at?: string
+          deleted_at?: string | null
           id?: string
           is_admin?: boolean
+          is_deleted?: boolean
           message?: string
+          sender_type?: string
           ticket_id?: string
+          updated_at?: string | null
           user_id?: string
         }
         Relationships: [
@@ -1317,7 +1361,9 @@ export type Database = {
         Row: {
           additional_messages: Json | null
           created_at: string
+          deleted_at: string | null
           id: string
+          is_deleted: boolean
           message: string
           status: string
           subject: string
@@ -1327,7 +1373,9 @@ export type Database = {
         Insert: {
           additional_messages?: Json | null
           created_at?: string
+          deleted_at?: string | null
           id?: string
+          is_deleted?: boolean
           message: string
           status?: string
           subject: string
@@ -1337,7 +1385,9 @@ export type Database = {
         Update: {
           additional_messages?: Json | null
           created_at?: string
+          deleted_at?: string | null
           id?: string
+          is_deleted?: boolean
           message?: string
           status?: string
           subject?: string

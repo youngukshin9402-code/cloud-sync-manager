@@ -18,6 +18,33 @@
 
 ---
 
+## 🚀 현재 진행 중 (Iteration 1/3)
+
+### 마이탭 UI 변경
+| 기능 | 상태 | 비고 |
+|------|------|------|
+| 포인트 관련 UI 전부 제거 | ✅ 완료 | 마이탭, 헤더 우측상단 포인트 표시 모두 삭제 |
+| 데이터 내보내기 버튼 삭제 | ✅ 완료 | 마이탭 메뉴에서 제거 |
+
+### 고객센터 FAQ UI/내용 변경
+| 기능 | 상태 | 비고 |
+|------|------|------|
+| FAQ 리스트 모바일 1줄 고정 | ✅ 완료 | truncate + text-sm 적용 |
+| "포인트는 어떻게 적립하나요?" 삭제 | ✅ 완료 | FAQ 배열에서 제거 |
+
+### 고객센터 "내 문의" 스레드 시스템
+| 기능 | 상태 | 비고 |
+|------|------|------|
+| DB 스키마 확장 | ✅ 완료 | support_ticket_replies에 sender_type, soft delete 추가 |
+| 수정 이력 테이블 | ✅ 완료 | support_ticket_message_history 테이블 생성 |
+| RLS 정책 업데이트 | ✅ 완료 | 사용자 INSERT/UPDATE 허용, 관리자 전체 조회 |
+| Realtime 활성화 | ✅ 완료 | support_ticket_replies 테이블 realtime 추가 |
+| 스레드 형태 UI | 🟡 진행중 | 사용자/관리자 메시지 통합 표시 |
+| 수정/삭제 기능 | 🟡 진행중 | soft delete + history 저장 |
+| 실시간 알림 | ⏳ 대기 | notifications 테이블 연동 |
+
+---
+
 ## ✅ 구현 완료
 
 ### 문서화
@@ -38,8 +65,11 @@
 | point_history 테이블 | 2 | User | 포인트 내역 |
 | coaching_sessions 테이블 | 3 | User/Coach | 코칭 세션 |
 | coach_availability 테이블 | 3 | Coach | 코치 가용 시간 |
-| products 테이블 | 3 | User/Admin | 커머스 상품 |
+| products 테이블 | 3 | Admin | 커머스 상품 |
 | subscriptions 테이블 | 3 | User/Guardian | 구독 정보 |
+| support_tickets 테이블 | 1 | User/Admin | 고객 문의 (soft delete 추가) |
+| support_ticket_replies 테이블 | 1 | User/Admin | 문의 답변 (sender_type, soft delete 추가) |
+| support_ticket_message_history 테이블 | 1 | Admin | 메시지 수정 이력 |
 | has_role() 함수 | 1 | All | 역할 체크 (Security Definer) |
 | handle_new_user() 트리거 | 1 | All | 자동 프로필 생성 |
 | RLS 정책 전체 | 1-3 | All | 모든 테이블 권한 설정 완료 |
@@ -191,14 +221,14 @@
 ## 📋 다음 단계 우선순위
 
 ### 🔴 즉시 필요
-1. **의료양갱 이미지 업로드** - Storage 연동
-2. **의료양갱 AI 분석** - Edge Function + GPT-4o Vision
-3. **보호자 연결 기능** - 연결 코드 생성/입력
+1. **고객센터 스레드 UI 구현** - 수정/삭제 + 실시간 알림
+2. **의료양갱 이미지 업로드** - Storage 연동
+3. **의료양갱 AI 분석** - Edge Function + GPT-4o Vision
 
 ### 🟡 Phase 1 완료 목표
 1. 코치 대시보드 실제 데이터 연동
 2. 건강검진 검토 기능
-3. 카카오 로그인 (선택)
+3. 보호자 연결 기능
 
 ### 🟢 이후 단계
 1. 영양/운동양갱 DB 연동
@@ -226,3 +256,4 @@
 |------|------|
 | 2024-XX-XX | 초기 문서 작성 |
 | 2024-XX-XX | PRD v2.0 완성, DB 스키마 구현, 기본 앱 구조 완성 |
+| 2024-12-30 | 마이탭 포인트 UI 제거, FAQ 개선, 고객센터 스레드 DB 스키마 추가 |
