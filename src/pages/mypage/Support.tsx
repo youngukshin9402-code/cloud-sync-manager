@@ -287,11 +287,11 @@ export default function SupportPage() {
     };
     console.log('🔍 [DELETE DEBUG] update payload:', updatePayload);
 
+    // RLS가 auth.uid() = user_id를 이미 보장하므로 .eq("id", messageId)만 사용
     const { error } = await supabase
       .from("support_ticket_replies")
       .update(updatePayload)
-      .eq("id", messageId)
-      .eq("user_id", user.id);
+      .eq("id", messageId);
 
     if (error) {
       console.error('❌ [DELETE DEBUG] Error:', {
