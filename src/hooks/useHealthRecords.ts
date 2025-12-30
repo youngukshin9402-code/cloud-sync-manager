@@ -270,25 +270,57 @@ export function useHealthRecords() {
           },
         }
       ).then(({ data: fnData, error: fnError }) => {
+        console.log("Edge function response:", { fnData, fnError });
+        
+        // fnData에 에러가 있는 경우 처리 (400 응답이 fnData로 올 수 있음)
+        if (fnData && fnData.success === false) {
+          if (fnData.error === "invalid_image") {
+            toast.error(fnData.message || "업로드하신 이미지가 건강검진 결과지가 아닙니다.", {
+              duration: 5000
+            });
+          } else {
+            toast.error(fnData.message || "AI 분석에 실패했습니다.");
+          }
+          return;
+        }
+        
         if (fnError) {
           console.error("Function error:", fnError);
           
+          // fnError.context?.body에서 JSON 파싱 시도
           try {
-            const errorBody = typeof fnError === 'object' && fnError.message ? JSON.parse(fnError.message) : null;
+            let errorBody = null;
+            
+            // fnError가 문자열인 경우
+            if (typeof fnError === 'string') {
+              errorBody = JSON.parse(fnError);
+            }
+            // fnError.message가 JSON 문자열인 경우
+            else if (fnError.message) {
+              // "Edge function returned 400: Error, {...}" 형식 파싱
+              const jsonMatch = fnError.message.match(/\{[\s\S]*\}/);
+              if (jsonMatch) {
+                errorBody = JSON.parse(jsonMatch[0]);
+              }
+            }
+            // fnError.context?.body가 있는 경우
+            else if (fnError.context?.body) {
+              errorBody = typeof fnError.context.body === 'string' 
+                ? JSON.parse(fnError.context.body) 
+                : fnError.context.body;
+            }
+            
             if (errorBody?.error === "invalid_image") {
-              toast.error("업로드하신 이미지가 건강검진 결과지가 아닙니다. 올바른 이미지를 업로드해주세요.", {
+              toast.error(errorBody.message || "업로드하신 이미지가 건강검진 결과지가 아닙니다.", {
                 duration: 5000
               });
-            } else {
-              toast.error("AI 분석 요청에 실패했습니다. 잠시 후 다시 시도해주세요.");
+              return;
             }
-          } catch {
-            toast.error("AI 분석 요청에 실패했습니다. 잠시 후 다시 시도해주세요.");
+          } catch (parseError) {
+            console.error("Error parsing function error:", parseError);
           }
-        } else if (fnData && fnData.error === "invalid_image") {
-          toast.error(fnData.message || "업로드하신 이미지가 건강검진 결과지가 아닙니다. 올바른 이미지를 업로드해주세요.", {
-            duration: 5000
-          });
+          
+          toast.error("AI 분석 요청에 실패했습니다. 잠시 후 다시 시도해주세요.");
         } else if (fnData?.success) {
           toast.success("AI 분석이 완료되었습니다!");
         }
