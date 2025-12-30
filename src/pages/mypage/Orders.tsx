@@ -116,14 +116,6 @@ export default function OrdersPage() {
           <div className="text-center py-12 text-muted-foreground">
             <ShoppingBag className="w-12 h-12 mx-auto mb-3 opacity-30" />
             <p>결제 완료된 주문이 없습니다</p>
-            <Button
-              className="mt-4"
-              variant="default"
-              type="button"
-              onClick={() => navigate("/coaching")}
-            >
-              코칭 신청하기
-            </Button>
           </div>
         )}
       </div>
