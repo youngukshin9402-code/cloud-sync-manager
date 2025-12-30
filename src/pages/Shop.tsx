@@ -209,8 +209,11 @@ export default function Shop() {
                 </div>
               </div>
               
-              <p className="text-amber-800 dark:text-amber-200 whitespace-pre-line">
-                {"의사, 트레이너, 영양사가\n직접 관리하는\n맞춤 건강 프로그램입니다."}
+              <p className="text-amber-800 dark:text-amber-200 text-[13px] leading-relaxed">
+                프리미엄 코치팀은 내과전문의, 트레이너,<br />
+                스포츠영양코치로 구성된 든든한 파트너입니다.<br />
+                '아는 것'을 '하는 것'으로 바꾸고,<br />
+                목표를 끝까지 함께합니다.
               </p>
             </div>
 
