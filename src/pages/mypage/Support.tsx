@@ -416,7 +416,7 @@ export default function SupportPage() {
 
         <div className="p-4 space-y-4">
           {/* 원본 문의 (수정/삭제 가능) */}
-          <div className="bg-card rounded-2xl border border-border p-4 relative group">
+          <div className="bg-card rounded-2xl border border-border p-4">
             <div className="flex items-center justify-between gap-2 mb-2">
               <div className="flex items-center gap-2">
                 <span className="text-sm font-medium">내 문의</span>
@@ -428,9 +428,9 @@ export default function SupportPage() {
                 )}
               </div>
               
-              {/* 수정/삭제 버튼 */}
+              {/* 수정/삭제 버튼 - 항상 보이게 */}
               {!editingTicketId && selectedTicket.status !== "closed" && (
-                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="flex items-center gap-1">
                   <Button
                     variant="ghost"
                     size="icon"
