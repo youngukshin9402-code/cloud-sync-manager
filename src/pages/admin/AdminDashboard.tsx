@@ -3,7 +3,6 @@ import { Link } from "react-router-dom";
 import { useAdminData } from "@/hooks/useAdminData";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CheckinReportTimeline } from "@/components/coach/CheckinReportTimeline";
 import {
   Users,
   UserCog,
@@ -106,8 +105,14 @@ export default function AdminDashboard() {
       description: "사용자-코치 대화 열람",
       path: "/admin/chats",
     },
+    {
+      id: "checkin-reports",
+      icon: ClipboardCheck,
+      label: "체크인 리포트",
+      description: "사용자 일일 체크인 리포트 조회",
+      path: "/admin/checkin-reports",
+    },
   ];
-
   if (loading) {
     return (
       <div className="min-h-screen bg-background p-6">
@@ -189,15 +194,6 @@ export default function AdminDashboard() {
             </div>
             <p className="text-2xl font-bold">{stats.premiumUsers}</p>
           </div>
-        </div>
-
-        {/* 체크인 리포트 타임라인 */}
-        <div>
-          <div className="flex items-center gap-2 mb-4">
-            <ClipboardCheck className="w-5 h-5 text-primary" />
-            <h2 className="text-xl font-semibold">체크인 리포트</h2>
-          </div>
-          <CheckinReportTimeline limit={20} />
         </div>
 
         {/* 메뉴 그리드 */}
