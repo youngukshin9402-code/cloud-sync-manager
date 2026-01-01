@@ -36,6 +36,7 @@ interface InBodyForm {
   body_fat_percent: number | null;
   bmr: number | null;
   visceral_fat: number | null;
+  visceral_fat_area: number | null;
 }
 
 interface AIConfidence {
@@ -58,6 +59,7 @@ const emptyForm: InBodyForm = {
   body_fat_percent: null,
   bmr: null,
   visceral_fat: null,
+  visceral_fat_area: null,
 };
 
 // 값 유효성 검증
@@ -163,6 +165,7 @@ export default function InBody() {
       body_fat_percent: record.body_fat_percent ? Number(record.body_fat_percent) : null,
       bmr: record.bmr,
       visceral_fat: record.visceral_fat,
+      visceral_fat_area: (record as any).visceral_fat_area ? Number((record as any).visceral_fat_area) : null,
     });
     setInputMode('manual');
     setDialogOpen(true);
@@ -222,6 +225,7 @@ export default function InBody() {
           body_fat: analyzedData.body_fat ? parseFloat(Number(analyzedData.body_fat).toFixed(1)) : prev.body_fat,
           bmr: analyzedData.bmr || prev.bmr,
           visceral_fat: analyzedData.visceral_fat || prev.visceral_fat,
+          visceral_fat_area: (analyzedData as any).visceral_fat_area ? parseFloat(Number((analyzedData as any).visceral_fat_area).toFixed(1)) : prev.visceral_fat_area,
         }));
         
         setAiConfidence(result.confidence || null);
@@ -612,6 +616,15 @@ export default function InBody() {
                       type="number"
                       value={formData.visceral_fat ?? ''} 
                       onChange={e => setFormData({ ...formData, visceral_fat: e.target.value ? parseInt(e.target.value) : null })} 
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-muted-foreground">내장지방 단면적 (cm²)</label>
+                    <Input 
+                      type="number"
+                      step="0.1"
+                      value={formData.visceral_fat_area ?? ''} 
+                      onChange={e => setFormData({ ...formData, visceral_fat_area: e.target.value ? parseFloat(e.target.value) : null })} 
                     />
                   </div>
                 </div>
