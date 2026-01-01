@@ -539,7 +539,6 @@ export default function InBody() {
                     <Input 
                       type="number" 
                       step="0.1" 
-                      placeholder="65.0"
                       value={formData.weight || ''} 
                       onChange={e => setFormData({ ...formData, weight: parseFloat(e.target.value) || 0 })}
                       className={hasFieldWarning('weight') ? 'border-destructive' : ''}
@@ -557,7 +556,6 @@ export default function InBody() {
                     <Input 
                       type="number" 
                       step="0.1" 
-                      placeholder="28.0"
                       value={formData.skeletal_muscle ?? ''} 
                       onChange={e => setFormData({ ...formData, skeletal_muscle: e.target.value ? parseFloat(e.target.value) : null })}
                       className={hasFieldWarning('skeletal_muscle') ? 'border-destructive' : ''}
@@ -575,7 +573,6 @@ export default function InBody() {
                     <Input 
                       type="number" 
                       step="0.1" 
-                      placeholder="18.5"
                       value={formData.body_fat_percent ?? ''} 
                       onChange={e => setFormData({ ...formData, body_fat_percent: e.target.value ? parseFloat(e.target.value) : null })}
                       className={hasFieldWarning('body_fat_percent') ? 'border-destructive' : ''}
@@ -592,7 +589,6 @@ export default function InBody() {
                     </div>
                     <Input 
                       type="number" 
-                      placeholder="1450"
                       value={formData.bmr ?? ''} 
                       onChange={e => setFormData({ ...formData, bmr: e.target.value ? parseInt(e.target.value) : null })}
                       className={hasFieldWarning('bmr') ? 'border-destructive' : ''}
@@ -606,7 +602,6 @@ export default function InBody() {
                     <Input 
                       type="number" 
                       step="0.1"
-                      placeholder="12.0" 
                       value={formData.body_fat ?? ''} 
                       onChange={e => setFormData({ ...formData, body_fat: e.target.value ? parseFloat(e.target.value) : null })} 
                     />
@@ -615,7 +610,6 @@ export default function InBody() {
                     <label className="text-sm font-medium text-muted-foreground">내장지방 레벨</label>
                     <Input 
                       type="number"
-                      placeholder="8" 
                       value={formData.visceral_fat ?? ''} 
                       onChange={e => setFormData({ ...formData, visceral_fat: e.target.value ? parseInt(e.target.value) : null })} 
                     />
