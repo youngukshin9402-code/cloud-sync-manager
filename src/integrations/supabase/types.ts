@@ -616,6 +616,48 @@ export type Database = {
         }
         Relationships: []
       }
+      health_age_results: {
+        Row: {
+          actual_age: number
+          analysis: string | null
+          body_score: number | null
+          calculated_at: string
+          created_at: string
+          health_age: number
+          id: string
+          inbody_data: Json | null
+          inbody_record_date: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          actual_age: number
+          analysis?: string | null
+          body_score?: number | null
+          calculated_at?: string
+          created_at?: string
+          health_age: number
+          id?: string
+          inbody_data?: Json | null
+          inbody_record_date?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          actual_age?: number
+          analysis?: string | null
+          body_score?: number | null
+          calculated_at?: string
+          created_at?: string
+          health_age?: number
+          id?: string
+          inbody_data?: Json | null
+          inbody_record_date?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       health_checkup_records: {
         Row: {
           alt: number | null

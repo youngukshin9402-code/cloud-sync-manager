@@ -2,10 +2,10 @@ import { useEffect, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDailyData } from "@/contexts/DailyDataContext";
+import { useHealthAge } from "@/contexts/HealthAgeContext";
 import { useNutritionSettings } from "@/hooks/useNutritionSettings";
 import { useTodayMealRecords } from "@/hooks/useMealRecordsQuery";
 import { useGoalAchievement } from "@/hooks/useGoalAchievement";
-import { useHealthAgeStorage } from "@/hooks/useHealthAgeStorage";
 import { Badge } from "@/components/ui/badge";
 import {
   Flame,
@@ -37,7 +37,9 @@ export default function Dashboard() {
     refetch: refetchMeals,
   } = useTodayMealRecords();
   const { checkAndNotify } = useGoalAchievement();
-  const { result: healthAgeResult } = useHealthAgeStorage();
+  
+  // DB 기반 전역 상태에서 건강나이 가져오기 (즉시 로딩)
+  const { healthAgeData, loading: healthAgeLoading } = useHealthAge();
 
   const goals = getGoals();
   const todayCalories = totals.totalCalories;
@@ -79,10 +81,10 @@ export default function Dashboard() {
 
   const isGuardian = profile?.user_type === "guardian";
 
-  // 건강나이 데이터 존재 여부
-  const hasHealthAge = healthAgeResult !== null;
-  const actualAge = healthAgeResult?.actualAge;
-  const healthAge = healthAgeResult?.healthAge;
+  // 건강나이 데이터 (DB 전역 상태에서 즉시 가져옴 - 재계산 없음)
+  const hasHealthAge = healthAgeData !== null;
+  const actualAge = healthAgeData?.actualAge;
+  const healthAge = healthAgeData?.healthAge;
 
   // 영양갱 달성 개수 계산 (실시간 반영)
   const achievementCount = useMemo(() => {

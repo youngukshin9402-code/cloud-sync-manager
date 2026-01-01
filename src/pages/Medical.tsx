@@ -27,7 +27,7 @@ import {
 } from "lucide-react";
 import { useHealthRecords, HealthRecord, HealthRecordItem } from "@/hooks/useHealthRecords";
 import { useInBodyRecords } from "@/hooks/useServerSync";
-import { useHealthAgeStorage } from "@/hooks/useHealthAgeStorage";
+import { useHealthAge } from "@/contexts/HealthAgeContext";
 import { supabase } from "@/integrations/supabase/client";
 import { computeHealthAge, Gender as HealthAgeGender } from "@/utils/healthAge";
 import html2canvas from "html2canvas";
@@ -120,7 +120,7 @@ function HealthItemCard({ item }: { item: HealthRecordItem }) {
 // InBody 섹션 컴포넌트
 function InBodySection() {
   const { data: records, loading, add, update, remove } = useInBodyRecords();
-  const { result: savedHealthAge, saveResult: saveHealthAge, clearResult: clearHealthAge } = useHealthAgeStorage();
+  const { healthAgeData, saveHealthAge, clearHealthAge, loading: healthAgeLoading } = useHealthAge();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -155,17 +155,19 @@ function InBodySection() {
   const [genderInput, setGenderInput] = useState<HealthAgeGender | null>(null);
   const [showAgeInputDialog, setShowAgeInputDialog] = useState(false);
 
-  // localStorage에서 저장된 건강나이 결과 복원
+  // DB 전역 상태에서 건강나이 결과 복원 (localStorage 불필요)
   useEffect(() => {
-    if (savedHealthAge) {
+    if (healthAgeData) {
       setHealthAgeResult({
-        actualAge: savedHealthAge.actualAge,
-        healthAge: savedHealthAge.healthAge,
-        bodyScore: savedHealthAge.bodyScore,
-        analysis: savedHealthAge.analysis,
+        actualAge: healthAgeData.actualAge,
+        healthAge: healthAgeData.healthAge,
+        bodyScore: healthAgeData.bodyScore ?? 0,
+        analysis: healthAgeData.analysis ?? '',
       });
+    } else {
+      setHealthAgeResult(null);
     }
-  }, [savedHealthAge]);
+  }, [healthAgeData]);
 
   // 트렌드 차트 데이터
   const chartData = useMemo(() => {
@@ -264,10 +266,18 @@ function InBodySection() {
         analysis: data?.analysis || `실제 나이 ${actualAge}세 대비 건강 나이는 ${computedResult.healthAge}세입니다.`,
       };
       setHealthAgeResult(result);
-      // localStorage에 결과 저장
-      saveHealthAge({
+      // DB에 결과 저장 (전역 상태도 자동 업데이트됨)
+      await saveHealthAge({
         ...result,
-        recordDate: record.date,
+        inbodyRecordDate: record.date,
+        inbodyData: {
+          weight: Number(record.weight),
+          skeletal_muscle: record.skeletal_muscle ? Number(record.skeletal_muscle) : null,
+          body_fat_percent: bodyFatPercent,
+          body_fat: record.body_fat ? Number(record.body_fat) : null,
+          bmr: record.bmr,
+          visceral_fat: visceralFat,
+        },
       });
       toast.success("건강 나이 분석 완료!");
     } catch (error) {

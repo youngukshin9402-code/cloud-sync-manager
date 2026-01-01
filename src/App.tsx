@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { DailyDataProvider } from "@/contexts/DailyDataContext";
+import { HealthAgeProvider } from "@/contexts/HealthAgeContext";
 import { useLocalDataMigration } from "@/hooks/useLocalDataMigration";
 
 // Pages
@@ -383,15 +384,17 @@ function AppRoutes() {
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
-      <DailyDataProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <AppRoutes />
-          </BrowserRouter>
-        </TooltipProvider>
-      </DailyDataProvider>
+      <HealthAgeProvider>
+        <DailyDataProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Sonner />
+            <BrowserRouter>
+              <AppRoutes />
+            </BrowserRouter>
+          </TooltipProvider>
+        </DailyDataProvider>
+      </HealthAgeProvider>
     </AuthProvider>
   </QueryClientProvider>
 );
