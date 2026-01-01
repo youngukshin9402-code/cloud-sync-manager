@@ -21,6 +21,7 @@ interface AuthContextType {
   session: Session | null;
   profile: Profile | null;
   loading: boolean;
+  rolesLoading: boolean;
   isAdmin: boolean;
   isCoach: boolean;
   signOut: () => Promise<void>;
@@ -36,6 +37,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [rolesLoading, setRolesLoading] = useState(true);
   const [roles, setRoles] = useState<AppRole[]>([]);
 
   const fetchProfile = async (userId: string) => {
@@ -224,6 +226,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!nextSession?.user) {
         setProfile(null);
         setRoles([]);
+        setRolesLoading(false);
         setLoading(false);
         // 로그아웃 시 현재 사용자 ID 클리어 (localStorage 네임스페이스 분리)
         clearCurrentUserId();
@@ -232,6 +235,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // 로그인 시 현재 사용자 ID 설정
       setCurrentUserId(nextSession.user.id);
+      setRolesLoading(true);
 
       // Avoid potential deadlock by deferring profile work
       setTimeout(() => {
@@ -243,7 +247,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setProfile(profileData);
             setRoles(rolesData);
           })
-          .finally(() => setLoading(false));
+          .finally(() => {
+            setRolesLoading(false);
+            setLoading(false);
+          });
       }, 0);
     });
 
@@ -254,6 +261,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (session?.user) {
         // 초기 로드 시 현재 사용자 ID 설정
         setCurrentUserId(session.user.id);
+        setRolesLoading(true);
         Promise.all([
           ensureProfile(session.user),
           fetchRoles(session.user.id)
@@ -262,8 +270,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setProfile(profileData);
             setRoles(rolesData);
           })
-          .finally(() => setLoading(false));
+          .finally(() => {
+            setRolesLoading(false);
+            setLoading(false);
+          });
       } else {
+        setRolesLoading(false);
         setLoading(false);
       }
     });
@@ -291,7 +303,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       user, 
       session, 
       profile, 
-      loading, 
+      loading,
+      rolesLoading,
       isAdmin,
       isCoach,
       signOut, 

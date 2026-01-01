@@ -14,12 +14,15 @@ export function ProtectedRoute({
   allowedTypes,
   requireConsent = true 
 }: ProtectedRouteProps) {
-  const { user, profile, loading: authLoading, isAdmin, isCoach } = useAuth();
+  const { user, profile, loading: authLoading, isAdmin, isCoach, rolesLoading } = useAuth();
   const { hasRequiredConsents, loading: consentLoading } = useUserConsent();
   const location = useLocation();
 
-  // Combined loading state
-  const loading = authLoading || (user && requireConsent && consentLoading);
+  // 역할 기반 라우트인지 확인 (admin 또는 coach 권한 필요)
+  const needsRoleCheck = allowedTypes?.some(type => type === 'admin' || type === 'coach');
+
+  // Combined loading state - 역할 기반 라우트의 경우 rolesLoading도 체크
+  const loading = authLoading || (user && requireConsent && consentLoading) || (needsRoleCheck && rolesLoading);
 
   if (loading) {
     return (
