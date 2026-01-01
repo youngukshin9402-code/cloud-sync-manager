@@ -32,6 +32,7 @@ import { QuickAddPanel } from "./QuickAddPanel";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCustomFoods } from "@/hooks/useCustomFoods";
+import { useFavoriteFoods } from "@/hooks/useFavoriteFoods";
 
 const MEAL_TYPE_LABELS: Record<MealType, string> = {
   breakfast: "아침",
@@ -58,6 +59,7 @@ export function AddFoodSheet({
   const { toast } = useToast();
   const { profile } = useAuth();
   const { add: addCustomFood } = useCustomFoods();
+  const { add: addFavorite, isFavorite } = useFavoriteFoods();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
@@ -225,6 +227,11 @@ export function AddFoodSheet({
       if (success) {
         toast({ title: `${food.name}이(가) 나만의 음식에 저장되었습니다` });
       }
+    }
+
+    // 자동 즐겨찾기 등록 (중복 방지: 동일 이름이 없을 경우에만)
+    if (!isFavorite(food.name)) {
+      await addFavorite(food);
     }
 
     onFoodsSelected([food]);

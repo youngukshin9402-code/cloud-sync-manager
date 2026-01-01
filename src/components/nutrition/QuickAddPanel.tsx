@@ -48,74 +48,17 @@ export function QuickAddPanel({ mealType, onAddFood, onAddFoods }: QuickAddPanel
 
   return (
     <div className="h-full overflow-hidden flex flex-col">
-      <Tabs defaultValue="recent" className="w-full flex-1 flex flex-col overflow-hidden">
+      <Tabs defaultValue="favorite" className="w-full flex-1 flex flex-col overflow-hidden">
         <TabsList className="grid w-full grid-cols-2 flex-shrink-0">
-          <TabsTrigger value="recent" className="text-xs gap-1">
-            <Clock className="w-3 h-3" />
-            최근
-          </TabsTrigger>
           <TabsTrigger value="favorite" className="text-xs gap-1">
             <Star className="w-3 h-3" />
             즐겨찾기
           </TabsTrigger>
+          <TabsTrigger value="recent" className="text-xs gap-1">
+            <Clock className="w-3 h-3" />
+            최근
+          </TabsTrigger>
         </TabsList>
-
-        {/* 최근 기록 */}
-        <TabsContent value="recent" className="mt-2 flex-1 overflow-hidden">
-          <ScrollArea className="h-[45vh] max-h-[350px]">
-            {recentLoading ? (
-              <div className="flex justify-center py-6">
-                <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
-              </div>
-            ) : recentFoods.length === 0 ? (
-              <p className="text-center text-muted-foreground py-6 text-sm">
-                최근 기록이 없어요
-              </p>
-            ) : (
-              <div className="space-y-1.5 pr-2">
-                {recentFoods.map((food, idx) => (
-                  <div
-                    key={`${food.name}-${idx}`}
-                    className="flex items-center justify-between p-2.5 bg-card border border-border rounded-xl"
-                  >
-                    <div className="flex-1 min-w-0 pr-2">
-                      <p className="font-medium text-sm truncate">{food.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {food.calories}kcal
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-1 flex-shrink-0">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7"
-                        onClick={() => handleToggleFavorite(food)}
-                      >
-                        {isFavorite(food.name) ? (
-                          <Heart className="w-3.5 h-3.5 text-red-500 fill-red-500" />
-                        ) : (
-                          <HeartOff className="w-3.5 h-3.5 text-muted-foreground" />
-                        )}
-                      </Button>
-                      <Button
-                        size="sm"
-                        className="h-7 px-2"
-                        onClick={() => handleAddFood(food, `recent-${idx}`)}
-                        disabled={adding === `recent-${idx}`}
-                      >
-                        {adding === `recent-${idx}` ? (
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        ) : (
-                          <Plus className="w-3.5 h-3.5" />
-                        )}
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </ScrollArea>
-        </TabsContent>
 
         {/* 즐겨찾기 */}
         <TabsContent value="favorite" className="mt-2 flex-1 overflow-hidden">
@@ -161,6 +104,63 @@ export function QuickAddPanel({ mealType, onAddFood, onAddFoods }: QuickAddPanel
                         disabled={adding === food.id}
                       >
                         {adding === food.id ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <Plus className="w-3.5 h-3.5" />
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </ScrollArea>
+        </TabsContent>
+
+        {/* 최근 기록 */}
+        <TabsContent value="recent" className="mt-2 flex-1 overflow-hidden">
+          <ScrollArea className="h-[45vh] max-h-[350px]">
+            {recentLoading ? (
+              <div className="flex justify-center py-6">
+                <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+              </div>
+            ) : recentFoods.length === 0 ? (
+              <p className="text-center text-muted-foreground py-6 text-sm">
+                최근 기록이 없어요
+              </p>
+            ) : (
+              <div className="space-y-1.5 pr-2">
+                {recentFoods.map((food, idx) => (
+                  <div
+                    key={`${food.name}-${idx}`}
+                    className="flex items-center justify-between p-2.5 bg-card border border-border rounded-xl"
+                  >
+                    <div className="flex-1 min-w-0 pr-2">
+                      <p className="font-medium text-sm truncate">{food.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {food.calories}kcal
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={() => handleToggleFavorite(food)}
+                      >
+                        {isFavorite(food.name) ? (
+                          <Heart className="w-3.5 h-3.5 text-red-500 fill-red-500" />
+                        ) : (
+                          <HeartOff className="w-3.5 h-3.5 text-muted-foreground" />
+                        )}
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="h-7 px-2"
+                        onClick={() => handleAddFood(food, `recent-${idx}`)}
+                        disabled={adding === `recent-${idx}`}
+                      >
+                        {adding === `recent-${idx}` ? (
                           <Loader2 className="w-3.5 h-3.5 animate-spin" />
                         ) : (
                           <Plus className="w-3.5 h-3.5" />
