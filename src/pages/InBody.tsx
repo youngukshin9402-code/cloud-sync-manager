@@ -36,6 +36,7 @@ interface InBodyForm {
   body_fat_percent: number | null;
   bmr: number | null;
   visceral_fat: number | null;
+  vfa: number | null; // 내장지방 단면적 (cm²)
 }
 
 interface AIConfidence {
@@ -58,6 +59,23 @@ const emptyForm: InBodyForm = {
   body_fat_percent: null,
   bmr: null,
   visceral_fat: null,
+  vfa: null,
+};
+
+// VFA를 내장지방 레벨로 변환 (VFA / 10 후 올림)
+const convertVfaToVisceralFat = (vfa: number): number => {
+  return Math.ceil(vfa / 10);
+};
+
+// 최종 내장지방 레벨 계산 (레벨 우선, 없으면 VFA로 변환)
+const getFinalVisceralFatLevel = (visceralFat: number | null, vfa: number | null): number | null => {
+  if (visceralFat !== null && visceralFat > 0) {
+    return visceralFat;
+  }
+  if (vfa !== null && vfa > 0) {
+    return convertVfaToVisceralFat(vfa);
+  }
+  return null;
 };
 
 // 값 유효성 검증
@@ -126,6 +144,19 @@ export default function InBody() {
       return;
     }
 
+    // 내장지방 레벨 또는 VFA 중 하나는 필수 검증
+    if (formData.visceral_fat === null && formData.vfa === null) {
+      toast({ 
+        title: "내장지방 정보 필요", 
+        description: "내장지방 레벨 또는 VFA 중 하나는 입력해야 합니다",
+        variant: "destructive" 
+      });
+      return;
+    }
+
+    // 최종 내장지방 레벨 계산 (저장 시)
+    const finalVisceralFat = getFinalVisceralFatLevel(formData.visceral_fat, formData.vfa);
+
     // 유효성 검증
     const warnings = validateFormData(formData);
     if (warnings.length > 0 && !showWarningConfirm) {
@@ -134,15 +165,21 @@ export default function InBody() {
       return;
     }
 
+    // 저장할 데이터 (visceral_fat에 최종 계산된 레벨 저장)
+    const saveData = {
+      ...formData,
+      visceral_fat: finalVisceralFat,
+    };
+
     if (editingId) {
-      const result = await update(editingId, formData);
+      const result = await update(editingId, saveData);
       if (result.error) {
         toast({ title: "수정 실패", variant: "destructive" });
       } else {
         toast({ title: "수정되었습니다" });
       }
     } else {
-      const result = await add(formData);
+      const result = await add(saveData);
       if (result.error) {
         toast({ title: "저장 실패", variant: "destructive" });
       } else {
@@ -163,6 +200,7 @@ export default function InBody() {
       body_fat_percent: record.body_fat_percent ? Number(record.body_fat_percent) : null,
       bmr: record.bmr,
       visceral_fat: record.visceral_fat,
+      vfa: null, // 기존 기록에서는 VFA가 별도로 저장되지 않음
     });
     setInputMode('manual');
     setDialogOpen(true);
@@ -612,15 +650,52 @@ export default function InBody() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-muted-foreground">내장지방 레벨</label>
+                    <label className="text-sm font-medium">
+                      내장지방 레벨
+                      <span className="text-destructive ml-1">*</span>
+                    </label>
                     <Input 
                       type="number"
                       placeholder="8" 
                       value={formData.visceral_fat ?? ''} 
                       onChange={e => setFormData({ ...formData, visceral_fat: e.target.value ? parseInt(e.target.value) : null })} 
                     />
+                    <p className="text-xs text-muted-foreground">레벨 미입력시 VFA로 자동 계산</p>
                   </div>
                 </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">
+                    내장지방 단면적 VFA (cm²)
+                    <span className="text-destructive ml-1">*</span>
+                  </label>
+                  <Input 
+                    type="number"
+                    step="0.1"
+                    placeholder="55.0" 
+                    value={formData.vfa ?? ''} 
+                    onChange={e => setFormData({ ...formData, vfa: e.target.value ? parseFloat(e.target.value) : null })} 
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {formData.vfa && !formData.visceral_fat ? (
+                      <span className="text-primary">
+                        → 내장지방 레벨 {convertVfaToVisceralFat(formData.vfa)}로 환산됨
+                      </span>
+                    ) : (
+                      "레벨이 없는 경우 VFA÷10 올림으로 레벨 환산"
+                    )}
+                  </p>
+                </div>
+
+                {/* 내장지방 레벨/VFA 필수 안내 */}
+                {(formData.visceral_fat === null || formData.visceral_fat === 0) && (formData.vfa === null || formData.vfa === 0) && (
+                  <div className="flex items-center gap-2 p-2 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+                    <AlertTriangle className="w-4 h-4 text-amber-600" />
+                    <p className="text-xs text-amber-700">
+                      내장지방 레벨 또는 VFA 중 하나는 필수 입력입니다
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* 유효성 경고 표시 */}
