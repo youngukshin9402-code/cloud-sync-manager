@@ -133,6 +133,7 @@ function InBodySection() {
     body_fat_percent: null as number | null,
     bmr: null as number | null,
     visceral_fat: null as number | null,
+    visceral_fat_area: null as number | null,
   });
 
   // 사진 AI 분석 관련 상태
@@ -201,6 +202,11 @@ function InBodySection() {
     return data.data;
   };
 
+  // VFA에서 내장지방 레벨로 환산 (VFA / 10 후 올림)
+  const convertVfaToLevel = (vfa: number): number => {
+    return Math.ceil(vfa / 10);
+  };
+
   // AI 건강 나이/신체 점수 분석 함수 - 실제 나이 입력 후 분석
   const startHealthAgeAnalysis = (record: typeof records[0]) => {
     setShowAgeInputDialog(true);
@@ -215,10 +221,26 @@ function InBodySection() {
     try {
       // 필수 데이터 검증
       const bodyFatPercent = record.body_fat_percent ? Number(record.body_fat_percent) : null;
-      const visceralFat = record.visceral_fat;
       
-      if (bodyFatPercent === null || visceralFat === null) {
-        throw new Error("체지방률과 내장지방 레벨이 필요합니다");
+      // 내장지방 레벨 결정: 레벨 우선, 없으면 VFA에서 환산
+      let visceralFatLevel: number | null = null;
+      if (record.visceral_fat !== null && record.visceral_fat !== undefined) {
+        // 내장지방 레벨이 있으면 그대로 사용
+        visceralFatLevel = record.visceral_fat;
+      } else if ((record as any).visceral_fat_area !== null && (record as any).visceral_fat_area !== undefined) {
+        // VFA만 있으면 환산: ceil(VFA / 10)
+        visceralFatLevel = convertVfaToLevel((record as any).visceral_fat_area);
+      }
+      
+      // 둘 다 없으면 분석 불가
+      if (visceralFatLevel === null) {
+        toast.error("내장지방 레벨 혹은 내장지방 단면적(VFA) 기록이 필요합니다.");
+        setIsAnalyzingHealth(false);
+        return;
+      }
+      
+      if (bodyFatPercent === null) {
+        throw new Error("체지방률이 필요합니다");
       }
 
       // computeHealthAge로 결정론적 건강 나이 계산
@@ -226,7 +248,7 @@ function InBodySection() {
         actualAge,
         gender,
         bodyFatPercent,
-        visceralFatLevel: visceralFat,
+        visceralFatLevel: visceralFatLevel,
         weightKg: Number(record.weight),
         smmKg: record.skeletal_muscle ? Number(record.skeletal_muscle) : undefined,
       };
@@ -248,7 +270,7 @@ function InBodySection() {
             body_fat_percent: bodyFatPercent,
             body_fat: record.body_fat ? Number(record.body_fat) : null,
             bmr: record.bmr,
-            visceral_fat: visceralFat,
+            visceral_fat: visceralFatLevel,
             date: record.date,
           }
         }
@@ -270,14 +292,14 @@ function InBodySection() {
       await saveHealthAge({
         ...result,
         inbodyRecordDate: record.date,
-        inbodyData: {
-          weight: Number(record.weight),
-          skeletal_muscle: record.skeletal_muscle ? Number(record.skeletal_muscle) : null,
-          body_fat_percent: bodyFatPercent,
-          body_fat: record.body_fat ? Number(record.body_fat) : null,
-          bmr: record.bmr,
-          visceral_fat: visceralFat,
-        },
+          inbodyData: {
+            weight: Number(record.weight),
+            skeletal_muscle: record.skeletal_muscle ? Number(record.skeletal_muscle) : null,
+            body_fat_percent: bodyFatPercent,
+            body_fat: record.body_fat ? Number(record.body_fat) : null,
+            bmr: record.bmr,
+            visceral_fat: visceralFatLevel,
+          },
       });
       toast.success("건강 나이 분석 완료!");
     } catch (error) {
@@ -314,6 +336,7 @@ function InBodySection() {
           body_fat: analyzedData.body_fat ? parseFloat(Number(analyzedData.body_fat).toFixed(1)) : prev.body_fat,
           bmr: analyzedData.bmr || prev.bmr,
           visceral_fat: analyzedData.visceral_fat || prev.visceral_fat,
+          visceral_fat_area: analyzedData.visceral_fat_area ? parseFloat(Number(analyzedData.visceral_fat_area).toFixed(1)) : prev.visceral_fat_area,
         }));
         
         setAiPrefilled(true);
@@ -376,6 +399,7 @@ function InBodySection() {
       body_fat_percent: record.body_fat_percent ? Number(record.body_fat_percent) : null,
       bmr: record.bmr,
       visceral_fat: record.visceral_fat,
+      visceral_fat_area: (record as any).visceral_fat_area ?? null,
     });
     setInputMode('manual');
     setDialogOpen(true);
@@ -416,6 +440,7 @@ function InBodySection() {
       body_fat_percent: null,
       bmr: null,
       visceral_fat: null,
+      visceral_fat_area: null,
     });
     setUploadedImage(null);
     setAiPrefilled(false);
@@ -828,6 +853,14 @@ function InBodySection() {
                 <div className="space-y-2">
                   <label className="text-sm font-medium">기초대사량</label>
                   <Input type="number" placeholder="1450" value={formData.bmr ?? ''} onChange={e => setFormData({ ...formData, bmr: e.target.value ? parseInt(e.target.value) : null })} />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">내장지방 레벨</label>
+                  <Input type="number" placeholder="8" min="1" max="20" value={formData.visceral_fat ?? ''} onChange={e => setFormData({ ...formData, visceral_fat: e.target.value ? parseInt(e.target.value) : null })} />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">내장지방 단면적(VFA)</label>
+                  <Input type="number" step="0.1" placeholder="34.1" value={formData.visceral_fat_area ?? ''} onChange={e => setFormData({ ...formData, visceral_fat_area: e.target.value ? parseFloat(e.target.value) : null })} />
                 </div>
               </div>
             </div>

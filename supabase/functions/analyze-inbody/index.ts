@@ -196,10 +196,16 @@ serve(async (req) => {
 - 체지방률 (body_fat_percent): % 숫자
 - 기초대사량 (bmr): kcal 숫자
 - 체지방량 (body_fat): kg 단위 숫자 (있는 경우)
-- 내장지방 레벨 (visceral_fat): 숫자 (있는 경우)
+- 내장지방 레벨 (visceral_fat): 숫자 (있는 경우, 보통 1~20 사이 정수)
+- 내장지방 단면적 (visceral_fat_area): cm² 숫자 (있는 경우, 우측 상단 "내장지방(Visceral Fat Area)" 섹션의 숫자값, 예: 34.1)
+
+내장지방 관련 주의사항:
+- "내장지방 레벨"은 보통 1~20 사이의 정수입니다 (왼쪽 하단 "내장지방 레벨" 영역)
+- "내장지방 단면적(VFA)"은 cm² 단위의 숫자로, 보통 10~150 범위입니다 (우측 상단 그래프/차트 영역의 숫자)
+- 두 값은 서로 다른 항목이니 구분하여 추출하세요
 
 값을 찾을 수 없는 경우 null을 반환하세요.
-예시: {"date":"2024-01-15","weight":65.5,"skeletal_muscle":28.3,"body_fat_percent":18.5,"bmr":1450,"body_fat":12.1,"visceral_fat":8}
+예시: {"date":"2024-01-15","weight":65.5,"skeletal_muscle":28.3,"body_fat_percent":18.5,"bmr":1450,"body_fat":12.1,"visceral_fat":8,"visceral_fat_area":34.1}
 
 반드시 유효한 JSON만 출력하세요. 마크다운 코드 블록 없이 순수 JSON만 응답하세요.`
           },
@@ -296,6 +302,7 @@ serve(async (req) => {
         bmr: typeof parsedData.bmr === 'number' ? parsedData.bmr : null,
         body_fat: typeof parsedData.body_fat === 'number' ? parsedData.body_fat : null,
         visceral_fat: typeof parsedData.visceral_fat === 'number' ? parsedData.visceral_fat : null,
+        visceral_fat_area: typeof parsedData.visceral_fat_area === 'number' ? parsedData.visceral_fat_area : null,
       };
       
       // Check if we got any meaningful data
