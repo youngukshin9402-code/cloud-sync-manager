@@ -777,6 +777,7 @@ export type Database = {
           skeletal_muscle: number | null
           user_id: string
           visceral_fat: number | null
+          visceral_fat_area: number | null
           weight: number
         }
         Insert: {
@@ -789,6 +790,7 @@ export type Database = {
           skeletal_muscle?: number | null
           user_id: string
           visceral_fat?: number | null
+          visceral_fat_area?: number | null
           weight: number
         }
         Update: {
@@ -801,6 +803,7 @@ export type Database = {
           skeletal_muscle?: number | null
           user_id?: string
           visceral_fat?: number | null
+          visceral_fat_area?: number | null
           weight?: number
         }
         Relationships: []
