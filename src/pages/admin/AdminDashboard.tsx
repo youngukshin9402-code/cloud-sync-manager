@@ -48,36 +48,6 @@ export default function AdminDashboard() {
       path: "/admin/coaching",
     },
     {
-      id: "tickets",
-      icon: MessageSquare,
-      label: "고객 문의",
-      description: "티켓 상태 관리 및 답변",
-      path: "/admin/tickets",
-    },
-    {
-      id: "health-records",
-      icon: FileText,
-      label: "건강검진 승인",
-      description: "검진 결과 최종 승인/반려",
-      path: "/admin/health-records",
-      count: `${stats.pendingReviews}건 대기`,
-      highlight: stats.pendingReviews > 0,
-    },
-    {
-      id: "health-reviews",
-      icon: Brain,
-      label: "AI 분석 검토",
-      description: "건강검진 AI 분석 검토/코멘트",
-      path: "/admin/health-reviews",
-    },
-    {
-      id: "products",
-      icon: ShoppingBag,
-      label: "상품 관리",
-      description: "커머스 상품 등록/수정",
-      path: "/admin/products",
-    },
-    {
       id: "coaches",
       icon: UserCog,
       label: "코치 관리",
@@ -85,11 +55,18 @@ export default function AdminDashboard() {
       path: "/admin/coaches",
     },
     {
-      id: "points",
-      icon: Coins,
-      label: "포인트 정책",
-      description: "적립 기준 및 프로모션",
-      path: "/admin/points",
+      id: "tickets",
+      icon: MessageSquare,
+      label: "고객 문의",
+      description: "티켓 상태 관리 및 답변",
+      path: "/admin/tickets",
+    },
+    {
+      id: "health-reviews",
+      icon: Brain,
+      label: "AI 분석 검토",
+      description: "건강검진 AI 분석 검토/코멘트",
+      path: "/admin/health-reviews",
     },
     {
       id: "stats",
@@ -204,23 +181,11 @@ export default function AdminDashboard() {
               <Link
                 key={item.id}
                 to={item.path}
-                className={`bg-card rounded-2xl border p-6 hover:shadow-lg transition-all ${
-                  item.highlight
-                    ? "border-amber-300 bg-amber-50"
-                    : "border-border hover:border-primary"
-                }`}
+                className="bg-card rounded-2xl border border-border p-6 hover:shadow-lg hover:border-primary transition-all"
               >
                 <div className="flex items-start justify-between">
-                  <div
-                    className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                      item.highlight ? "bg-amber-200" : "bg-primary/10"
-                    }`}
-                  >
-                    <item.icon
-                      className={`w-6 h-6 ${
-                        item.highlight ? "text-amber-700" : "text-primary"
-                      }`}
-                    />
+                  <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-primary/10">
+                    <item.icon className="w-6 h-6 text-primary" />
                   </div>
                   <ChevronRight className="w-5 h-5 text-muted-foreground" />
                 </div>
@@ -229,11 +194,7 @@ export default function AdminDashboard() {
                   {item.description}
                 </p>
                 {item.count && (
-                  <p
-                    className={`text-sm font-medium mt-2 ${
-                      item.highlight ? "text-amber-700" : "text-primary"
-                    }`}
-                  >
+                  <p className="text-sm font-medium mt-2 text-primary">
                     {item.count}
                   </p>
                 )}
