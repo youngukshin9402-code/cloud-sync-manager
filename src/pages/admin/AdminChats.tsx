@@ -217,7 +217,8 @@ export default function AdminChats() {
                   {filteredConversations.map((conv) => (
                     <div
                       key={`${conv.user_id}-${conv.coach_id}`}
-                      className="p-4 hover:bg-accent/50 transition-colors"
+                      className="p-4 hover:bg-accent/50 transition-colors cursor-pointer"
+                      onClick={() => handleViewConversation(conv)}
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex-1 min-w-0">
@@ -236,15 +237,9 @@ export default function AdminChats() {
                             {format(new Date(conv.last_message_time), 'yyyy.M.d a h:mm', { locale: ko })}
                           </p>
                         </div>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleViewConversation(conv)}
-                          className="gap-1"
-                        >
-                          <Eye className="h-3.5 w-3.5" />
-                          보기
-                        </Button>
+                        <div className="flex items-center text-muted-foreground">
+                          <Eye className="h-4 w-4" />
+                        </div>
                       </div>
                     </div>
                   ))}
