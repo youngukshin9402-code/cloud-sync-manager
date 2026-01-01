@@ -354,13 +354,6 @@ function InBodySection() {
       return;
     }
     
-    // 내장지방 레벨 또는 VFA 중 하나는 필수 검증
-    if ((formData.visceral_fat === null || formData.visceral_fat === 0) && 
-        (formData.vfa === null || formData.vfa === 0)) {
-      toast.error("내장지방 레벨 또는 VFA 중 하나는 입력해야 합니다");
-      return;
-    }
-    
     if (isSaving) return;
 
     // 최종 내장지방 레벨 계산
