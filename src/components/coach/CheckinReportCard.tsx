@@ -144,9 +144,8 @@ export function CheckinReportCard({ report, compact = false }: CheckinReportCard
             <div className="grid grid-cols-2 gap-2 text-sm pt-2 border-t border-border/50">
               <div className="flex items-center gap-2">
                 <Flame className="w-4 h-4 text-orange-500" />
-                <span className="text-muted-foreground">칼로리</span>
                 <span className="font-medium">
-                  {snapshot.home.calories.current.toLocaleString()}/{snapshot.home.calories.goal.toLocaleString()}
+                  {snapshot.home.calories.current.toLocaleString()}/{snapshot.home.calories.goal.toLocaleString()} kcal
                 </span>
                 <Badge 
                   variant="outline" 
