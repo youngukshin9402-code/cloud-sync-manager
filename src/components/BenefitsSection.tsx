@@ -1,8 +1,6 @@
 import { FeatureItem } from "./FeatureItem";
 import {
   Eye,
-  MessageCircle,
-  Gift,
   Clock,
 } from "lucide-react";
 
@@ -18,18 +16,6 @@ export function BenefitsSection() {
           {" "}쉽게 사용할 수 있어요.
         </>
       ),
-    },
-    {
-      icon: MessageCircle,
-      title: "존댓말 안내",
-      description:
-        "모든 안내 메시지는 공손한 존댓말로 제공되어 편안하게 이용하실 수 있어요.",
-    },
-    {
-      icon: Gift,
-      title: "양갱 포인트 적립",
-      description:
-        "건강한 활동을 할 때마다 포인트가 쌓여요. 쿠폰이나 상품으로 교환 가능해요.",
     },
     {
       icon: Clock,
