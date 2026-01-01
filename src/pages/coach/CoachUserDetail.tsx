@@ -22,9 +22,6 @@ import {
   ArrowLeft,
   User,
   Heart,
-  Activity,
-  Target,
-  Plus,
   Check,
   X,
   Video,
@@ -54,12 +51,6 @@ interface HealthRecord {
   raw_image_urls: string[];
 }
 
-interface Mission {
-  id: string;
-  content: string;
-  points: number;
-  is_active: boolean;
-}
 
 export default function CoachUserDetail() {
   const { userId } = useParams();
@@ -69,7 +60,6 @@ export default function CoachUserDetail() {
 
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [healthRecords, setHealthRecords] = useState<HealthRecord[]>([]);
-  const [missions, setMissions] = useState<Mission[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [showReviewDialog, setShowReviewDialog] = useState(false);
@@ -77,9 +67,6 @@ export default function CoachUserDetail() {
   const [reviewComment, setReviewComment] = useState("");
   const [reviewing, setReviewing] = useState(false);
 
-  const [showMissionDialog, setShowMissionDialog] = useState(false);
-  const [newMission, setNewMission] = useState({ content: "", points: 10 });
-  const [savingMission, setSavingMission] = useState(false);
 
   // 건강검진 상세보기 Sheet
   const [showDetailSheet, setShowDetailSheet] = useState(false);
@@ -108,15 +95,6 @@ export default function CoachUserDetail() {
         .order("created_at", { ascending: false });
 
       setHealthRecords(records || []);
-
-      // 미션
-      const { data: missionData } = await supabase
-        .from("mission_templates")
-        .select("*")
-        .eq("user_id", userId)
-        .order("created_at", { ascending: false });
-
-      setMissions(missionData || []);
 
       setLoading(false);
     };
@@ -168,54 +146,6 @@ export default function CoachUserDetail() {
     setHealthRecords(data || []);
   };
 
-  const handleAddMission = async () => {
-    if (!userId || !user || !newMission.content) return;
-
-    setSavingMission(true);
-
-    const { error } = await supabase.from("mission_templates").insert({
-      user_id: userId,
-      coach_id: user.id,
-      content: newMission.content,
-      points: newMission.points,
-      is_active: true,
-    });
-
-    setSavingMission(false);
-
-    if (error) {
-      toast({
-        title: "미션 추가 실패",
-        description: error.message,
-        variant: "destructive",
-      });
-      return;
-    }
-
-    toast({ title: "미션 추가 완료" });
-    setShowMissionDialog(false);
-    setNewMission({ content: "", points: 10 });
-
-    // 새로고침
-    const { data } = await supabase
-      .from("mission_templates")
-      .select("*")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false });
-
-    setMissions(data || []);
-  };
-
-  const toggleMission = async (missionId: string, isActive: boolean) => {
-    await supabase
-      .from("mission_templates")
-      .update({ is_active: !isActive })
-      .eq("id", missionId);
-
-    setMissions((prev) =>
-      prev.map((m) => (m.id === missionId ? { ...m, is_active: !isActive } : m))
-    );
-  };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -382,52 +312,6 @@ export default function CoachUserDetail() {
           </CardContent>
         </Card>
 
-        {/* 미션 관리 */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <Target className="h-5 w-5 text-primary" />
-              미션 관리
-            </CardTitle>
-            <Button size="sm" onClick={() => setShowMissionDialog(true)}>
-              <Plus className="mr-1 h-4 w-4" />
-              미션 추가
-            </Button>
-          </CardHeader>
-          <CardContent>
-            {missions.length === 0 ? (
-              <p className="text-muted-foreground text-center py-8">
-                설정된 미션이 없습니다
-              </p>
-            ) : (
-              <div className="space-y-2">
-                {missions.map((mission) => (
-                  <div
-                    key={mission.id}
-                    className={`flex items-center justify-between p-3 rounded-lg ${
-                      mission.is_active ? "bg-muted/30" : "bg-muted/10 opacity-60"
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <Activity className="h-4 w-4 text-muted-foreground" />
-                      <span className={!mission.is_active ? "line-through" : ""}>
-                        {mission.content}
-                      </span>
-                      <Badge variant="outline">{mission.points}P</Badge>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => toggleMission(mission.id, mission.is_active)}
-                    >
-                      {mission.is_active ? "비활성화" : "활성화"}
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
       </main>
 
       {/* 검토 Dialog */}
@@ -467,54 +351,6 @@ export default function CoachUserDetail() {
         </DialogContent>
       </Dialog>
 
-      {/* 미션 추가 Dialog */}
-      <Dialog open={showMissionDialog} onOpenChange={setShowMissionDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>새 미션 추가</DialogTitle>
-          </DialogHeader>
-          <div className="py-4 space-y-4">
-            <div>
-              <label className="text-sm font-medium">미션 내용</label>
-              <Input
-                placeholder="예: 아침 스트레칭 10분"
-                value={newMission.content}
-                onChange={(e) =>
-                  setNewMission((prev) => ({ ...prev, content: e.target.value }))
-                }
-                className="mt-2"
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium">포인트</label>
-              <Input
-                type="number"
-                value={newMission.points}
-                onChange={(e) =>
-                  setNewMission((prev) => ({
-                    ...prev,
-                    points: parseInt(e.target.value) || 10,
-                  }))
-                }
-                className="mt-2"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowMissionDialog(false)}>
-              취소
-            </Button>
-            <Button onClick={handleAddMission} disabled={savingMission}>
-              {savingMission ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Plus className="mr-1 h-4 w-4" />
-              )}
-              추가
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* 건강검진 상세보기 Sheet */}
       <HealthRecordDetailSheet
