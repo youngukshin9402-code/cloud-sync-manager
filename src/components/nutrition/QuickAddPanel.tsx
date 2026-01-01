@@ -76,7 +76,7 @@ export function QuickAddPanel({ mealType, onAddFood, onAddFoods }: QuickAddPanel
                 </p>
               </div>
             ) : (
-              <div className="space-y-1.5 pr-2">
+              <div className="space-y-1.5 pr-4">
                 {favoriteFoods.map((food) => (
                   <div
                     key={food.id}
@@ -129,7 +129,7 @@ export function QuickAddPanel({ mealType, onAddFood, onAddFoods }: QuickAddPanel
                 최근 기록이 없어요
               </p>
             ) : (
-              <div className="space-y-1.5 pr-2">
+              <div className="space-y-1.5 pr-4">
                 {recentFoods.map((food, idx) => (
                   <div
                     key={`${food.name}-${idx}`}
