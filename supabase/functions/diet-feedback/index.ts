@@ -65,7 +65,26 @@ serve(async (req) => {
 - 건강 상태/지병: ${userProfile.conditions?.length ? userProfile.conditions.join(', ') : '없음'}
 ` : '';
 
-    const prompt = `당신은 따뜻하고 격려하는 전문 영양사입니다. 다음 하루 식단을 긍정적으로 평가해주세요. 잘한 점을 먼저 칭찬하고, 개선할 점은 부드럽게 조언해주세요.
+    // 점수 일관성을 위한 결정적 점수 계산
+    const calorieRatio = nutritionData.totals.totalCalories / nutritionData.goals.calorieGoal;
+    const proteinRatio = nutritionData.totals.totalProtein / nutritionData.goals.proteinGoalG;
+    const carbRatio = nutritionData.totals.totalCarbs / nutritionData.goals.carbGoalG;
+    const fatRatio = nutritionData.totals.totalFat / nutritionData.goals.fatGoalG;
+    
+    // 기본 점수 계산 (목표 대비 달성률 기반, 100% 근접이 최고점)
+    const calorieScore = Math.max(0, 100 - Math.abs(1 - calorieRatio) * 50);
+    const proteinScore = Math.max(0, 100 - Math.abs(1 - proteinRatio) * 40);
+    const carbScore = Math.max(0, 100 - Math.abs(1 - carbRatio) * 30);
+    const fatScore = Math.max(0, 100 - Math.abs(1 - fatRatio) * 30);
+    
+    // 가중 평균 (칼로리 40%, 단백질 30%, 탄수화물 15%, 지방 15%)
+    const calculatedScore = Math.round(
+      calorieScore * 0.4 + proteinScore * 0.3 + carbScore * 0.15 + fatScore * 0.15
+    );
+    // 최소 30점, 최대 100점으로 제한
+    const finalScore = Math.min(100, Math.max(30, calculatedScore));
+
+const prompt = `당신은 따뜻하고 격려하는 전문 영양사입니다. 다음 하루 식단을 긍정적으로 평가해주세요. 잘한 점을 먼저 칭찬하고, 개선할 점은 부드럽게 조언해주세요.
 
 ${profileInfo}
 오늘 식단:
@@ -77,13 +96,15 @@ ${mealSummary}
 - 단백질: ${nutritionData.totals.totalProtein}g (목표: ${nutritionData.goals.proteinGoalG}g)
 - 지방: ${nutritionData.totals.totalFat}g (목표: ${nutritionData.goals.fatGoalG}g)
 
+※ 중요: 점수는 반드시 ${finalScore}점으로 고정해주세요.
+
 다음 JSON 형식으로 응답해주세요. 반드시 한국어로 작성하세요:
 {
-  "score": 0~100 사이 점수 (숫자만, 노력을 인정하여 너무 낮지 않게),
+  "score": ${finalScore},
   "summary": "한 줄 종합 평가 (15자 내외, 긍정적 톤)",
-  "harshEvaluation": "종합 평가 2~4문장. 잘한 점을 먼저 언급하고, 개선할 점은 응원하는 톤으로 제안",
-  "balanceEvaluation": "탄단지 균형에 대한 평가 (2-3문장, 격려하는 톤)",
-  "improvements": ["개선할 점 1 (부드러운 제안)", "개선할 점 2", "개선할 점 3"],
+  "harshEvaluation": "종합 평가 3~4문장 이내(총 80자 내외). 잘한 점을 먼저 언급하고, 개선할 점은 응원하는 톤으로 간결하게 제안",
+  "balanceEvaluation": "탄단지 균형에 대한 평가 (2~3문장, 60자 내외, 격려하는 톤으로 간결하게)",
+  "improvements": ["개선할 점 1 (부드러운 제안, 20자 내외)", "개선할 점 2", "개선할 점 3"],
   "recommendedFoods": ["내일 추천하는 음식 1", "음식 2", "음식 3"],
   "cautionFoods": ["섭취를 줄이면 좋을 음식 1", "음식 2"]
 }`;
@@ -97,9 +118,10 @@ ${mealSummary}
       body: JSON.stringify({
         model: 'google/gemini-2.5-flash',
         messages: [
-          { role: 'system', content: '당신은 따뜻하고 격려하는 전문 영양사입니다. 사용자의 건강 상태와 목표를 고려하여 응원하는 피드백을 제공합니다. 잘한 점을 먼저 칭찬하고 개선점은 부드럽게 조언합니다. 항상 JSON 형식으로 응답합니다. 한국어로 응답합니다.' },
+          { role: 'system', content: '당신은 따뜻하고 격려하는 전문 영양사입니다. 사용자의 건강 상태와 목표를 고려하여 응원하는 피드백을 제공합니다. 잘한 점을 먼저 칭찬하고 개선점은 부드럽게 조언합니다. 항상 JSON 형식으로 응답합니다. 한국어로 응답합니다. 문장은 간결하게, 각 평가는 3~4문장 이내로 작성합니다.' },
           { role: 'user', content: prompt }
         ],
+        temperature: 0,
       }),
     });
 
