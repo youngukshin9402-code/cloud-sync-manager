@@ -281,7 +281,7 @@ export function AIDietFeedbackSheet({
                 <Utensils className="w-5 h-5 text-primary" />
                 <span className="font-semibold">탄단지 균형 평가</span>
               </div>
-              <p className="text-muted-foreground text-sm mb-3">{feedback.balanceEvaluation}</p>
+              <p className="text-muted-foreground mb-3">{feedback.balanceEvaluation}</p>
               <div className="grid grid-cols-3 gap-2 text-center text-sm">
                 <div className="bg-muted rounded-lg p-2">
                   <div className="font-bold text-primary">{totals.totalCarbs}g</div>
@@ -303,11 +303,11 @@ export function AIDietFeedbackSheet({
               <div className="bg-card border border-border rounded-2xl p-4">
                 <div className="flex items-center gap-2 mb-3">
                   <TrendingUp className="w-5 h-5 text-primary" />
-                  <span className="font-semibold">더 좋아질 수 있는 점</span>
+                  <span className="font-semibold">개선할 점</span>
                 </div>
                 <ul className="space-y-2">
                   {feedback.improvements.map((item, idx) => (
-                    <li key={idx} className="flex items-start gap-2 text-sm">
+                    <li key={idx} className="flex items-start gap-2">
                       <span className="text-primary mt-0.5">💡</span>
                       <span className="text-muted-foreground">{item}</span>
                     </li>
