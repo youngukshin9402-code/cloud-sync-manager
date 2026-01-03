@@ -272,7 +272,7 @@ export function AIDietFeedbackSheet({
                 <CheckCircle className="w-5 h-5 text-primary" />
                 <span className="font-semibold">종합 평가</span>
               </div>
-              <p className="text-muted-foreground">{feedback.harshEvaluation}</p>
+              <p className="text-muted-foreground leading-relaxed break-keep">{feedback.harshEvaluation}</p>
             </div>
 
             {/* 탄단지 균형 */}
@@ -281,7 +281,7 @@ export function AIDietFeedbackSheet({
                 <Utensils className="w-5 h-5 text-primary" />
                 <span className="font-semibold">탄단지 균형 평가</span>
               </div>
-              <p className="text-muted-foreground mb-3">{feedback.balanceEvaluation}</p>
+              <p className="text-muted-foreground leading-relaxed break-keep mb-3">{feedback.balanceEvaluation}</p>
               <div className="grid grid-cols-3 gap-2 text-center text-sm">
                 <div className="bg-muted rounded-lg p-2">
                   <div className="font-bold text-primary">{totals.totalCarbs}g</div>
@@ -305,11 +305,11 @@ export function AIDietFeedbackSheet({
                   <TrendingUp className="w-5 h-5 text-primary" />
                   <span className="font-semibold">개선할 점</span>
                 </div>
-                <ul className="space-y-2">
+                <ul className="space-y-3">
                   {feedback.improvements.map((item, idx) => (
                     <li key={idx} className="flex items-start gap-2">
-                      <span className="text-primary mt-0.5">💡</span>
-                      <span className="text-muted-foreground">{item}</span>
+                      <span className="text-primary mt-0.5 flex-shrink-0">💡</span>
+                      <p className="text-muted-foreground leading-relaxed break-keep">{item}</p>
                     </li>
                   ))}
                 </ul>
