@@ -13,11 +13,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { ChatWindow } from '@/components/chat/ChatWindow';
-import { useChat } from '@/hooks/useChat';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
 
 interface ChatConversation {
   user_id: string;
@@ -29,15 +28,27 @@ interface ChatConversation {
   last_message_time: string;
 }
 
+interface ChatMessageItem {
+  id: string;
+  sender_id: string;
+  receiver_id: string;
+  message: string;
+  message_type: string;
+  image_url: string | null;
+  created_at: string;
+  is_read: boolean;
+  sender_nickname: string;
+  is_coach: boolean;
+}
+
 export default function AdminChats() {
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [conversations, setConversations] = useState<ChatConversation[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedConversation, setSelectedConversation] = useState<ChatConversation | null>(null);
-  const [viewingUserId, setViewingUserId] = useState<string | null>(null);
-
-  const { messages, loading: loadingMessages } = useChat(viewingUserId || undefined);
+  const [chatMessages, setChatMessages] = useState<ChatMessageItem[]>([]);
+  const [loadingMessages, setLoadingMessages] = useState(false);
 
   const fetchConversations = async () => {
     setLoading(true);
@@ -128,13 +139,63 @@ export default function AdminChats() {
     }
   };
 
+  // 특정 대화의 메시지 조회
+  const fetchConversationMessages = async (conv: ChatConversation) => {
+    setLoadingMessages(true);
+    try {
+      // 해당 사용자-코치 간의 모든 메시지 조회
+      const { data: messages } = await supabase
+        .from('chat_messages')
+        .select('*')
+        .or(`and(sender_id.eq.${conv.user_id},receiver_id.eq.${conv.coach_id}),and(sender_id.eq.${conv.coach_id},receiver_id.eq.${conv.user_id})`)
+        .order('created_at', { ascending: true });
+
+      if (!messages) {
+        setChatMessages([]);
+        return;
+      }
+
+      // 프로필 조회
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, nickname, user_type')
+        .in('id', [conv.user_id, conv.coach_id]);
+
+      const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
+
+      const formattedMessages: ChatMessageItem[] = messages.map(msg => {
+        const senderProfile = profileMap.get(msg.sender_id);
+        const isCoach = senderProfile?.user_type === 'coach' || senderProfile?.user_type === 'admin';
+        
+        return {
+          id: msg.id,
+          sender_id: msg.sender_id,
+          receiver_id: msg.receiver_id,
+          message: msg.message,
+          message_type: msg.message_type,
+          image_url: msg.image_url,
+          created_at: msg.created_at,
+          is_read: msg.is_read || false,
+          sender_nickname: senderProfile?.nickname || '사용자',
+          is_coach: isCoach,
+        };
+      });
+
+      setChatMessages(formattedMessages);
+    } catch (error) {
+      console.error('Error fetching messages:', error);
+    } finally {
+      setLoadingMessages(false);
+    }
+  };
+
   useEffect(() => {
     fetchConversations();
   }, []);
 
   const handleViewConversation = (conv: ChatConversation) => {
     setSelectedConversation(conv);
-    setViewingUserId(conv.user_id);
+    fetchConversationMessages(conv);
   };
 
   const filteredConversations = conversations.filter(conv =>
@@ -250,26 +311,98 @@ export default function AdminChats() {
         </Card>
       </main>
 
-      {/* View Conversation Dialog */}
+      {/* View Conversation Dialog - 코치/사용자 정렬 구분 */}
       <Dialog open={!!selectedConversation} onOpenChange={() => {
         setSelectedConversation(null);
-        setViewingUserId(null);
+        setChatMessages([]);
       }}>
         <DialogContent className="max-w-2xl h-[80vh] p-0 flex flex-col">
-          <DialogHeader className="px-4 py-3 border-b">
-            <DialogTitle>
-              {selectedConversation?.user_nickname} ↔ {selectedConversation?.coach_nickname}
+          <DialogHeader className="px-4 py-3 border-b shrink-0">
+            <DialogTitle className="flex items-center gap-2">
+              <Badge variant="outline" className="bg-sky-50 text-sky-700">사용자</Badge>
+              {selectedConversation?.user_nickname}
+              <span className="text-muted-foreground mx-1">↔</span>
+              <Badge variant="outline" className="bg-primary/10 text-primary">코치</Badge>
+              {selectedConversation?.coach_nickname}
             </DialogTitle>
           </DialogHeader>
-          <div className="flex-1 overflow-hidden">
-            <ChatWindow
-              messages={messages}
-              loading={loadingMessages}
-              sending={false}
-              onSendMessage={async () => false}
-              partnerName={selectedConversation?.user_nickname || ''}
-              readOnly={true}
-            />
+          
+          <div className="flex-1 overflow-y-auto p-4">
+            {loadingMessages ? (
+              <div className="flex items-center justify-center h-full">
+                <p className="text-muted-foreground">불러오는 중...</p>
+              </div>
+            ) : chatMessages.length === 0 ? (
+              <div className="flex items-center justify-center h-full">
+                <p className="text-muted-foreground">메시지가 없습니다</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {chatMessages.map((msg) => (
+                  <div 
+                    key={msg.id} 
+                    className={cn(
+                      'flex w-full',
+                      msg.is_coach ? 'justify-end' : 'justify-start'
+                    )}
+                  >
+                    <div className={cn(
+                      'flex flex-col max-w-[75%]',
+                      msg.is_coach ? 'items-end' : 'items-start'
+                    )}>
+                      {/* 발신자 라벨 */}
+                      <div className={cn(
+                        'flex items-center gap-1 mb-1 px-1',
+                        msg.is_coach ? 'flex-row-reverse' : ''
+                      )}>
+                        <Badge 
+                          variant="outline" 
+                          className={cn(
+                            'text-[10px] px-1.5 py-0',
+                            msg.is_coach 
+                              ? 'bg-primary/10 text-primary border-primary/20' 
+                              : 'bg-sky-50 text-sky-700 border-sky-200'
+                          )}
+                        >
+                          {msg.is_coach ? '코치' : '사용자'}
+                        </Badge>
+                        <span className="text-xs text-muted-foreground">
+                          {msg.sender_nickname}
+                        </span>
+                      </div>
+
+                      {/* 메시지 내용 */}
+                      {msg.message_type === 'image' && msg.image_url ? (
+                        <div className={cn(
+                          'rounded-2xl overflow-hidden',
+                          msg.is_coach ? 'rounded-br-md' : 'rounded-bl-md'
+                        )}>
+                          <img 
+                            src={msg.image_url} 
+                            alt="채팅 이미지" 
+                            className="max-w-full max-h-48 object-cover"
+                          />
+                        </div>
+                      ) : (
+                        <div className={cn(
+                          'px-4 py-2.5 rounded-2xl break-words whitespace-pre-wrap',
+                          msg.is_coach
+                            ? 'bg-primary text-primary-foreground rounded-br-md'
+                            : 'bg-muted rounded-bl-md'
+                        )}>
+                          <p className="text-sm leading-relaxed">{msg.message}</p>
+                        </div>
+                      )}
+                      
+                      {/* 시간 */}
+                      <span className="text-[10px] text-muted-foreground mt-1 px-1">
+                        {format(new Date(msg.created_at), 'a h:mm', { locale: ko })}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>

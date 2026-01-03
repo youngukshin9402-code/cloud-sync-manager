@@ -20,68 +20,111 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, Search, UserCog, Crown, Users, Heart } from "lucide-react";
+import { ArrowLeft, Search, UserCog, Crown, Heart, Eye, RefreshCw } from "lucide-react";
+import { UserProfileModal } from "@/components/admin/UserProfileModal";
 
 interface GuardianRelation {
   userId: string;
-  userNickname: string;
-  guardians: { id: string; nickname: string }[];
+  guardianIds: string[];
+}
+
+interface WardRelation {
+  guardianId: string;
+  wardIds: string[];
 }
 
 export default function AdminUsers() {
   const navigate = useNavigate();
-  const { users, coaches, loading, assignCoach } = useAdminData();
+  const { users, coaches, loading, assignCoach, refreshData } = useAdminData();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [showAssignDialog, setShowAssignDialog] = useState(false);
   const [selectedCoach, setSelectedCoach] = useState<string>("__none__");
   
-  // 보호자 연동 관계
+  // 프로필 상세보기 모달
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [profileViewUser, setProfileViewUser] = useState<any>(null);
+  
+  // 보호자 연동 관계 (사용자 → 보호자들)
   const [guardianRelations, setGuardianRelations] = useState<Map<string, string[]>>(new Map());
-  const [guardianNicknames, setGuardianNicknames] = useState<Map<string, string>>(new Map());
+  // 피보호자 연동 관계 (보호자 → 피보호자들)
+  const [wardRelations, setWardRelations] = useState<Map<string, string[]>>(new Map());
+  // 닉네임 맵 (모든 관련 유저)
+  const [nicknameMap, setNicknameMap] = useState<Map<string, string>>(new Map());
 
-  // 보호자 연동 관계 로드
-  useEffect(() => {
-    const fetchGuardianConnections = async () => {
-      const { data: connections } = await supabase
-        .from('guardian_connections')
-        .select('user_id, guardian_id')
-        .not('guardian_id', 'is', null);
+  // 보호자/피보호자 연동 관계 로드
+  const fetchGuardianConnections = async () => {
+    const { data: connections } = await supabase
+      .from('guardian_connections')
+      .select('user_id, guardian_id')
+      .not('guardian_id', 'is', null);
 
-      if (!connections) return;
+    if (!connections) return;
 
-      // 사용자별 보호자 ID 매핑
-      const relationsMap = new Map<string, string[]>();
-      const guardianIds = new Set<string>();
+    // 사용자별 보호자 ID 매핑
+    const guardianMap = new Map<string, string[]>();
+    // 보호자별 피보호자 ID 매핑
+    const wardMap = new Map<string, string[]>();
+    const allUserIds = new Set<string>();
 
-      connections.forEach(conn => {
-        if (conn.guardian_id && conn.user_id !== conn.guardian_id) {
-          const existing = relationsMap.get(conn.user_id) || [];
-          existing.push(conn.guardian_id);
-          relationsMap.set(conn.user_id, existing);
-          guardianIds.add(conn.guardian_id);
-        }
-      });
-
-      setGuardianRelations(relationsMap);
-
-      // 보호자 닉네임 조회
-      if (guardianIds.size > 0) {
-        const { data: profiles } = await supabase
-          .from('profiles')
-          .select('id, nickname')
-          .in('id', Array.from(guardianIds));
-
-        const nicknameMap = new Map<string, string>();
-        (profiles || []).forEach(p => nicknameMap.set(p.id, p.nickname || '보호자'));
-        setGuardianNicknames(nicknameMap);
+    connections.forEach(conn => {
+      if (conn.guardian_id && conn.user_id !== conn.guardian_id) {
+        // 사용자 → 보호자
+        const existingGuardians = guardianMap.get(conn.user_id) || [];
+        existingGuardians.push(conn.guardian_id);
+        guardianMap.set(conn.user_id, existingGuardians);
+        
+        // 보호자 → 피보호자
+        const existingWards = wardMap.get(conn.guardian_id) || [];
+        existingWards.push(conn.user_id);
+        wardMap.set(conn.guardian_id, existingWards);
+        
+        allUserIds.add(conn.user_id);
+        allUserIds.add(conn.guardian_id);
       }
-    };
+    });
 
+    setGuardianRelations(guardianMap);
+    setWardRelations(wardMap);
+
+    // 닉네임 조회
+    if (allUserIds.size > 0) {
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, nickname')
+        .in('id', Array.from(allUserIds));
+
+      const nickMap = new Map<string, string>();
+      (profiles || []).forEach(p => nickMap.set(p.id, p.nickname || '사용자'));
+      setNicknameMap(nickMap);
+    }
+  };
+
+  useEffect(() => {
     if (!loading) {
       fetchGuardianConnections();
     }
   }, [loading]);
+
+  // Realtime 구독 - profiles 테이블 변경 감지
+  useEffect(() => {
+    const channel = supabase
+      .channel('admin-profiles-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'profiles' },
+        () => {
+          // 프로필 변경 시 데이터 새로고침
+          refreshData?.();
+          fetchGuardianConnections();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [refreshData]);
 
   const filteredUsers = users.filter(
     (u) =>
@@ -97,9 +140,26 @@ export default function AdminUsers() {
     setSelectedCoach("__none__");
   };
 
+  // 사용자의 보호자 닉네임 목록
   const getGuardianNames = (userId: string): string[] => {
     const guardianIds = guardianRelations.get(userId) || [];
-    return guardianIds.map(id => guardianNicknames.get(id) || '보호자');
+    return guardianIds.map(id => nicknameMap.get(id) || '보호자');
+  };
+
+  // 보호자의 피보호자 닉네임 목록
+  const getWardNames = (guardianId: string): string[] => {
+    const wardIds = wardRelations.get(guardianId) || [];
+    return wardIds.map(id => nicknameMap.get(id) || '사용자');
+  };
+
+  const handleViewProfile = (user: any) => {
+    setProfileViewUser(user);
+    setShowProfileModal(true);
+  };
+
+  const handleRefresh = () => {
+    refreshData?.();
+    fetchGuardianConnections();
   };
 
   if (loading) {
@@ -119,6 +179,10 @@ export default function AdminUsers() {
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <h1 className="text-xl font-bold">사용자 관리</h1>
+          <Button variant="outline" size="sm" className="ml-auto" onClick={handleRefresh}>
+            <RefreshCw className="w-4 h-4 mr-2" />
+            새로고침
+          </Button>
         </div>
       </header>
 
@@ -136,10 +200,11 @@ export default function AdminUsers() {
           </div>
         </div>
 
-        {/* 모바일: 카드 리스트 / 데스크톱: 테이블 */}
+        {/* 모바일: 카드 리스트 */}
         <div className="md:hidden space-y-4">
           {filteredUsers.map((user) => {
             const guardianNames = getGuardianNames(user.id);
+            const wardNames = getWardNames(user.id);
             return (
               <div key={user.id} className="bg-card rounded-2xl border border-border p-4 space-y-3">
                 <div className="flex items-center justify-between">
@@ -171,12 +236,22 @@ export default function AdminUsers() {
                   </span>
                 </div>
 
-                {/* 보호자 연동 관계 */}
+                {/* 보호자 표시 (사용자 입장) */}
                 {guardianNames.length > 0 && (
                   <div className="flex items-center gap-2 p-2 bg-rose-50 dark:bg-rose-950/30 rounded-lg">
                     <Heart className="w-4 h-4 text-rose-500" />
                     <span className="text-sm text-rose-700 dark:text-rose-400">
                       보호자: {guardianNames.join(', ')}
+                    </span>
+                  </div>
+                )}
+
+                {/* 피보호자 표시 (보호자 입장) */}
+                {wardNames.length > 0 && (
+                  <div className="flex items-center gap-2 p-2 bg-sky-50 dark:bg-sky-950/30 rounded-lg">
+                    <Heart className="w-4 h-4 text-sky-500" />
+                    <span className="text-sm text-sky-700 dark:text-sky-400">
+                      피보호자: {wardNames.join(', ')}
                     </span>
                   </div>
                 )}
@@ -187,18 +262,28 @@ export default function AdminUsers() {
                       ? coaches.find((c) => c.id === user.assigned_coach_id)?.nickname || "-"
                       : "-"}
                   </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setSelectedUser(user);
-                      setSelectedCoach(user.assigned_coach_id || "__none__");
-                      setShowAssignDialog(true);
-                    }}
-                  >
-                    <UserCog className="w-4 h-4 mr-1" />
-                    코치 배정
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleViewProfile(user)}
+                    >
+                      <Eye className="w-4 h-4 mr-1" />
+                      상세
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setSelectedUser(user);
+                        setSelectedCoach(user.assigned_coach_id || "__none__");
+                        setShowAssignDialog(true);
+                      }}
+                    >
+                      <UserCog className="w-4 h-4 mr-1" />
+                      코치
+                    </Button>
+                  </div>
                 </div>
               </div>
             );
@@ -214,7 +299,8 @@ export default function AdminUsers() {
                   <th className="text-left p-4 font-medium text-muted-foreground">회원</th>
                   <th className="text-center p-4 font-medium text-muted-foreground">유형</th>
                   <th className="text-center p-4 font-medium text-muted-foreground">구독</th>
-                  <th className="text-center p-4 font-medium text-muted-foreground">보호자 연동</th>
+                  <th className="text-center p-4 font-medium text-muted-foreground">보호자</th>
+                  <th className="text-center p-4 font-medium text-muted-foreground">피보호자</th>
                   <th className="text-center p-4 font-medium text-muted-foreground">담당 코치</th>
                   <th className="text-center p-4 font-medium text-muted-foreground">액션</th>
                 </tr>
@@ -222,6 +308,7 @@ export default function AdminUsers() {
               <tbody>
                 {filteredUsers.map((user) => {
                   const guardianNames = getGuardianNames(user.id);
+                  const wardNames = getWardNames(user.id);
                   return (
                     <tr key={user.id} className="border-b border-border last:border-0">
                       <td className="p-4">
@@ -259,6 +346,16 @@ export default function AdminUsers() {
                             <span className="text-sm">{guardianNames.join(', ')}</span>
                           </div>
                         ) : (
+                          <span className="text-muted-foreground">미연동</span>
+                        )}
+                      </td>
+                      <td className="p-4 text-center">
+                        {wardNames.length > 0 ? (
+                          <div className="flex items-center justify-center gap-1">
+                            <Heart className="w-4 h-4 text-sky-500" />
+                            <span className="text-sm">{wardNames.join(', ')}</span>
+                          </div>
+                        ) : (
                           <span className="text-muted-foreground">-</span>
                         )}
                       </td>
@@ -268,18 +365,28 @@ export default function AdminUsers() {
                           : "-"}
                       </td>
                       <td className="p-4 text-center">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setSelectedUser(user);
-                            setSelectedCoach(user.assigned_coach_id || "__none__");
-                            setShowAssignDialog(true);
-                          }}
-                        >
-                          <UserCog className="w-4 h-4 mr-1" />
-                          코치 배정
-                        </Button>
+                        <div className="flex justify-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleViewProfile(user)}
+                          >
+                            <Eye className="w-4 h-4 mr-1" />
+                            상세
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedUser(user);
+                              setSelectedCoach(user.assigned_coach_id || "__none__");
+                              setShowAssignDialog(true);
+                            }}
+                          >
+                            <UserCog className="w-4 h-4 mr-1" />
+                            코치
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -290,6 +397,7 @@ export default function AdminUsers() {
         </div>
       </main>
 
+      {/* 코치 배정 다이얼로그 */}
       <Dialog open={showAssignDialog} onOpenChange={setShowAssignDialog}>
         <DialogContent>
           <DialogHeader>
@@ -321,6 +429,13 @@ export default function AdminUsers() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* 프로필 상세보기 모달 */}
+      <UserProfileModal
+        open={showProfileModal}
+        onOpenChange={setShowProfileModal}
+        user={profileViewUser}
+      />
     </div>
   );
 }

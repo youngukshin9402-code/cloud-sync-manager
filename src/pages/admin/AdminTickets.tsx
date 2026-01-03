@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Select,
   SelectContent,
@@ -29,8 +30,9 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, Search, MessageSquare, Send, RefreshCw, Pencil, Trash2 } from "lucide-react";
+import { ArrowLeft, Search, MessageSquare, Send, RefreshCw, Pencil, Trash2, User, ChevronRight } from "lucide-react";
 import { useTicketsAdmin } from "@/hooks/useAdminHooks";
+import { supabase } from "@/integrations/supabase/client";
 
 const STATUS_OPTIONS = [
   { value: 'open', label: '접수', color: 'bg-blue-100 text-blue-700' },
@@ -38,6 +40,14 @@ const STATUS_OPTIONS = [
   { value: 'resolved', label: '해결', color: 'bg-green-100 text-green-700' },
   { value: 'closed', label: '종료', color: 'bg-gray-100 text-gray-700' },
 ];
+
+interface UserWithTickets {
+  id: string;
+  nickname: string;
+  ticketCount: number;
+  openCount: number;
+  latestDate: string;
+}
 
 export default function AdminTickets() {
   const navigate = useNavigate();
@@ -52,8 +62,11 @@ export default function AdminTickets() {
     deleteReply,
     refetch 
   } = useTicketsAdmin();
+  
   const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [usersWithTickets, setUsersWithTickets] = useState<UserWithTickets[]>([]);
+  
   const [showDetailDialog, setShowDetailDialog] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState<any>(null);
   const [replyMessage, setReplyMessage] = useState("");
@@ -65,6 +78,39 @@ export default function AdminTickets() {
   const [deleteTargetType, setDeleteTargetType] = useState<'ticket' | 'reply' | null>(null);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
 
+  // 사용자별 티켓 그룹화
+  useEffect(() => {
+    if (!loading && tickets.length > 0) {
+      const userMap = new Map<string, { count: number; open: number; latest: string; nickname: string }>();
+      
+      tickets.filter(t => !t.is_deleted).forEach(ticket => {
+        const existing = userMap.get(ticket.user_id) || { 
+          count: 0, 
+          open: 0, 
+          latest: ticket.created_at,
+          nickname: ticket.user_nickname || '사용자'
+        };
+        existing.count++;
+        if (ticket.status === 'open' || ticket.status === 'in_progress') existing.open++;
+        if (new Date(ticket.created_at) > new Date(existing.latest)) existing.latest = ticket.created_at;
+        userMap.set(ticket.user_id, existing);
+      });
+
+      const users: UserWithTickets[] = Array.from(userMap.entries()).map(([userId, data]) => ({
+        id: userId,
+        nickname: data.nickname,
+        ticketCount: data.count,
+        openCount: data.open,
+        latestDate: data.latest,
+      }));
+
+      users.sort((a, b) => new Date(b.latestDate).getTime() - new Date(a.latestDate).getTime());
+      setUsersWithTickets(users);
+    } else {
+      setUsersWithTickets([]);
+    }
+  }, [tickets, loading]);
+
   const getStatusBadge = (status: string) => {
     const found = STATUS_OPTIONS.find(s => s.value === status);
     return found ? (
@@ -74,16 +120,15 @@ export default function AdminTickets() {
     );
   };
 
-  // 삭제된 티켓 제외
-  const filteredTickets = tickets
-    .filter(ticket => !ticket.is_deleted)
-    .filter(ticket => {
-      const matchesSearch = 
-        ticket.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        ticket.user_nickname?.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesStatus = statusFilter === "all" || ticket.status === statusFilter;
-      return matchesSearch && matchesStatus;
-    });
+  // 선택된 사용자의 티켓만 필터링
+  const userTickets = selectedUserId 
+    ? tickets.filter(t => t.user_id === selectedUserId && !t.is_deleted)
+    : [];
+
+  // 사용자 목록 필터링
+  const filteredUsers = usersWithTickets.filter(user =>
+    user.nickname.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   const handleReply = async () => {
     if (!selectedTicket || !replyMessage.trim()) return;
@@ -105,7 +150,6 @@ export default function AdminTickets() {
     await updateTicketMessage(editingTicketId, editMessage.trim());
     setEditingTicketId(null);
     setEditMessage("");
-    // 선택된 티켓도 업데이트
     if (selectedTicket?.id === editingTicketId) {
       setSelectedTicket({ ...selectedTicket, message: editMessage.trim() });
     }
@@ -137,6 +181,10 @@ export default function AdminTickets() {
     setDeleteTargetId(null);
   };
 
+  const handleBack = () => {
+    setSelectedUserId(null);
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background p-6">
@@ -146,17 +194,24 @@ export default function AdminTickets() {
     );
   }
 
-  // 삭제되지 않은 답글만 필터링
   const visibleReplies = selectedTicket?.replies?.filter((r: any) => !r.is_deleted) || [];
 
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-40 bg-background border-b border-border">
         <div className="container mx-auto px-6 h-16 flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate("/admin")}>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={selectedUserId ? handleBack : () => navigate("/admin")}
+          >
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <h1 className="text-xl font-bold">고객문의 관리</h1>
+          <h1 className="text-xl font-bold">
+            {selectedUserId 
+              ? `${usersWithTickets.find(u => u.id === selectedUserId)?.nickname}님의 문의`
+              : '고객문의 관리'}
+          </h1>
           <Button variant="outline" size="sm" className="ml-auto" onClick={refetch}>
             <RefreshCw className="w-4 h-4 mr-2" />
             새로고침
@@ -165,83 +220,134 @@ export default function AdminTickets() {
       </header>
 
       <main className="container mx-auto px-6 py-8">
-        <div className="flex flex-col sm:flex-row gap-4 mb-6">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              placeholder="제목 또는 고객명 검색..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9"
-            />
-          </div>
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-32">
-              <SelectValue placeholder="상태 필터" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">전체</SelectItem>
-              {STATUS_OPTIONS.map(s => (
-                <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        {/* 사용자 목록 (1단계) */}
+        {!selectedUserId && (
+          <>
+            <div className="relative mb-6">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="사용자 검색..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9"
+              />
+            </div>
 
-        <p className="text-sm text-muted-foreground mb-4">총 {filteredTickets.length}건</p>
+            {/* 통계 */}
+            <div className="grid grid-cols-2 gap-3 mb-6">
+              <Card>
+                <CardContent className="p-4 text-center">
+                  <p className="text-2xl font-bold">{usersWithTickets.length}</p>
+                  <p className="text-xs text-muted-foreground">문의 사용자</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-4 text-center">
+                  <p className="text-2xl font-bold text-blue-600">
+                    {usersWithTickets.reduce((acc, u) => acc + u.openCount, 0)}
+                  </p>
+                  <p className="text-xs text-muted-foreground">미해결</p>
+                </CardContent>
+              </Card>
+            </div>
 
-        <div className="space-y-4">
-          {filteredTickets.map((ticket) => (
-            <div 
-              key={ticket.id} 
-              className="bg-card rounded-2xl border border-border p-5 cursor-pointer hover:bg-muted/50 transition-colors"
-              onClick={() => {
-                setSelectedTicket(ticket);
-                setShowDetailDialog(true);
-              }}
-            >
-              <div className="flex flex-col sm:flex-row justify-between gap-4">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <MessageSquare className="w-4 h-4 text-muted-foreground" />
-                    <span className="font-semibold">{ticket.subject}</span>
-                    {getStatusBadge(ticket.status)}
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    고객: {ticket.user_nickname || '알 수 없음'}
-                  </p>
-                  <p className="text-sm text-muted-foreground line-clamp-2">
-                    {ticket.message}
-                  </p>
-                </div>
-                <div className="flex flex-col items-end gap-2">
-                  <p className="text-xs text-muted-foreground">
-                    {new Date(ticket.created_at).toLocaleDateString('ko-KR')}
-                  </p>
-                  <Select 
-                    value={ticket.status} 
-                    onValueChange={(value) => handleStatusChange(ticket.id, value)}
-                  >
-                    <SelectTrigger className="w-28" onClick={(e) => e.stopPropagation()}>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {STATUS_OPTIONS.map(s => (
-                        <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+            <p className="text-sm text-muted-foreground mb-4">총 {filteredUsers.length}명</p>
+
+            {filteredUsers.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                <MessageSquare className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                <p>문의 내역이 없습니다</p>
               </div>
-            </div>
-          ))}
+            ) : (
+              <div className="space-y-3">
+                {filteredUsers.map((user) => (
+                  <Card 
+                    key={user.id} 
+                    className="cursor-pointer hover:bg-muted/50 transition-colors"
+                    onClick={() => setSelectedUserId(user.id)}
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                            <User className="w-5 h-5 text-primary" />
+                          </div>
+                          <div>
+                            <p className="font-medium">{user.nickname}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {user.ticketCount}건의 문의
+                              {user.openCount > 0 && (
+                                <span className="text-blue-600 ml-2">({user.openCount}건 미해결)</span>
+                              )}
+                            </p>
+                          </div>
+                        </div>
+                        <ChevronRight className="w-5 h-5 text-muted-foreground" />
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </>
+        )}
 
-          {filteredTickets.length === 0 && (
-            <div className="text-center py-12 text-muted-foreground">
-              문의 내역이 없습니다
+        {/* 티켓 목록 (2단계) */}
+        {selectedUserId && (
+          <>
+            <p className="text-sm text-muted-foreground mb-4">총 {userTickets.length}건</p>
+
+            <div className="space-y-4">
+              {userTickets.map((ticket) => (
+                <div 
+                  key={ticket.id} 
+                  className="bg-card rounded-2xl border border-border p-5 cursor-pointer hover:bg-muted/50 transition-colors"
+                  onClick={() => {
+                    setSelectedTicket(ticket);
+                    setShowDetailDialog(true);
+                  }}
+                >
+                  <div className="flex flex-col sm:flex-row justify-between gap-4">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <MessageSquare className="w-4 h-4 text-muted-foreground" />
+                        <span className="font-semibold">{ticket.subject}</span>
+                        {getStatusBadge(ticket.status)}
+                      </div>
+                      <p className="text-sm text-muted-foreground line-clamp-2">
+                        {ticket.message}
+                      </p>
+                    </div>
+                    <div className="flex flex-col items-end gap-2">
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(ticket.created_at).toLocaleDateString('ko-KR')}
+                      </p>
+                      <Select 
+                        value={ticket.status} 
+                        onValueChange={(value) => handleStatusChange(ticket.id, value)}
+                      >
+                        <SelectTrigger className="w-28" onClick={(e) => e.stopPropagation()}>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {STATUS_OPTIONS.map(s => (
+                            <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              {userTickets.length === 0 && (
+                <div className="text-center py-12 text-muted-foreground">
+                  문의 내역이 없습니다
+                </div>
+              )}
             </div>
-          )}
-        </div>
+          </>
+        )}
       </main>
 
       {/* 상세 다이얼로그 */}
@@ -307,7 +413,7 @@ export default function AdminTickets() {
                 className={`rounded-lg p-4 relative group ${reply.is_admin || reply.sender_type === 'admin' ? 'bg-primary/10 ml-4' : 'bg-muted mr-4'}`}
               >
                 <p className="text-sm text-muted-foreground mb-1">
-                  {reply.is_admin || reply.sender_type === 'admin' ? '관리자' : selectedTicket.user_nickname} · {new Date(reply.created_at).toLocaleString('ko-KR')}
+                  {reply.is_admin || reply.sender_type === 'admin' ? '관리자' : selectedTicket?.user_nickname} · {new Date(reply.created_at).toLocaleString('ko-KR')}
                   {reply.updated_at && reply.updated_at !== reply.created_at && (
                     <span className="text-xs ml-1">(수정됨)</span>
                   )}

@@ -18,6 +18,7 @@ import {
   MessageSquare,
   Brain,
   ClipboardCheck,
+  CreditCard,
 } from "lucide-react";
 
 export default function AdminDashboard() {
@@ -34,11 +35,11 @@ export default function AdminDashboard() {
       count: `${stats.totalUsers.toLocaleString()}명`,
     },
     {
-      id: "orders",
+      id: "consultations",
       icon: ClipboardList,
-      label: "주문 관리",
-      description: "주문 목록 및 상태 변경",
-      path: "/admin/orders",
+      label: "상담신청 내역",
+      description: "2주 무료체험 상담 신청 목록",
+      path: "/admin/consultations",
     },
     {
       id: "coaching",
@@ -88,6 +89,13 @@ export default function AdminDashboard() {
       label: "체크인 리포트",
       description: "사용자 일일 체크인 리포트 조회",
       path: "/admin/checkin-reports",
+    },
+    {
+      id: "payments",
+      icon: CreditCard,
+      label: "결제관리",
+      description: "결제 현황 및 환불 관리",
+      path: "/admin/payments",
     },
   ];
   if (loading) {
