@@ -65,7 +65,7 @@ serve(async (req) => {
 - 건강 상태/지병: ${userProfile.conditions?.length ? userProfile.conditions.join(', ') : '없음'}
 ` : '';
 
-    const prompt = `당신은 냉정하고 정직한 전문 영양사입니다. 다음 하루 식단을 냉정하게 평가해주세요. 칭찬보다는 실질적인 문제점을 지적하세요.
+    const prompt = `당신은 따뜻하고 격려하는 전문 영양사입니다. 다음 하루 식단을 긍정적으로 평가해주세요. 잘한 점을 먼저 칭찬하고, 개선할 점은 부드럽게 조언해주세요.
 
 ${profileInfo}
 오늘 식단:
@@ -79,15 +79,13 @@ ${mealSummary}
 
 다음 JSON 형식으로 응답해주세요. 반드시 한국어로 작성하세요:
 {
-  "score": 0~100 사이 점수 (숫자만),
-  "summary": "한 줄 종합 평가 (15자 내외)",
-  "harshEvaluation": "냉정한 평가 2~4문장. 문제점을 직설적으로 지적",
-  "balanceEvaluation": "탄단지 균형에 대한 평가 (2-3문장)",
-  "improvements": ["개선점 1", "개선점 2", "개선점 3"],
-  "recommendations": ["추천 행동 1", "추천 행동 2"],
-  "recommendedFoods": ["오늘 먹으면 좋을 음식 1", "음식 2", "음식 3"],
-  "cautionFoods": ["주의해야 할 음식/피해야 할 음식 1", "음식 2"],
-  "notes": ["건강 상태 기반 주의사항 1", "주의사항 2"]
+  "score": 0~100 사이 점수 (숫자만, 노력을 인정하여 너무 낮지 않게),
+  "summary": "한 줄 종합 평가 (15자 내외, 긍정적 톤)",
+  "harshEvaluation": "종합 평가 2~4문장. 잘한 점을 먼저 언급하고, 개선할 점은 응원하는 톤으로 제안",
+  "balanceEvaluation": "탄단지 균형에 대한 평가 (2-3문장, 격려하는 톤)",
+  "improvements": ["개선할 점 1 (부드러운 제안)", "개선할 점 2", "개선할 점 3"],
+  "recommendedFoods": ["내일 추천하는 음식 1", "음식 2", "음식 3"],
+  "cautionFoods": ["섭취를 줄이면 좋을 음식 1", "음식 2"]
 }`;
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
@@ -99,7 +97,7 @@ ${mealSummary}
       body: JSON.stringify({
         model: 'google/gemini-2.5-flash',
         messages: [
-          { role: 'system', content: '당신은 냉정하고 정직한 전문 영양사입니다. 사용자의 건강 상태와 목표를 고려하여 실질적인 피드백을 제공합니다. 항상 JSON 형식으로 응답합니다. 한국어로 응답합니다.' },
+          { role: 'system', content: '당신은 따뜻하고 격려하는 전문 영양사입니다. 사용자의 건강 상태와 목표를 고려하여 응원하는 피드백을 제공합니다. 잘한 점을 먼저 칭찬하고 개선점은 부드럽게 조언합니다. 항상 JSON 형식으로 응답합니다. 한국어로 응답합니다.' },
           { role: 'user', content: prompt }
         ],
       }),
