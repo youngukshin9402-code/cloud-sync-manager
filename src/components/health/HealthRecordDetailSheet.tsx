@@ -342,26 +342,6 @@ export function HealthRecordDetailSheet({ record, open, onOpenChange, userNickna
                                 <p className="text-sm">{analysisData.summary}</p>
                               )}
                               
-                              {/* 건강 나이 & 점수 */}
-                              <div className="flex gap-4">
-                                {analysisData.health_age && (
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-sm text-muted-foreground">건강 나이:</span>
-                                    <span className="font-semibold text-lg text-primary">
-                                      {analysisData.health_age}세
-                                    </span>
-                                  </div>
-                                )}
-
-                                {analysisData.health_score !== undefined && (
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-sm text-muted-foreground">건강 점수:</span>
-                                    <span className="font-semibold text-lg text-primary">
-                                      {analysisData.health_score}점
-                                    </span>
-                                  </div>
-                                )}
-                              </div>
 
                               {/* 주요 문제 (key_issues 또는 risk_factors) */}
                               {(analysisData.key_issues?.length > 0 || analysisData.risk_factors?.length > 0) && (
