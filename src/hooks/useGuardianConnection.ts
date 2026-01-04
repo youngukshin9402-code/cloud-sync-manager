@@ -155,7 +155,7 @@ export function useGuardianConnection() {
     }
   };
 
-  // 연결 해제
+  // 연결 해제 (양방향 - 사용자 또는 보호자 둘 다 가능)
   const disconnectGuardian = async (connectionId: string) => {
     try {
       const { error } = await supabase
