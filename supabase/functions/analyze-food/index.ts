@@ -244,7 +244,14 @@ serve(async (req) => {
 4. 톤 & 주의사항
 - 사용자에게 단정적으로 말하지 않는다.
 - 의료적/진단적 표현은 사용하지 않는다.
-- '추정', '일반적인 기준'이라는 표현을 유지한다.`;
+- '추정', '일반적인 기준'이라는 표현을 유지한다.
+
+5. 음식이 아닌 사진 처리 (매우 중요!)
+- 음식이 없거나 음식을 인식할 수 없는 사진의 경우:
+  - foods 배열을 빈 배열 []로 반환
+  - notes에 "음식을 인식할 수 없습니다" 등의 설명 포함
+- 물, 얼음물, 빈 접시, 음료수(탄산음료/주스 제외) 등은 음식으로 인식하지 않음
+- 사람, 풍경, 물건 등 음식이 아닌 사진은 빈 배열로 처리`;
 
     // 사용자 프롬프트: 분석 요청 및 출력 형식
     const userPrompt = `이 음식 사진을 분석해주세요.
@@ -267,8 +274,10 @@ ${healthContext ? `사용자 건강 상태: ${healthTags.join(", ")}` : ""}
   "notes": "사진 기준으로 추정된 값이며 실제 섭취량과 차이가 있을 수 있습니다."
 }
 
-여러 음식이 보이면 foods 배열에 각각 추가해주세요.
-JSON만 출력하고 다른 설명은 포함하지 마세요.`;
+중요:
+- 여러 음식이 보이면 foods 배열에 각각 추가해주세요.
+- 음식이 없거나 인식할 수 없으면 foods를 빈 배열 []로 반환하고 notes에 이유를 설명해주세요.
+- JSON만 출력하고 다른 설명은 포함하지 마세요.`;
 
     console.log("Calling Lovable AI (GPT-5-mini vision) for food image analysis...");
 
@@ -324,7 +333,7 @@ JSON만 출력하고 다른 설명은 포함하지 마세요.`;
     console.log("AI image response:", content);
 
     // Parse JSON from response - 새로운 foods 배열 형식 처리
-    let analysisResult: FoodAnalysisResult | FoodAnalysisResult[];
+    let analysisResult: FoodAnalysisResult | FoodAnalysisResult[] | { error: string; notes: string };
     try {
       const jsonMatch = content.match(/\{[\s\S]*\}/);
       if (!jsonMatch) {
@@ -334,12 +343,24 @@ JSON만 출력하고 다른 설명은 포함하지 마세요.`;
       
       // 새 형식: foods 배열이 있는 경우
       if (parsed.foods && Array.isArray(parsed.foods)) {
-        console.log("Multiple foods detected:", parsed.foods.length);
+        console.log("Foods detected:", parsed.foods.length);
+        
+        // 빈 배열인 경우 - 음식을 인식하지 못함
+        if (parsed.foods.length === 0) {
+          console.log("No food detected in image");
+          return new Response(
+            JSON.stringify({ 
+              error: "no_food_detected", 
+              notes: parsed.notes || "음식을 인식할 수 없습니다. 다시 촬영해주세요." 
+            }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
         
         // 여러 음식인 경우 배열로 반환
         if (parsed.foods.length > 1) {
           analysisResult = parsed.foods.map((food: any) => ({
-            name: food.name || "음식",
+            name: food.name || "알 수 없는 음식",
             calories: Math.round(Number(food.calories_kcal) || 300),
             carbs: Math.round(Number(food.carbohydrates_g) || 30),
             protein: Math.round(Number(food.protein_g) || 15),
@@ -352,7 +373,7 @@ JSON만 출력하고 다른 설명은 포함하지 마세요.`;
           // 단일 음식
           const food = parsed.foods[0];
           analysisResult = {
-            name: food.name || "음식",
+            name: food.name || "알 수 없는 음식",
             calories: Math.round(Number(food.calories_kcal) || 300),
             carbs: Math.round(Number(food.carbohydrates_g) || 30),
             protein: Math.round(Number(food.protein_g) || 15),
@@ -376,14 +397,13 @@ JSON만 출력하고 다른 설명은 포함하지 마세요.`;
       }
     } catch (parseError) {
       console.error("Failed to parse AI response:", parseError);
-      analysisResult = {
-        name: "음식",
-        calories: 300,
-        carbs: 30,
-        protein: 15,
-        fat: 10,
-        feedback: "맛있게 드세요! 🍽️",
-      };
+      return new Response(
+        JSON.stringify({ 
+          error: "parse_error", 
+          notes: "AI 응답을 처리하는 중 오류가 발생했습니다. 다시 시도해주세요." 
+        }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     console.log("Analysis result:", analysisResult);
