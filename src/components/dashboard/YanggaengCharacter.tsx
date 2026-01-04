@@ -120,8 +120,8 @@ export default function YanggaengCharacter({ achievementCount }: YanggaengCharac
       </div>
       
       {/* 말풍선 */}
-      <div className="speech-bubble mt-2 px-3 py-1.5 max-w-[280px]">
-        <p className="text-xs sm:text-sm text-center text-foreground leading-relaxed">
+      <div className="speech-bubble mt-2 px-3 py-1.5 max-w-[200px]">
+        <p className="text-xs text-center text-foreground leading-relaxed">
           {message}
         </p>
       </div>
