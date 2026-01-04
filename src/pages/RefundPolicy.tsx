@@ -1,8 +1,13 @@
+import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, CreditCard, Clock, AlertTriangle, Mail, CheckCircle2 } from 'lucide-react';
 
 export default function RefundPolicy() {
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+
   return (
     <div className="min-h-screen bg-background pb-24">
       <div className="sticky top-0 bg-background/95 backdrop-blur-sm border-b border-border p-4 z-10">
@@ -62,15 +67,11 @@ export default function RefundPolicy() {
           <ul className="space-y-2 text-muted-foreground">
             <li className="flex items-start gap-2">
               <span className="text-amber-600 mt-1">•</span>
-              <span>코칭 시작 후 <strong className="text-foreground">1주차</strong>: 결제 금액의 70% 환불</span>
+              <span>코칭 시작 후 <strong className="text-foreground">1주차</strong>: 결제 금액의 80% 환불</span>
             </li>
             <li className="flex items-start gap-2">
               <span className="text-amber-600 mt-1">•</span>
               <span>코칭 시작 후 <strong className="text-foreground">2주차</strong>: 결제 금액의 50% 환불</span>
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="text-amber-600 mt-1">•</span>
-              <span>코칭 시작 후 <strong className="text-foreground">3주차</strong>: 결제 금액의 30% 환불</span>
             </li>
           </ul>
         </section>
@@ -86,7 +87,7 @@ export default function RefundPolicy() {
           <ul className="space-y-2 text-muted-foreground">
             <li className="flex items-start gap-2">
               <span className="text-destructive mt-1">•</span>
-              <span>코칭 시작 후 <strong className="text-foreground">4주차 이후</strong> 또는 코칭 완료 후</span>
+              <span>코칭 시작 후 <strong className="text-foreground">3주차 이후</strong> 또는 코칭 완료 후</span>
             </li>
             <li className="flex items-start gap-2">
               <span className="text-destructive mt-1">•</span>

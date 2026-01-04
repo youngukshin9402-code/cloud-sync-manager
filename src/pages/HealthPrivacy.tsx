@@ -1,8 +1,13 @@
+import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Heart, Database, Shield, Trash2 } from 'lucide-react';
+import { ArrowLeft, Heart, Database, Shield, Trash2, Eye } from 'lucide-react';
 
 export default function HealthPrivacy() {
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+
   return (
     <div className="min-h-screen bg-background pb-24">
       <div className="sticky top-0 bg-background/95 backdrop-blur-sm border-b border-border p-4 z-10">
@@ -45,7 +50,7 @@ export default function HealthPrivacy() {
             <li>인바디 측정 결과 (체중, 체지방률, 골격근량 등)</li>
             <li>체중 기록</li>
             <li>식사 사진 및 영양 분석 데이터</li>
-            <li>운동 기록 및 미션 수행 내역</li>
+            <li>운동 기록</li>
             <li>물 섭취 기록</li>
           </ul>
         </section>
@@ -65,19 +70,33 @@ export default function HealthPrivacy() {
         </section>
 
         <section className="space-y-4">
-          <h3 className="font-semibold text-lg">보호자 연동 시 정보 공유</h3>
-          <div className="bg-muted rounded-xl p-4 space-y-3">
-            <p className="text-muted-foreground leading-relaxed">
-              보호자와 연동하면 다음 정보가 공유됩니다:
-            </p>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between p-2 bg-background rounded-lg">
-                <span className="text-sm">건강 요약 (기본)</span>
-                <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded">기본 허용</span>
+          <div className="bg-card rounded-2xl border border-border p-5 space-y-4">
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 rounded-full bg-amber-100 flex items-center justify-center">
+                <div className="w-2 h-2 rounded-full bg-amber-500" />
               </div>
-              <div className="flex items-center justify-between p-2 bg-background rounded-lg">
-                <span className="text-sm">상세 건강 기록</span>
-                <span className="text-xs bg-muted-foreground/10 text-muted-foreground px-2 py-1 rounded">선택 허용</span>
+              <h3 className="font-semibold text-lg">권한 안내</h3>
+            </div>
+            
+            <p className="text-muted-foreground text-sm">
+              연결된 보호자는 아래 정보를 열람할 수 있습니다
+            </p>
+            
+            <div className="space-y-3">
+              <div className="flex items-center justify-between p-4 bg-muted/50 rounded-xl border">
+                <div>
+                  <p className="font-medium">건강 요약</p>
+                  <p className="text-sm text-muted-foreground">물/식사/운동 달성률</p>
+                </div>
+                <Eye className="w-5 h-5 text-green-500" />
+              </div>
+              
+              <div className="flex items-center justify-between p-4 bg-muted/50 rounded-xl border">
+                <div>
+                  <p className="font-medium">상세 기록</p>
+                  <p className="text-sm text-muted-foreground">건강검진, 체중 등</p>
+                </div>
+                <Eye className="w-5 h-5 text-green-500" />
               </div>
             </div>
           </div>
