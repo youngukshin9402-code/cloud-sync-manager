@@ -1,6 +1,7 @@
 /**
  * 체크인 리포트 타임라인 컴포넌트
- * 사용자별/날짜별 리포트 목록 표시
+ * 전체: 사용자 계정별 그룹핑
+ * 오늘: 오늘 업로드된 모든 활동 카드 표시
  */
 
 import { useState, useEffect } from 'react';
@@ -12,9 +13,18 @@ import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Search, ClipboardCheck, Calendar, Users } from 'lucide-react';
-import { format, subDays, startOfDay, endOfDay } from 'date-fns';
+import { 
+  Search, 
+  ClipboardCheck, 
+  Calendar, 
+  Users, 
+  ChevronDown, 
+  ChevronRight,
+  User 
+} from 'lucide-react';
+import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
 
 interface CheckinReport {
   id: string;
@@ -44,7 +54,8 @@ export function CheckinReportTimeline({
   const [reports, setReports] = useState<CheckinReport[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [dateFilter, setDateFilter] = useState<'all' | 'today' | 'week'>('all');
+  const [dateFilter, setDateFilter] = useState<'all' | 'today'>('all');
+  const [expandedUsers, setExpandedUsers] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!user) return;
@@ -61,13 +72,10 @@ export function CheckinReportTimeline({
         query = query.eq('user_id', userId);
       }
 
-      // 날짜 필터
+      // '오늘' 필터일 때만 날짜 필터 적용
       if (dateFilter === 'today') {
         const today = new Date().toISOString().split('T')[0];
         query = query.eq('report_date', today);
-      } else if (dateFilter === 'week') {
-        const weekAgo = subDays(new Date(), 7).toISOString().split('T')[0];
-        query = query.gte('report_date', weekAgo);
       }
 
       const { data, error } = await query;
@@ -102,15 +110,46 @@ export function CheckinReportTimeline({
     report.user_nickname?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // 날짜별 그룹핑
-  const groupedReports = filteredReports.reduce((acc, report) => {
+  // 사용자별 그룹핑 (전체 탭용)
+  const groupedByUser = filteredReports.reduce((acc, report) => {
+    const uid = report.user_id;
+    if (!acc[uid]) {
+      acc[uid] = {
+        nickname: report.user_nickname || '사용자',
+        reports: [],
+      };
+    }
+    acc[uid].reports.push(report);
+    return acc;
+  }, {} as Record<string, { nickname: string; reports: CheckinReport[] }>);
+
+  const sortedUserIds = Object.keys(groupedByUser).sort((a, b) => {
+    const aLatest = groupedByUser[a].reports[0]?.sent_at || '';
+    const bLatest = groupedByUser[b].reports[0]?.sent_at || '';
+    return bLatest.localeCompare(aLatest);
+  });
+
+  // 날짜별 그룹핑 (오늘 탭용)
+  const groupedByDate = filteredReports.reduce((acc, report) => {
     const date = report.report_date;
     if (!acc[date]) acc[date] = [];
     acc[date].push(report);
     return acc;
   }, {} as Record<string, CheckinReport[]>);
 
-  const sortedDates = Object.keys(groupedReports).sort((a, b) => b.localeCompare(a));
+  const sortedDates = Object.keys(groupedByDate).sort((a, b) => b.localeCompare(a));
+
+  const toggleUserExpand = (uid: string) => {
+    setExpandedUsers(prev => {
+      const next = new Set(prev);
+      if (next.has(uid)) {
+        next.delete(uid);
+      } else {
+        next.add(uid);
+      }
+      return next;
+    });
+  };
 
   if (loading) {
     return (
@@ -140,16 +179,15 @@ export function CheckinReportTimeline({
       )}
 
       {showTabs && (
-        <Tabs value={dateFilter} onValueChange={(v) => setDateFilter(v as any)}>
-          <TabsList className="grid w-full grid-cols-3">
+        <Tabs value={dateFilter} onValueChange={(v) => setDateFilter(v as 'all' | 'today')}>
+          <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="all" className="text-sm">
+              <Users className="w-4 h-4 mr-2" />
               전체
             </TabsTrigger>
             <TabsTrigger value="today" className="text-sm">
+              <Calendar className="w-4 h-4 mr-2" />
               오늘
-            </TabsTrigger>
-            <TabsTrigger value="week" className="text-sm">
-              최근 7일
             </TabsTrigger>
           </TabsList>
         </Tabs>
@@ -162,13 +200,75 @@ export function CheckinReportTimeline({
             <ClipboardCheck className="w-12 h-12 mx-auto mb-4 opacity-50" />
             <p className="font-medium">리포트가 없습니다</p>
             <p className="text-sm mt-1">
-              {dateFilter === 'today' ? '오늘 받은 리포트가 없습니다.' : 
-               dateFilter === 'week' ? '최근 7일간 받은 리포트가 없습니다.' :
-               '아직 받은 리포트가 없습니다.'}
+              {dateFilter === 'today' 
+                ? '오늘 받은 리포트가 없습니다.' 
+                : '아직 받은 리포트가 없습니다.'}
             </p>
           </CardContent>
         </Card>
+      ) : dateFilter === 'all' ? (
+        /* 전체: 사용자 계정별 그룹핑 */
+        <div className="space-y-3">
+          {sortedUserIds.map(uid => {
+            const userData = groupedByUser[uid];
+            const isExpanded = expandedUsers.has(uid);
+            
+            return (
+              <div 
+                key={uid} 
+                className="bg-card rounded-xl border border-border overflow-hidden"
+              >
+                {/* 사용자 헤더 (클릭 시 펼침/접힘) */}
+                <button
+                  onClick={() => toggleUserExpand(uid)}
+                  className="w-full flex items-center justify-between p-4 hover:bg-muted/50 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                      <User className="w-5 h-5 text-primary" />
+                    </div>
+                    <div className="text-left">
+                      <p className="font-medium">{userData.nickname}</p>
+                      <p className="text-xs text-muted-foreground">
+                        총 {userData.reports.length}개의 활동 카드
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary" className="text-xs">
+                      {userData.reports.length}건
+                    </Badge>
+                    {isExpanded ? (
+                      <ChevronDown className="w-5 h-5 text-muted-foreground" />
+                    ) : (
+                      <ChevronRight className="w-5 h-5 text-muted-foreground" />
+                    )}
+                  </div>
+                </button>
+
+                {/* 펼쳐진 리포트 목록 */}
+                {isExpanded && (
+                  <div className="border-t border-border p-4 bg-muted/30">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {userData.reports
+                        .sort((a, b) => new Date(b.sent_at).getTime() - new Date(a.sent_at).getTime())
+                        .map(report => (
+                          <CheckinReportCard 
+                            key={report.id} 
+                            report={report} 
+                            compact={userData.reports.length > 1}
+                          />
+                        ))
+                      }
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
       ) : (
+        /* 오늘: 날짜별 표시 (기존 방식) */
         <div className="space-y-6">
           {sortedDates.map(date => (
             <div key={date}>
@@ -178,17 +278,17 @@ export function CheckinReportTimeline({
                   {format(new Date(date), 'yyyy년 M월 d일 (E)', { locale: ko })}
                 </h3>
                 <Badge variant="secondary" className="text-xs">
-                  {groupedReports[date].length}건
+                  {groupedByDate[date].length}건
                 </Badge>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {groupedReports[date]
+                {groupedByDate[date]
                   .sort((a, b) => new Date(b.sent_at).getTime() - new Date(a.sent_at).getTime())
                   .map(report => (
                     <CheckinReportCard 
                       key={report.id} 
                       report={report} 
-                      compact={groupedReports[date].length > 1}
+                      compact={groupedByDate[date].length > 1}
                     />
                   ))
                 }

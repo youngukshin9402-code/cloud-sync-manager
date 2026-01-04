@@ -170,45 +170,7 @@ export default function CoachDashboard() {
           </div>
         )}
 
-        {/* 배정 사용자 7일 지표 */}
-        {assignedUsers.length > 0 && (
-          <div>
-            <div className="flex items-center gap-2 mb-4">
-              <BarChart3 className="w-5 h-5 text-primary" />
-              <h2 className="text-xl font-semibold">최근 7일 지표</h2>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {assignedUsers.slice(0, 6).map((user) => (
-                <WeeklyMetricsCard
-                  key={user.id}
-                  userId={user.id}
-                  nickname={user.nickname || "사용자"}
-                />
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* 오늘의 활동 카드 타임라인 */}
-        <div>
-          <div className="flex items-center gap-2 mb-4">
-            <ClipboardCheck className="w-5 h-5 text-primary" />
-            <h2 className="text-xl font-semibold">오늘의 활동 카드</h2>
-          </div>
-          <CheckinReportTimeline limit={30} />
-        </div>
-
-        {/* 피드백 작성 폼 */}
-        {feedbackUserId && (
-          <CoachFeedbackForm
-            userId={feedbackUserId}
-            userNickname={feedbackUserNickname}
-            onSuccess={() => setFeedbackUserId(null)}
-            onCancel={() => setFeedbackUserId(null)}
-          />
-        )}
-
-        {/* 회원 리스트 */}
+        {/* 담당 회원 리스트 (섹션 위치: 요약 카드 바로 아래) */}
         <div>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-semibold">담당 회원</h2>
@@ -324,6 +286,44 @@ export default function CoachDashboard() {
             </div>
           )}
         </div>
+
+        {/* 배정 사용자 7일 지표 */}
+        {assignedUsers.length > 0 && (
+          <div>
+            <div className="flex items-center gap-2 mb-4">
+              <BarChart3 className="w-5 h-5 text-primary" />
+              <h2 className="text-xl font-semibold">최근 7일 지표</h2>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {assignedUsers.slice(0, 6).map((user) => (
+                <WeeklyMetricsCard
+                  key={user.id}
+                  userId={user.id}
+                  nickname={user.nickname || "사용자"}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* 오늘의 활동 카드 타임라인 */}
+        <div>
+          <div className="flex items-center gap-2 mb-4">
+            <ClipboardCheck className="w-5 h-5 text-primary" />
+            <h2 className="text-xl font-semibold">오늘의 활동 카드</h2>
+          </div>
+          <CheckinReportTimeline limit={30} />
+        </div>
+
+        {/* 피드백 작성 폼 */}
+        {feedbackUserId && (
+          <CoachFeedbackForm
+            userId={feedbackUserId}
+            userNickname={feedbackUserNickname}
+            onSuccess={() => setFeedbackUserId(null)}
+            onCancel={() => setFeedbackUserId(null)}
+          />
+        )}
       </main>
     </div>
   );
