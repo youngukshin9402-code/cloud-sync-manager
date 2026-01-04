@@ -26,32 +26,27 @@ export default function NotificationSettingsPage() {
     { 
       key: 'default_reminder' as const, 
       icon: BellRing, 
-      label: '기본 알림', 
-      description: '12시간 이상 미접속 시 알림' 
+      label: '기본 알림'
     },
     { 
       key: 'meal_reminder' as const, 
       icon: Utensils, 
-      label: '식사 알림', 
-      description: '오전 7시, 오후 12시, 오후 6시 알림' 
+      label: '식사 알림'
     },
     { 
       key: 'water_reminder' as const, 
       icon: Droplets, 
-      label: '물 섭취 알림', 
-      description: '오전 8시, 오후 1시, 오후 7시 알림' 
+      label: '물 섭취 알림'
     },
     { 
       key: 'exercise_reminder' as const, 
       icon: Dumbbell, 
-      label: '운동 알림', 
-      description: '오후 6시 30분 알림' 
+      label: '운동 알림'
     },
     { 
       key: 'coaching_reminder' as const, 
       icon: MessageSquare, 
-      label: '코칭 알림', 
-      description: '코치 채팅 메시지 알림' 
+      label: '코칭 알림'
     },
   ];
 
@@ -130,7 +125,6 @@ export default function NotificationSettingsPage() {
                 </div>
                 <div>
                   <p className="font-medium">{item.label}</p>
-                  <p className="text-sm text-muted-foreground">{item.description}</p>
                 </div>
               </div>
               <Switch
