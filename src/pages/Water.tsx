@@ -209,103 +209,98 @@ export default function Water() {
     <div className="min-h-screen bg-background pb-24">
       {/* Header */}
       <div className="sticky top-0 bg-background/95 backdrop-blur-sm border-b border-border p-4 z-10">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" asChild>
-              <Link to="/dashboard">
-                <ArrowLeft className="w-5 h-5" />
-              </Link>
-            </Button>
-            <h1 className="text-xl font-bold">물 섭취</h1>
-          </div>
-          <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
-            <DialogTrigger asChild>
-              <Button variant="ghost" size="icon">
-                <Settings className="w-5 h-5" />
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-sm">
-              <DialogHeader>
-                <DialogTitle>물 섭취 설정</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-6 py-4">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="icon" asChild>
+            <Link to="/dashboard">
+              <ArrowLeft className="w-5 h-5" />
+            </Link>
+          </Button>
+          <h1 className="text-xl font-bold">물 섭취</h1>
+        </div>
+      </div>
+
+      {/* Settings Dialog - Hidden, for programmatic access only */}
+      <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>물 섭취 설정</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-6 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium flex items-center gap-2">
+                <Target className="w-4 h-4" />
+                하루 목표 (ml)
+              </label>
+              <Input
+                type="number"
+                value={settings.daily_goal}
+                onChange={e => setSettingsState({ ...settings, daily_goal: parseInt(e.target.value) || 2000 })}
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium flex items-center gap-2">
+                <Bell className="w-4 h-4" />
+                알림 활성화
+              </label>
+              <Switch
+                checked={settings.reminder_enabled}
+                onCheckedChange={checked => setSettingsState({ ...settings, reminder_enabled: checked })}
+              />
+            </div>
+
+            {settings.reminder_enabled && (
+              <>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium flex items-center gap-2">
-                    <Target className="w-4 h-4" />
-                    하루 목표 (ml)
-                  </label>
+                  <label className="text-sm font-medium">시작 시간</label>
                   <Input
-                    type="number"
-                    value={settings.daily_goal}
-                    onChange={e => setSettingsState({ ...settings, daily_goal: parseInt(e.target.value) || 2000 })}
+                    type="time"
+                    value={settings.reminder_start}
+                    onChange={e => setSettingsState({ ...settings, reminder_start: e.target.value })}
                   />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">종료 시간</label>
+                  <Input
+                    type="time"
+                    value={settings.reminder_end}
+                    onChange={e => setSettingsState({ ...settings, reminder_end: e.target.value })}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">알림 간격</label>
+                  <div className="flex gap-2">
+                    {[60, 90, 120].map(min => (
+                      <Button
+                        key={min}
+                        variant={settings.reminder_interval === min ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setSettingsState({ ...settings, reminder_interval: min })}
+                      >
+                        {min}분
+                      </Button>
+                    ))}
+                  </div>
                 </div>
 
                 <div className="flex items-center justify-between">
-                  <label className="text-sm font-medium flex items-center gap-2">
-                    <Bell className="w-4 h-4" />
-                    알림 활성화
-                  </label>
+                  <label className="text-sm font-medium">저녁 미달 리마인드</label>
                   <Switch
-                    checked={settings.reminder_enabled}
-                    onCheckedChange={checked => setSettingsState({ ...settings, reminder_enabled: checked })}
+                    checked={settings.evening_reminder}
+                    onCheckedChange={checked => setSettingsState({ ...settings, evening_reminder: checked })}
                   />
                 </div>
+              </>
+            )}
 
-                {settings.reminder_enabled && (
-                  <>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">시작 시간</label>
-                      <Input
-                        type="time"
-                        value={settings.reminder_start}
-                        onChange={e => setSettingsState({ ...settings, reminder_start: e.target.value })}
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">종료 시간</label>
-                      <Input
-                        type="time"
-                        value={settings.reminder_end}
-                        onChange={e => setSettingsState({ ...settings, reminder_end: e.target.value })}
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">알림 간격</label>
-                      <div className="flex gap-2">
-                        {[60, 90, 120].map(min => (
-                          <Button
-                            key={min}
-                            variant={settings.reminder_interval === min ? "default" : "outline"}
-                            size="sm"
-                            onClick={() => setSettingsState({ ...settings, reminder_interval: min })}
-                          >
-                            {min}분
-                          </Button>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <label className="text-sm font-medium">저녁 미달 리마인드</label>
-                      <Switch
-                        checked={settings.evening_reminder}
-                        onCheckedChange={checked => setSettingsState({ ...settings, evening_reminder: checked })}
-                      />
-                    </div>
-                  </>
-                )}
-
-                <Button className="w-full" onClick={() => saveSettings(settings)}>
-                  설정 저장
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
-        </div>
-      </div>
+            <Button className="w-full" onClick={() => saveSettings(settings)}>
+              설정 저장
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <div className="p-4 space-y-6">
         {/* Progress Card */}
