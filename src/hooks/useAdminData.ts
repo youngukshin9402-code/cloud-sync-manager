@@ -199,6 +199,22 @@ export function useAdminData() {
       return false;
     }
 
+    // 코치가 배정되었을 때 사용자에게 알림 보내기
+    if (coachId) {
+      try {
+        await supabase
+          .from("notifications")
+          .insert({
+            user_id: userId,
+            type: "coach_assigned",
+            title: "코치가 배정되었습니다",
+            message: "전문 코치가 배정되었습니다. 코치 채팅에서 상담을 시작해보세요!",
+          });
+      } catch (notifError) {
+        console.error("Failed to create coach assignment notification:", notifError);
+      }
+    }
+
     toast({ title: "코치 배정 완료" });
     await fetchUsers();
     return true;

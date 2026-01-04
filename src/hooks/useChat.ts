@@ -244,6 +244,26 @@ export function useChat(partnerId?: string) {
             sender_nickname: nickname
           }];
         });
+
+        // 코치가 사용자에게 채팅을 보낼 때 알림 생성
+        if (isCoach) {
+          try {
+            await supabase
+              .from('notifications')
+              .insert({
+                user_id: partnerId,
+                type: 'chat_message',
+                title: '코치가 채팅을 보냈습니다',
+                message: message.trim().length > 50 
+                  ? message.trim().substring(0, 50) + '...' 
+                  : message.trim(),
+                related_type: 'chat',
+                related_id: data.id,
+              });
+          } catch (notifError) {
+            console.error('Failed to create chat notification:', notifError);
+          }
+        }
       }
       
       return true;

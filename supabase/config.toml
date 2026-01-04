@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.weekly-diet-report]
 verify_jwt = true
+
+[functions.scheduled-notifications]
+verify_jwt = false

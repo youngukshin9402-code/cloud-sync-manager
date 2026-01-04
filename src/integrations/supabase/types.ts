@@ -1011,6 +1011,7 @@ export type Database = {
       notification_settings: {
         Row: {
           coaching_reminder: boolean | null
+          default_reminder: boolean | null
           exercise_reminder: boolean | null
           id: string
           meal_reminder: boolean | null
@@ -1020,6 +1021,7 @@ export type Database = {
         }
         Insert: {
           coaching_reminder?: boolean | null
+          default_reminder?: boolean | null
           exercise_reminder?: boolean | null
           id?: string
           meal_reminder?: boolean | null
@@ -1029,6 +1031,7 @@ export type Database = {
         }
         Update: {
           coaching_reminder?: boolean | null
+          default_reminder?: boolean | null
           exercise_reminder?: boolean | null
           id?: string
           meal_reminder?: boolean | null
@@ -1042,6 +1045,7 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          is_deleted: boolean | null
           is_read: boolean
           message: string | null
           related_id: string | null
@@ -1053,6 +1057,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          is_deleted?: boolean | null
           is_read?: boolean
           message?: string | null
           related_id?: string | null
@@ -1064,6 +1069,7 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          is_deleted?: boolean | null
           is_read?: boolean
           message?: string | null
           related_id?: string | null
@@ -1373,6 +1379,33 @@ export type Database = {
           },
         ]
       }
+      push_tokens: {
+        Row: {
+          created_at: string
+          id: string
+          platform: string
+          token: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          platform?: string
+          token: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          platform?: string
+          token?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       reminders: {
         Row: {
           created_at: string | null
@@ -1568,6 +1601,27 @@ export type Database = {
           status?: string
           subject?: string
           updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_activity: {
+        Row: {
+          created_at: string
+          id: string
+          last_active_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          last_active_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          last_active_at?: string
           user_id?: string
         }
         Relationships: []
