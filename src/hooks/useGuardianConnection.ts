@@ -71,18 +71,14 @@ export function useGuardianConnection() {
             }
           }
           
-          // 보호자 닉네임 조회
+          // 보호자 닉네임 조회 - 항상 DB에서 가져옴
           if (guardianIdToFetch) {
-            if (guardianIdToFetch === user.id) {
-              guardianNickname = profile?.nickname || '보호자';
-            } else {
-              const { data: guardianProfile } = await supabase
-                .from("profiles")
-                .select("nickname")
-                .eq("id", guardianIdToFetch)
-                .single();
-              guardianNickname = guardianProfile?.nickname || '보호자';
-            }
+            const { data: guardianProfile } = await supabase
+              .from("profiles")
+              .select("nickname")
+              .eq("id", guardianIdToFetch)
+              .single();
+            guardianNickname = guardianProfile?.nickname || '';
           }
 
           return {

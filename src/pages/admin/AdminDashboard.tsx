@@ -86,8 +86,8 @@ export default function AdminDashboard() {
     {
       id: "checkin-reports",
       icon: ClipboardCheck,
-      label: "체크인 리포트",
-      description: "사용자 일일 체크인 리포트 조회",
+      label: "오늘의 활동 카드",
+      description: "사용자 일일 활동 카드 조회",
       path: "/admin/checkin-reports",
     },
     {

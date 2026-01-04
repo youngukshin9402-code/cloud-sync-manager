@@ -1,25 +1,23 @@
 /**
- * 관리자 체크인 리포트 페이지
- * 사용자별 2단 구조: 사용자 목록 → 해당 사용자 체크인 리포트 목록
+ * 관리자 오늘의 활동 카드 페이지
+ * 사용자별 2단 구조: 사용자 목록 → 해당 사용자 활동 카드 목록
  */
 
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
-  DialogTitle,
 } from "@/components/ui/dialog";
 import { ArrowLeft, ClipboardCheck, RefreshCw, Search, User, ChevronRight, Calendar, Activity, Utensils, Moon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
+import { CheckinReportCard } from "@/components/coach/CheckinReportCard";
 
 interface UserWithReports {
   id: string;
@@ -37,6 +35,7 @@ interface CheckinReport {
   summary: any;
   snapshot_data: any;
   created_at: string;
+  version_number?: number;
 }
 
 export default function AdminCheckinReports() {
@@ -170,7 +169,7 @@ export default function AdminCheckinReports() {
           <div className="flex items-center gap-2">
             <ClipboardCheck className="w-5 h-5 text-primary" />
             <h1 className="text-xl font-bold text-foreground">
-              {selectedUserId ? `${selectedUserNickname}님의 체크인` : '체크인 리포트'}
+              {selectedUserId ? `${selectedUserNickname}님의 활동 카드` : '오늘의 활동 카드'}
             </h1>
           </div>
           <Button 
@@ -199,11 +198,11 @@ export default function AdminCheckinReports() {
               />
             </div>
 
-            {/* 통계 - 체크인 사용자 수만 표시 */}
+            {/* 통계 - 활동 카드 사용자 수만 표시 */}
             <Card className="mb-6">
               <CardContent className="p-4 text-center">
                 <p className="text-2xl font-bold">{usersWithReports.length}</p>
-                <p className="text-xs text-muted-foreground">체크인 사용자</p>
+                <p className="text-xs text-muted-foreground">활동 카드 사용자</p>
               </CardContent>
             </Card>
 
@@ -216,7 +215,7 @@ export default function AdminCheckinReports() {
             ) : filteredUsers.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground">
                 <ClipboardCheck className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                <p>체크인 리포트가 없습니다</p>
+                <p>활동 카드가 없습니다</p>
               </div>
             ) : (
               <div className="space-y-3">
@@ -235,7 +234,7 @@ export default function AdminCheckinReports() {
                           <div>
                             <p className="font-medium">{user.nickname}</p>
                             <p className="text-xs text-muted-foreground">
-                              {user.reportCount}건의 체크인
+                              {user.reportCount}건의 활동 카드
                             </p>
                           </div>
                         </div>
@@ -261,7 +260,7 @@ export default function AdminCheckinReports() {
             ) : reports.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground">
                 <ClipboardCheck className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                <p>체크인 리포트가 없습니다</p>
+                <p>활동 카드가 없습니다</p>
               </div>
             ) : (
               <div className="space-y-3">
@@ -313,72 +312,23 @@ export default function AdminCheckinReports() {
         )}
       </main>
 
-      {/* 리포트 상세 Dialog */}
+      {/* 리포트 상세 Dialog - 코치탭과 동일한 형식 */}
       <Dialog open={!!selectedReport} onOpenChange={() => setSelectedReport(null)}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <ClipboardCheck className="w-5 h-5 text-primary" />
-              체크인 리포트 상세
-            </DialogTitle>
-          </DialogHeader>
-          
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto p-0">
           {selectedReport && (
-            <div className="space-y-4">
-              <div className="text-center pb-3 border-b">
-                <p className="text-lg font-semibold">
-                  {format(new Date(selectedReport.report_date), 'yyyy년 M월 d일', { locale: ko })}
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  {format(new Date(selectedReport.sent_at), 'a h:mm 전송', { locale: ko })}
-                </p>
-              </div>
-
-              {(() => {
-                const summary = selectedReport.summary as any;
-                return (
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center p-3 bg-muted rounded-lg">
-                      <span className="text-muted-foreground">컨디션</span>
-                      <div className="flex items-center gap-1">
-                        {[1, 2, 3, 4, 5].map(i => (
-                          <span 
-                            key={i} 
-                            className={`text-lg ${i <= (summary?.conditionScore || 0) ? 'text-yellow-500' : 'text-muted-foreground/30'}`}
-                          >
-                            ★
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="flex justify-between items-center p-3 bg-muted rounded-lg">
-                      <span className="text-muted-foreground">식사 횟수</span>
-                      <span className="font-medium">{summary?.mealCount || 0}끼</span>
-                    </div>
-
-                    <div className="flex justify-between items-center p-3 bg-muted rounded-lg">
-                      <span className="text-muted-foreground">운동 여부</span>
-                      <Badge variant={summary?.exerciseDone ? 'default' : 'secondary'}>
-                        {summary?.exerciseDone ? '완료' : '미완료'}
-                      </Badge>
-                    </div>
-
-                    <div className="flex justify-between items-center p-3 bg-muted rounded-lg">
-                      <span className="text-muted-foreground">수면 시간</span>
-                      <span className="font-medium">{summary?.sleepHours || 0}시간</span>
-                    </div>
-
-                    {summary?.notes && (
-                      <div className="p-3 bg-muted rounded-lg">
-                        <span className="text-muted-foreground text-sm">메모</span>
-                        <p className="mt-1">{summary.notes}</p>
-                      </div>
-                    )}
-                  </div>
-                );
-              })()}
-            </div>
+            <CheckinReportCard 
+              report={{
+                id: selectedReport.id,
+                user_id: selectedReport.user_id,
+                report_date: selectedReport.report_date,
+                sent_at: selectedReport.sent_at,
+                version_number: selectedReport.version_number || 1,
+                summary: selectedReport.summary,
+                snapshot_data: selectedReport.snapshot_data,
+                user_nickname: selectedUserNickname,
+              }}
+              compact={false}
+            />
           )}
         </DialogContent>
       </Dialog>
