@@ -152,7 +152,7 @@ export default function Nutrition() {
     }
   };
 
-  // AI 분석 시작 - 사진 업로드 후 음식명/인분/g 입력 UI만 표시
+  // AI 분석 시작 - 사진 업로드 후 AI 이미지 분석 수행
   const handleAnalyzeImage = async (file: File) => {
     setUploadedFile(file);
     setAnalyzing(true);
@@ -163,14 +163,73 @@ export default function Nutrition() {
     reader.readAsDataURL(file);
 
     try {
-      // 초기 음식 목록 (사용자가 입력하도록 빈 상태 또는 기본값)
-      const initialFoods: AnalyzedFood[] = [
-        { name: "음식", portion: "1인분", calories: 0, carbs: 0, protein: 0, fat: 0 }
-      ];
-      setAnalyzedFoods(initialFoods);
+      // 먼저 이미지를 Storage에 업로드
+      const fileName = `temp-analysis/${user?.id}/${Date.now()}-${file.name}`;
+      const { error: uploadError } = await supabase.storage
+        .from("food-logs")
+        .upload(fileName, file);
+
+      if (uploadError) {
+        console.error("Image upload error:", uploadError);
+        throw new Error("이미지 업로드 실패");
+      }
+
+      // 업로드된 이미지 URL 생성
+      const { data: publicUrlData } = supabase.storage
+        .from("food-logs")
+        .getPublicUrl(fileName);
+
+      // AI 이미지 분석 호출
+      const { data, error } = await supabase.functions.invoke("analyze-food", {
+        body: {
+          imageUrl: publicUrlData.publicUrl,
+          userId: user?.id,
+        },
+      });
+
+      // 음식 인식 실패 처리
+      if (error || data?.error) {
+        const errorMessage = data?.notes || data?.error || "음식을 인식할 수 없습니다. 다시 촬영해주세요.";
+        toast({ 
+          title: "음식 인식 실패", 
+          description: errorMessage,
+          variant: "destructive" 
+        });
+        setUploadedImage(null);
+        setUploadedFile(null);
+        return;
+      }
+
+      // 분석 결과 처리
+      const foods: AnalyzedFood[] = Array.isArray(data) 
+        ? data.map((f: any) => ({
+            name: f.name || "알 수 없는 음식",
+            portion: f.estimated_portion || "1인분",
+            calories: f.calories || 0,
+            carbs: f.carbs || 0,
+            protein: f.protein || 0,
+            fat: f.fat || 0,
+          }))
+        : [{
+            name: data.name || "알 수 없는 음식",
+            portion: "1인분",
+            calories: data.calories || 0,
+            carbs: data.carbs || 0,
+            protein: data.protein || 0,
+            fat: data.fat || 0,
+          }];
+
+      setAnalyzedFoods(foods);
       setAnalysisSheetOpen(true);
-    } catch {
-      toast({ title: "분석 실패", description: "다시 시도해주세요", variant: "destructive" });
+    } catch (err) {
+      console.error("Image analysis error:", err);
+      toast({ 
+        title: "분석 실패", 
+        description: "다시 시도해주세요", 
+        variant: "destructive" 
+      });
+      setUploadedImage(null);
+      setUploadedFile(null);
     } finally {
       setAnalyzing(false);
     }
