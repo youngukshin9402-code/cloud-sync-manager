@@ -94,19 +94,22 @@ export default function CoachDashboard() {
     <div className="min-h-screen bg-background">
       {/* 헤더 */}
       <header className="sticky top-0 z-40 bg-background border-b border-border">
-        <div className="container mx-auto px-6 h-16 flex items-center justify-between">
+        <div className="container mx-auto px-4 md:px-6 py-3 md:py-0 md:h-16 flex flex-col md:flex-row md:items-center justify-between gap-2 md:gap-0">
           <div>
-            <h1 className="text-xl font-bold text-foreground">코치 대시보드</h1>
-            <p className="text-sm text-muted-foreground">
+            <h1 className="text-xl font-bold text-foreground">
+              <span className="md:hidden">코치<br />대시보드</span>
+              <span className="hidden md:inline">코치 대시보드</span>
+            </h1>
+            <p className="text-sm text-muted-foreground mt-2 md:mt-0">
               {profile?.nickname}님, 환영합니다
             </p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => navigate('/coach/chat')}>
+            <Button variant="outline" size="sm" onClick={() => navigate('/coach/chat')}>
               <MessageSquare className="w-4 h-4 mr-2" />
               채팅
             </Button>
-            <Button variant="ghost" onClick={signOut}>
+            <Button variant="ghost" size="sm" onClick={signOut}>
               로그아웃
             </Button>
           </div>
@@ -172,15 +175,15 @@ export default function CoachDashboard() {
 
         {/* 담당 회원 리스트 (섹션 위치: 요약 카드 바로 아래) */}
         <div>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold">담당 회원</h2>
-            <div className="relative">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+            <h2 className="text-xl font-semibold whitespace-nowrap">담당 회원</h2>
+            <div className="relative w-full sm:w-auto">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
-                placeholder="회원 검색..."
+                placeholder="회원 검색"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 w-64"
+                className="pl-9 w-full sm:w-48 md:w-64"
               />
             </div>
           </div>

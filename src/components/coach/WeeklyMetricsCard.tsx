@@ -69,7 +69,8 @@ export function WeeklyMetricsCard({ userId, nickname }: WeeklyMetricsCardProps) 
           .eq('user_id', userId)
           .single();
 
-        // 4. 운동 기록 - 7일간 운동한 날짜 수
+        // 4. 운동 기록 - 7일간 운동한 '날짜 수' (하루 최대 1회만 카운트)
+        // 같은 날짜에 여러 기록이 있어도 1일로만 계산
         const { data: exercises } = await supabase
           .from('gym_records')
           .select('date')
@@ -110,8 +111,9 @@ export function WeeklyMetricsCard({ userId, nickname }: WeeklyMetricsCardProps) 
           ? Number(nutritionSettings.current_weight) 
           : null;
 
-        // 운동 일수 (unique dates)
-        const exerciseDays = new Set((exercises || []).map(e => e.date)).size;
+        // 운동 일수 (unique dates) - 같은 날짜에 여러 기록이 있어도 1일로만 카운트
+        const uniqueExerciseDates = new Set((exercises || []).map(e => e.date));
+        const exerciseDays = uniqueExerciseDates.size;
 
         setMetrics({
           avgCalories,
