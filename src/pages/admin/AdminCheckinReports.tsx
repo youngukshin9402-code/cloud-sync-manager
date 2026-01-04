@@ -13,7 +13,7 @@ import {
   Dialog,
   DialogContent,
 } from "@/components/ui/dialog";
-import { ArrowLeft, ClipboardCheck, RefreshCw, Search, User, ChevronRight, Calendar, Activity, Utensils, Moon } from "lucide-react";
+import { ArrowLeft, ClipboardCheck, RefreshCw, Search, User, ChevronRight, Calendar } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
@@ -248,13 +248,13 @@ export default function AdminCheckinReports() {
           </>
         )}
 
-        {/* 리포트 목록 (2단계) */}
+        {/* 리포트 목록 (2단계) - 4열 레이아웃, 날짜/시간만 표시 */}
         {selectedUserId && (
           <>
             {loadingReports ? (
-              <div className="space-y-3">
-                {[1, 2, 3].map(i => (
-                  <Skeleton key={i} className="h-24" />
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
+                  <Skeleton key={i} className="h-20" />
                 ))}
               </div>
             ) : reports.length === 0 ? (
@@ -263,49 +263,24 @@ export default function AdminCheckinReports() {
                 <p>활동 카드가 없습니다</p>
               </div>
             ) : (
-              <div className="space-y-3">
-                {reports.map((report) => {
-                  const summary = report.summary as any;
-                  return (
-                    <Card 
-                      key={report.id} 
-                      className="cursor-pointer hover:bg-muted/50 transition-colors"
-                      onClick={() => setSelectedReport(report)}
-                    >
-                      <CardContent className="p-4">
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="flex items-center gap-2">
-                            <Calendar className="w-4 h-4 text-primary" />
-                            <span className="font-medium">
-                              {format(new Date(report.report_date), 'yyyy년 M월 d일', { locale: ko })}
-                            </span>
-                          </div>
-                          <span className="text-xs text-muted-foreground">
-                            {format(new Date(report.sent_at), 'HH:mm', { locale: ko })}
-                          </span>
-                        </div>
-                        
-                        <div className="grid grid-cols-3 gap-2 text-center text-sm">
-                          <div className="bg-muted/50 rounded-lg p-2">
-                            <Utensils className="w-4 h-4 mx-auto mb-1 text-orange-500" />
-                            <p className="text-xs text-muted-foreground">식사</p>
-                            <p className="font-medium">{summary?.mealCount || 0}끼</p>
-                          </div>
-                          <div className="bg-muted/50 rounded-lg p-2">
-                            <Activity className="w-4 h-4 mx-auto mb-1 text-green-500" />
-                            <p className="text-xs text-muted-foreground">운동</p>
-                            <p className="font-medium">{summary?.exerciseDone ? '완료' : '미완료'}</p>
-                          </div>
-                          <div className="bg-muted/50 rounded-lg p-2">
-                            <Moon className="w-4 h-4 mx-auto mb-1 text-purple-500" />
-                            <p className="text-xs text-muted-foreground">수면</p>
-                            <p className="font-medium">{summary?.sleepHours || 0}시간</p>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {reports.map((report) => (
+                  <Card 
+                    key={report.id} 
+                    className="cursor-pointer hover:bg-muted/50 transition-colors"
+                    onClick={() => setSelectedReport(report)}
+                  >
+                    <CardContent className="p-4 text-center">
+                      <Calendar className="w-5 h-5 mx-auto mb-2 text-primary" />
+                      <p className="font-medium text-sm">
+                        {format(new Date(report.report_date), 'M월 d일', { locale: ko })}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {format(new Date(report.sent_at), 'HH:mm', { locale: ko })}
+                      </p>
+                    </CardContent>
+                  </Card>
+                ))}
               </div>
             )}
           </>
