@@ -213,37 +213,20 @@ export default function AdminChats() {
       </header>
 
       <main className="p-4 space-y-4">
-        {/* Stats */}
-        <div className="grid grid-cols-2 gap-3">
-          <Card>
-            <CardContent className="pt-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-primary/10">
-                  <MessageSquare className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">{conversations.length}</p>
-                  <p className="text-xs text-muted-foreground">총 대화</p>
-                </div>
+        {/* Stats - 총 대화만 표시 */}
+        <Card>
+          <CardContent className="pt-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-primary/10">
+                <MessageSquare className="h-5 w-5 text-primary" />
               </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-accent/10">
-                  <Users className="h-5 w-5 text-accent-foreground" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">
-                    {conversations.reduce((acc, c) => acc + c.message_count, 0)}
-                  </p>
-                  <p className="text-xs text-muted-foreground">총 메시지</p>
-                </div>
+              <div>
+                <p className="text-2xl font-bold">{conversations.length}</p>
+                <p className="text-xs text-muted-foreground">총 대화</p>
               </div>
-            </CardContent>
-          </Card>
-        </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Search */}
         <div className="relative">
@@ -287,9 +270,6 @@ export default function AdminChats() {
                             <span className="font-medium">{conv.user_nickname}</span>
                             <span className="text-muted-foreground">↔</span>
                             <span className="font-medium">{conv.coach_nickname}</span>
-                            <Badge variant="secondary" className="text-xs">
-                              {conv.message_count}개
-                            </Badge>
                           </div>
                           <p className="text-sm text-muted-foreground truncate">
                             {conv.last_message}

@@ -46,6 +46,7 @@ interface ConsultationRequest {
   created_at: string;
   reviewed_at: string | null;
   reviewed_by: string | null;
+  user_nickname?: string; // 계정 닉네임 추가
 }
 
 const STATUS_OPTIONS = [
@@ -74,7 +75,22 @@ export default function AdminConsultations() {
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      setRequests(data || []);
+      
+      // 사용자 닉네임 조회
+      const userIds = (data || []).map(r => r.user_id);
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("id, nickname")
+        .in("id", userIds);
+      
+      const nicknameMap = new Map(profiles?.map(p => [p.id, p.nickname]) || []);
+      
+      const requestsWithNicknames = (data || []).map(r => ({
+        ...r,
+        user_nickname: nicknameMap.get(r.user_id) || undefined,
+      }));
+      
+      setRequests(requestsWithNicknames);
     } catch (error) {
       console.error("Fetch error:", error);
       toast({ title: "데이터 로드 실패", variant: "destructive" });
@@ -247,7 +263,14 @@ export default function AdminConsultations() {
               >
                 <div className="flex items-start justify-between">
                   <div>
-                    <p className="font-semibold text-lg">{request.name}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="font-semibold text-lg">{request.name}</p>
+                      {request.user_nickname && (
+                        <Badge variant="outline" className="text-xs">
+                          @{request.user_nickname}
+                        </Badge>
+                      )}
+                    </div>
                     <p className="text-sm text-muted-foreground flex items-center gap-1">
                       <Phone className="w-4 h-4" />
                       {request.phone}

@@ -199,23 +199,13 @@ export default function AdminCheckinReports() {
               />
             </div>
 
-            {/* 통계 */}
-            <div className="grid grid-cols-2 gap-3 mb-6">
-              <Card>
-                <CardContent className="p-4 text-center">
-                  <p className="text-2xl font-bold">{usersWithReports.length}</p>
-                  <p className="text-xs text-muted-foreground">체크인 사용자</p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-4 text-center">
-                  <p className="text-2xl font-bold text-primary">
-                    {usersWithReports.reduce((acc, u) => acc + u.reportCount, 0)}
-                  </p>
-                  <p className="text-xs text-muted-foreground">전체 리포트</p>
-                </CardContent>
-              </Card>
-            </div>
+            {/* 통계 - 체크인 사용자 수만 표시 */}
+            <Card className="mb-6">
+              <CardContent className="p-4 text-center">
+                <p className="text-2xl font-bold">{usersWithReports.length}</p>
+                <p className="text-xs text-muted-foreground">체크인 사용자</p>
+              </CardContent>
+            </Card>
 
             {loading ? (
               <div className="space-y-3">

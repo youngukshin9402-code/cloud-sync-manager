@@ -50,19 +50,45 @@ export function useGuardianConnection() {
       // Fetch nicknames for each connection
       const connectionsWithNicknames = await Promise.all(
         (data || []).map(async (conn) => {
-          const otherUserId = conn.user_id === user.id ? conn.guardian_id : conn.user_id;
-          if (!otherUserId) return conn;
+          // 피보호자(user_id)와 보호자(guardian_id)의 닉네임을 각각 조회
+          const userIdToFetch = conn.user_id;
+          const guardianIdToFetch = conn.guardian_id;
           
-          const { data: profileData } = await supabase
-            .from("profiles")
-            .select("nickname")
-            .eq("id", otherUserId)
-            .single();
+          let userNickname = '';
+          let guardianNickname = '';
+          
+          // 피보호자 닉네임 조회
+          if (userIdToFetch) {
+            if (userIdToFetch === user.id) {
+              userNickname = profile?.nickname || '사용자';
+            } else {
+              const { data: userProfile } = await supabase
+                .from("profiles")
+                .select("nickname")
+                .eq("id", userIdToFetch)
+                .single();
+              userNickname = userProfile?.nickname || '사용자';
+            }
+          }
+          
+          // 보호자 닉네임 조회
+          if (guardianIdToFetch) {
+            if (guardianIdToFetch === user.id) {
+              guardianNickname = profile?.nickname || '보호자';
+            } else {
+              const { data: guardianProfile } = await supabase
+                .from("profiles")
+                .select("nickname")
+                .eq("id", guardianIdToFetch)
+                .single();
+              guardianNickname = guardianProfile?.nickname || '보호자';
+            }
+          }
 
           return {
             ...conn,
-            user_nickname: conn.user_id === user.id ? profile?.nickname : profileData?.nickname,
-            guardian_nickname: conn.guardian_id === user.id ? profile?.nickname : profileData?.nickname,
+            user_nickname: userNickname,
+            guardian_nickname: guardianNickname,
           };
         })
       );
