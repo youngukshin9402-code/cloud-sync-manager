@@ -113,10 +113,6 @@ export default function CoachDashboard() {
             >
               <Bell className="w-5 h-5" />
             </Button>
-            <Button variant="outline" size="sm" onClick={() => navigate('/coach/chat')}>
-              <MessageSquare className="w-4 h-4 mr-2" />
-              <span className="hidden sm:inline">채팅</span>
-            </Button>
             <Button variant="ghost" size="icon" onClick={signOut} title="로그아웃">
               <LogOut className="w-5 h-5" />
             </Button>
