@@ -11,13 +11,22 @@ import { useAuth } from "@/contexts/AuthContext";
 import { clearAllData } from "@/lib/localStorage";
 import { supabase } from "@/integrations/supabase/client";
 import { useNutritionSettings } from "@/hooks/useNutritionSettings";
-
 export default function ProfileEdit() {
-  const { toast } = useToast();
+  const {
+    toast
+  } = useToast();
   const navigate = useNavigate();
-  const { profile, user, signOut } = useAuth();
-  const { settings, loading: settingsLoading, save: saveNutritionSettings, saving: nutritionSaving } = useNutritionSettings();
-  
+  const {
+    profile,
+    user,
+    signOut
+  } = useAuth();
+  const {
+    settings,
+    loading: settingsLoading,
+    save: saveNutritionSettings,
+    saving: nutritionSaving
+  } = useNutritionSettings();
   const [nickname, setNickname] = useState(profile?.nickname || "");
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -36,7 +45,7 @@ export default function ProfileEdit() {
   // 설정 로드
   useEffect(() => {
     if (settings) {
-      setGender((settings.gender as "male" | "female") || "");
+      setGender(settings.gender as "male" | "female" || "");
       setHeightCm(settings.heightCm?.toString() || "");
       setAge(settings.age?.toString() || "");
       setCurrentWeight(settings.currentWeight?.toString() || "");
@@ -45,7 +54,6 @@ export default function ProfileEdit() {
       setConditions(settings.conditions || []);
     }
   }, [settings]);
-
   const handleAddCondition = () => {
     const trimmed = conditionInput.trim();
     if (trimmed && !conditions.includes(trimmed)) {
@@ -53,21 +61,21 @@ export default function ProfileEdit() {
       setConditionInput("");
     }
   };
-
   const handleRemoveCondition = (condition: string) => {
     setConditions(conditions.filter(c => c !== condition));
   };
-
   const handleConditionKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
       e.preventDefault();
       handleAddCondition();
     }
   };
-
   const handleSave = async () => {
     if (!nickname.trim()) {
-      toast({ title: "닉네임을 입력해주세요", variant: "destructive" });
+      toast({
+        title: "닉네임을 입력해주세요",
+        variant: "destructive"
+      });
       return;
     }
 
@@ -76,42 +84,50 @@ export default function ProfileEdit() {
     const heightNum = parseInt(heightCm);
     const currentWeightNum = parseFloat(currentWeight);
     const goalWeightNum = parseFloat(goalWeight);
-
     if (!age || !heightCm || !currentWeight || !goalWeight || !gender || !activityLevel) {
-      toast({ title: "필수 정보를 모두 입력해주세요", variant: "destructive" });
+      toast({
+        title: "필수 정보를 모두 입력해주세요",
+        variant: "destructive"
+      });
       return;
     }
-
     if (ageNum < 1 || ageNum > 120) {
-      toast({ title: "올바른 나이를 입력해주세요", variant: "destructive" });
+      toast({
+        title: "올바른 나이를 입력해주세요",
+        variant: "destructive"
+      });
       return;
     }
-
     if (heightNum < 100 || heightNum > 250) {
-      toast({ title: "올바른 키를 입력해주세요 (100-250cm)", variant: "destructive" });
+      toast({
+        title: "올바른 키를 입력해주세요 (100-250cm)",
+        variant: "destructive"
+      });
       return;
     }
-
     if (currentWeightNum < 30 || currentWeightNum > 300) {
-      toast({ title: "올바른 현재 체중을 입력해주세요 (30-300kg)", variant: "destructive" });
+      toast({
+        title: "올바른 현재 체중을 입력해주세요 (30-300kg)",
+        variant: "destructive"
+      });
       return;
     }
-
     if (goalWeightNum < 30 || goalWeightNum > 300) {
-      toast({ title: "올바른 목표 체중을 입력해주세요 (30-300kg)", variant: "destructive" });
+      toast({
+        title: "올바른 목표 체중을 입력해주세요 (30-300kg)",
+        variant: "destructive"
+      });
       return;
     }
-
     if (!user) return;
-
     setSaving(true);
     try {
       // 프로필 닉네임 저장
-      const { error } = await supabase
-        .from('profiles')
-        .update({ nickname: nickname.trim() })
-        .eq('id', user.id);
-
+      const {
+        error
+      } = await supabase.from('profiles').update({
+        nickname: nickname.trim()
+      }).eq('id', user.id);
       if (error) throw error;
 
       // 신체 정보 저장 (AI 추천 칼로리 자동 재계산)
@@ -122,49 +138,56 @@ export default function ProfileEdit() {
         goalWeight: goalWeightNum,
         gender,
         activityLevel,
-        conditions,
+        conditions
       });
-
       if (success) {
-        toast({ title: "내 정보가 저장되었습니다", description: "AI 맞춤 칼로리가 재계산되었습니다" });
+        toast({
+          title: "내 정보가 저장되었습니다",
+          description: "AI 맞춤 칼로리가 재계산되었습니다"
+        });
       } else {
         throw new Error("신체 정보 저장 실패");
       }
     } catch (error) {
       console.error('Error saving profile:', error);
-      toast({ title: "저장 실패", variant: "destructive" });
+      toast({
+        title: "저장 실패",
+        variant: "destructive"
+      });
     } finally {
       setSaving(false);
     }
   };
-
   const handleDeleteAccount = async () => {
     if (!deleteConfirmed) {
-      toast({ title: "삭제 확인란을 체크해주세요", variant: "destructive" });
+      toast({
+        title: "삭제 확인란을 체크해주세요",
+        variant: "destructive"
+      });
       return;
     }
-
     setDeleting(true);
     try {
       if (user) {
         clearAllData();
       }
-      
       await signOut();
-      toast({ title: "회원 탈퇴가 완료되었습니다" });
+      toast({
+        title: "회원 탈퇴가 완료되었습니다"
+      });
       navigate("/");
     } catch (error) {
       console.error('Error deleting account:', error);
-      toast({ title: "탈퇴 처리 중 오류가 발생했습니다", variant: "destructive" });
+      toast({
+        title: "탈퇴 처리 중 오류가 발생했습니다",
+        variant: "destructive"
+      });
     } finally {
       setDeleting(false);
     }
   };
-
   const isSaving = saving || nutritionSaving;
-
-  return (
-    <div className="min-h-screen bg-background pb-24">
+  return <div className="min-h-screen bg-background pb-24">
       <div className="sticky top-0 bg-background/95 backdrop-blur-sm border-b border-border p-4 z-10">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="icon" asChild>
@@ -186,11 +209,7 @@ export default function ProfileEdit() {
           <div className="space-y-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">닉네임</label>
-              <Input
-                value={nickname}
-                onChange={e => setNickname(e.target.value)}
-                placeholder="닉네임"
-              />
+              <Input value={nickname} onChange={e => setNickname(e.target.value)} placeholder="닉네임" />
             </div>
 
             <div className="space-y-2">
@@ -198,11 +217,7 @@ export default function ProfileEdit() {
                 <Mail className="w-4 h-4" />
                 이메일
               </label>
-              <Input
-                value={user?.email || "이메일 없음"}
-                disabled
-                className="bg-muted"
-              />
+              <Input value={user?.email || "이메일 없음"} disabled className="bg-muted" />
               <p className="text-xs text-muted-foreground">카카오 계정과 연동되어 있습니다</p>
             </div>
           </div>
@@ -218,46 +233,23 @@ export default function ProfileEdit() {
             정확한 입력으로 AI가 맞춤 칼로리를 계산합니다
           </p>
           
-          {settingsLoading ? (
-            <div className="flex items-center justify-center py-8">
+          {settingsLoading ? <div className="flex items-center justify-center py-8">
               <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-            </div>
-          ) : (
-            <>
+            </div> : <>
               {/* 성별 선택 */}
               <div className="space-y-2 mb-4">
                 <label className="text-sm font-medium">
                   성별 <span className="text-destructive">*</span>
                 </label>
                 <div className="flex gap-4">
-                  <button
-                    type="button"
-                    onClick={() => setGender("male")}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-all ${
-                      gender === "male"
-                        ? "border-primary bg-primary/10 text-primary"
-                        : "border-border hover:border-primary/50"
-                    }`}
-                  >
-                    <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
-                      gender === "male" ? "border-primary" : "border-muted-foreground"
-                    }`}>
+                  <button type="button" onClick={() => setGender("male")} className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-all ${gender === "male" ? "border-primary bg-primary/10 text-primary" : "border-border hover:border-primary/50"}`}>
+                    <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${gender === "male" ? "border-primary" : "border-muted-foreground"}`}>
                       {gender === "male" && <div className="w-2 h-2 rounded-full bg-primary" />}
                     </div>
                     남성
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => setGender("female")}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-all ${
-                      gender === "female"
-                        ? "border-primary bg-primary/10 text-primary"
-                        : "border-border hover:border-primary/50"
-                    }`}
-                  >
-                    <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
-                      gender === "female" ? "border-primary" : "border-muted-foreground"
-                    }`}>
+                  <button type="button" onClick={() => setGender("female")} className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-all ${gender === "female" ? "border-primary bg-primary/10 text-primary" : "border-border hover:border-primary/50"}`}>
+                    <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${gender === "female" ? "border-primary" : "border-muted-foreground"}`}>
                       {gender === "female" && <div className="w-2 h-2 rounded-full bg-primary" />}
                     </div>
                     여성
@@ -272,14 +264,7 @@ export default function ProfileEdit() {
                     만 나이 <span className="text-destructive">*</span>
                   </label>
                   <div className="relative">
-                    <Input
-                      type="number"
-                      value={age}
-                      onChange={e => setAge(e.target.value)}
-                      placeholder="30"
-                      min={1}
-                      max={120}
-                    />
+                    <Input type="number" value={age} onChange={e => setAge(e.target.value)} placeholder="30" min={1} max={120} />
                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">세</span>
                   </div>
                 </div>
@@ -290,14 +275,7 @@ export default function ProfileEdit() {
                     키 <span className="text-destructive">*</span>
                   </label>
                   <div className="relative">
-                    <Input
-                      type="number"
-                      value={heightCm}
-                      onChange={e => setHeightCm(e.target.value)}
-                      placeholder="170"
-                      min={100}
-                      max={250}
-                    />
+                    <Input type="number" value={heightCm} onChange={e => setHeightCm(e.target.value)} placeholder="170" min={100} max={250} />
                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">cm</span>
                   </div>
                 </div>
@@ -308,15 +286,7 @@ export default function ProfileEdit() {
                     현재 체중 <span className="text-destructive">*</span>
                   </label>
                   <div className="relative">
-                    <Input
-                      type="number"
-                      step="0.1"
-                      value={currentWeight}
-                      onChange={e => setCurrentWeight(e.target.value)}
-                      placeholder="70"
-                      min={30}
-                      max={300}
-                    />
+                    <Input type="number" step="0.1" value={currentWeight} onChange={e => setCurrentWeight(e.target.value)} placeholder="70" min={30} max={300} />
                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">kg</span>
                   </div>
                 </div>
@@ -327,15 +297,7 @@ export default function ProfileEdit() {
                     목표 체중 <span className="text-destructive">*</span>
                   </label>
                   <div className="relative">
-                    <Input
-                      type="number"
-                      step="0.1"
-                      value={goalWeight}
-                      onChange={e => setGoalWeight(e.target.value)}
-                      placeholder="65"
-                      min={30}
-                      max={300}
-                    />
+                    <Input type="number" step="0.1" value={goalWeight} onChange={e => setGoalWeight(e.target.value)} placeholder="65" min={30} max={300} />
                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">kg</span>
                   </div>
                 </div>
@@ -346,11 +308,7 @@ export default function ProfileEdit() {
                 <label className="text-sm font-medium">
                   활동수준 <span className="text-destructive">*</span>
                 </label>
-                <select
-                  value={activityLevel}
-                  onChange={(e) => setActivityLevel(e.target.value)}
-                  className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-                >
+                <select value={activityLevel} onChange={e => setActivityLevel(e.target.value)} className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2">
                   <option value="">선택해주세요</option>
                   <option value="sedentary">거의 활동 안함</option>
                   <option value="light">가벼운 활동 (주 1~3회 가벼운 운동)</option>
@@ -359,49 +317,34 @@ export default function ProfileEdit() {
                   <option value="very_active">매우 활발한 활동 (하루 2회 운동, 운동선수)</option>
                 </select>
               </div>
-            </>
-          )}
+            </>}
 
           {/* 지병 입력 */}
           <div className="space-y-2 pt-2">
             <label className="text-sm font-medium">지병 (선택)</label>
             <div className="flex gap-2">
-              <Input
-                value={conditionInput}
-                onChange={e => setConditionInput(e.target.value)}
-                onKeyDown={handleConditionKeyDown}
-                placeholder="예: 고혈압, 당뇨"
-                className="flex-1"
-              />
+              <Input value={conditionInput} onChange={e => setConditionInput(e.target.value)} onKeyDown={handleConditionKeyDown} placeholder="예: 고혈압, 당뇨" className="flex-1" />
               <Button type="button" variant="outline" onClick={handleAddCondition}>
                 추가
               </Button>
             </div>
-            {conditions.length > 0 && (
-              <div className="flex flex-wrap gap-2 mt-2">
-                {conditions.map(condition => (
-                  <Badge key={condition} variant="secondary" className="gap-1">
+            {conditions.length > 0 && <div className="flex flex-wrap gap-2 mt-2">
+                {conditions.map(condition => <Badge key={condition} variant="secondary" className="gap-1">
                     {condition}
                     <button onClick={() => handleRemoveCondition(condition)}>
                       <X className="w-3 h-3" />
                     </button>
-                  </Badge>
-                ))}
-              </div>
-            )}
+                  </Badge>)}
+              </div>}
           </div>
         </div>
 
         {/* 저장 버튼 */}
         <Button className="w-full" onClick={handleSave} disabled={isSaving}>
-          {isSaving ? (
-            <>
+          {isSaving ? <>
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
               저장 중...
-            </>
-          ) : (
-            "변경사항 저장"
-          )}
+            </> : "변경사항 저장"}
         </Button>
 
         {/* Management Mode */}
@@ -459,11 +402,7 @@ export default function ProfileEdit() {
                     </div>
 
                     <div className="flex items-start gap-2 pt-2">
-                      <Checkbox 
-                        id="deleteConfirm" 
-                        checked={deleteConfirmed}
-                        onCheckedChange={(checked) => setDeleteConfirmed(checked === true)}
-                      />
+                      <Checkbox id="deleteConfirm" checked={deleteConfirmed} onCheckedChange={checked => setDeleteConfirmed(checked === true)} />
                       <label htmlFor="deleteConfirm" className="text-sm cursor-pointer">
                         위 내용을 확인했으며, 탈퇴에 동의합니다.
                       </label>
@@ -475,22 +414,15 @@ export default function ProfileEdit() {
                 <AlertDialogCancel onClick={() => setDeleteConfirmed(false)}>
                   취소
                 </AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={handleDeleteAccount}
-                  disabled={!deleteConfirmed || deleting}
-                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                >
+                <AlertDialogAction onClick={handleDeleteAccount} disabled={!deleteConfirmed || deleting} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
                   {deleting ? "처리 중..." : "탈퇴하기"}
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
 
-          <p className="text-xs text-muted-foreground text-center">
-            탈퇴 관련 문의: support@yanggaeng.kr
-          </p>
+          <p className="text-xs text-muted-foreground text-center">탈퇴 관련 문의: yeongyanggang@gmail.com</p>
         </div>
       </div>
-    </div>
-  );
+    </div>;
 }
