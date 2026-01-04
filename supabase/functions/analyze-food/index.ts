@@ -213,35 +213,64 @@ serve(async (req) => {
       ? `사용자의 건강 상태: ${healthTags.join(", ")}. 이를 고려해 맞춤 피드백을 제공해주세요.`
       : "";
 
-    const prompt = `당신은 영양 분석 전문가입니다. 이 음식 사진을 분석해주세요.
+    // 시스템 프롬프트: 영양 분석 전문가 AI 역할 정의
+    const systemPrompt = `너는 음식 사진을 분석하는 영양 분석 전문가 AI다.
+사용자가 업로드한 음식 사진을 보고,
+사진 속 음식의 종류와 구성 요소를 추정하여
+일반적인 1인분 기준으로 영양 정보를 제공해야 한다.
 
-${healthContext}
+다음 규칙을 반드시 지켜라:
 
-다음 JSON 형식으로 응답해주세요:
+1. 음식 인식
+- 사진에서 보이는 음식을 가능한 한 구체적으로 식별한다.
+  (예: "비빔밥", "제육볶음", "닭가슴살 샐러드", "라면" 등)
+- 여러 음식이 보일 경우, 각각을 분리해서 인식한다.
+- 정확히 알 수 없는 경우:
+  "○○로 보이는 음식"처럼 추정임을 명확히 표시한다.
+
+2. 양(분량) 추정
+- 일반적인 1인분 기준으로 추정한다.
+- 접시/그릇/포장 크기를 참고해 과도하지 않게 추정한다.
+- 분량을 알 수 없으면 "보통 1인분 기준 추정"이라고 명시한다.
+
+3. 영양 정보 산출
+- 각 음식에 대해 다음 항목을 추정해 제공한다:
+  - 칼로리(kcal)
+  - 탄수화물(g)
+  - 단백질(g)
+  - 지방(g)
+- 정확한 수치가 아니라 현실적인 범위의 추정값을 제시한다.
+
+4. 톤 & 주의사항
+- 사용자에게 단정적으로 말하지 않는다.
+- 의료적/진단적 표현은 사용하지 않는다.
+- '추정', '일반적인 기준'이라는 표현을 유지한다.`;
+
+    // 사용자 프롬프트: 분석 요청 및 출력 형식
+    const userPrompt = `이 음식 사진을 분석해주세요.
+
+${healthContext ? `사용자 건강 상태: ${healthTags.join(", ")}` : ""}
+
+결과는 반드시 다음 JSON 형식으로만 반환해주세요:
 {
-  "name": "음식 이름 (한국어)",
-  "calories": 예상 칼로리 (숫자만),
-  "nutrition_score": 영양 점수 1-100 사이 (숫자만, 100이 가장 건강함),
-  "feedback": "이 음식에 대한 짧은 피드백 (50자 이내, 친근하고 따뜻한 어투)",
-  "nutrients": [
-    {"name": "탄수화물", "amount": "약 30", "unit": "g"},
-    {"name": "단백질", "amount": "약 15", "unit": "g"},
-    {"name": "지방", "amount": "약 10", "unit": "g"},
-    {"name": "식이섬유", "amount": "약 3", "unit": "g"},
-    {"name": "나트륨", "amount": "약 500", "unit": "mg"}
+  "foods": [
+    {
+      "name": "음식 이름 (한국어)",
+      "estimated_portion": "1인분",
+      "calories_kcal": 숫자,
+      "carbohydrates_g": 숫자,
+      "protein_g": 숫자,
+      "fat_g": 숫자,
+      "confidence": "높음/중간/낮음"
+    }
   ],
-  "recommendations": ["맞춤 식단 추천 1", "맞춤 식단 추천 2"]
+  "notes": "사진 기준으로 추정된 값이며 실제 섭취량과 차이가 있을 수 있습니다."
 }
 
-건강 태그별 맞춤 피드백:
-- high_bp (고혈압): 저염식 권장, 나트륨 주의
-- diabetes (당뇨): 저당, 저탄수화물 권장
-- obesity (비만): 저칼로리, 고단백 권장
-- anemia (빈혈): 철분 풍부한 음식 권장
+여러 음식이 보이면 foods 배열에 각각 추가해주세요.
+JSON만 출력하고 다른 설명은 포함하지 마세요.`;
 
-JSON만 응답하고 다른 텍스트는 포함하지 마세요.`;
-
-    console.log("Calling Lovable AI for food image analysis...");
+    console.log("Calling Lovable AI (GPT-5-mini vision) for food image analysis...");
 
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -250,12 +279,13 @@ JSON만 응답하고 다른 텍스트는 포함하지 마세요.`;
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: "openai/gpt-5-mini",
         messages: [
+          { role: "system", content: systemPrompt },
           {
             role: "user",
             content: [
-              { type: "text", text: prompt },
+              { type: "text", text: userPrompt },
               {
                 type: "image_url",
                 image_url: { url: `data:${mimeType};base64,${base64Image}` },
@@ -293,8 +323,8 @@ JSON만 응답하고 다른 텍스트는 포함하지 마세요.`;
 
     console.log("AI image response:", content);
 
-    // Parse JSON from response
-    let analysisResult: FoodAnalysisResult;
+    // Parse JSON from response - 새로운 foods 배열 형식 처리
+    let analysisResult: FoodAnalysisResult | FoodAnalysisResult[];
     try {
       const jsonMatch = content.match(/\{[\s\S]*\}/);
       if (!jsonMatch) {
@@ -302,18 +332,48 @@ JSON만 응답하고 다른 텍스트는 포함하지 마세요.`;
       }
       const parsed = JSON.parse(jsonMatch[0]);
       
-      // nutrients에서 carbs, protein, fat 추출
-      const nutrients = parsed.nutrients || [];
-      const carbsNutrient = nutrients.find((n: any) => n.name === "탄수화물");
-      const proteinNutrient = nutrients.find((n: any) => n.name === "단백질");
-      const fatNutrient = nutrients.find((n: any) => n.name === "지방");
+      // 새 형식: foods 배열이 있는 경우
+      if (parsed.foods && Array.isArray(parsed.foods)) {
+        console.log("Multiple foods detected:", parsed.foods.length);
+        
+        // 여러 음식인 경우 배열로 반환
+        if (parsed.foods.length > 1) {
+          analysisResult = parsed.foods.map((food: any) => ({
+            name: food.name || "음식",
+            calories: Math.round(Number(food.calories_kcal) || 300),
+            carbs: Math.round(Number(food.carbohydrates_g) || 30),
+            protein: Math.round(Number(food.protein_g) || 15),
+            fat: Math.round(Number(food.fat_g) || 10),
+            estimated_portion: food.estimated_portion || "1인분",
+            confidence: food.confidence || "중간",
+            notes: parsed.notes || "사진 기준으로 추정된 값입니다.",
+          }));
+        } else {
+          // 단일 음식
+          const food = parsed.foods[0];
+          analysisResult = {
+            name: food.name || "음식",
+            calories: Math.round(Number(food.calories_kcal) || 300),
+            carbs: Math.round(Number(food.carbohydrates_g) || 30),
+            protein: Math.round(Number(food.protein_g) || 15),
+            fat: Math.round(Number(food.fat_g) || 10),
+            feedback: parsed.notes || "사진 기준으로 추정된 값입니다.",
+          };
+        }
+      } else {
+        // 레거시 형식 (기존 단일 음식 형식)
+        const nutrients = parsed.nutrients || [];
+        const carbsNutrient = nutrients.find((n: any) => n.name === "탄수화물");
+        const proteinNutrient = nutrients.find((n: any) => n.name === "단백질");
+        const fatNutrient = nutrients.find((n: any) => n.name === "지방");
 
-      analysisResult = {
-        ...parsed,
-        carbs: carbsNutrient ? parseInt(carbsNutrient.amount.replace(/[^0-9]/g, "")) || 30 : 30,
-        protein: proteinNutrient ? parseInt(proteinNutrient.amount.replace(/[^0-9]/g, "")) || 15 : 15,
-        fat: fatNutrient ? parseInt(fatNutrient.amount.replace(/[^0-9]/g, "")) || 10 : 10,
-      };
+        analysisResult = {
+          ...parsed,
+          carbs: carbsNutrient ? parseInt(carbsNutrient.amount.replace(/[^0-9]/g, "")) || 30 : 30,
+          protein: proteinNutrient ? parseInt(proteinNutrient.amount.replace(/[^0-9]/g, "")) || 15 : 15,
+          fat: fatNutrient ? parseInt(fatNutrient.amount.replace(/[^0-9]/g, "")) || 10 : 10,
+        };
+      }
     } catch (parseError) {
       console.error("Failed to parse AI response:", parseError);
       analysisResult = {
@@ -322,14 +382,7 @@ JSON만 응답하고 다른 텍스트는 포함하지 마세요.`;
         carbs: 30,
         protein: 15,
         fat: 10,
-        nutrition_score: 70,
         feedback: "맛있게 드세요! 🍽️",
-        nutrients: [
-          { name: "탄수화물", amount: "약 30", unit: "g" },
-          { name: "단백질", amount: "약 15", unit: "g" },
-          { name: "지방", amount: "약 10", unit: "g" },
-        ],
-        recommendations: ["균형 잡힌 식사를 유지하세요"],
       };
     }
 
