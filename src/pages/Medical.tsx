@@ -1264,78 +1264,67 @@ export default function Medical() {
       );
     }
 
-    // completed status
+    // completed status - 건강검진은 항상 요약(주요 문제/권장 행동) 형태로 표시
+    // 인바디와 달리 상세 항목(건강나이 + 개별 항목 카드)으로 바뀌지 않음
     const parsedData = currentRecord.parsed_data;
-    const healthAge = currentRecord.health_age;
-    const normalItems = parsedData?.items.filter(i => i.status === "normal") || [];
-    const warningItems = parsedData?.items.filter(i => i.status === "warning") || [];
-    const dangerItems = parsedData?.items.filter(i => i.status === "danger") || [];
+    const keyIssues = parsedData?.key_issues || [];
+    const actionItems = parsedData?.action_items || [];
 
     return (
       <div className="space-y-6">
-        <div className="bg-card rounded-2xl p-5 border border-border">
-          <div className="flex items-center gap-3 mb-4">
-            <CheckCircle2 className="w-6 h-6 text-emerald-600" />
-            <span className="text-lg font-medium">검진 결과 완료</span>
-            <span className="text-sm text-muted-foreground ml-auto">
-              {currentRecord.exam_date ? format(new Date(currentRecord.exam_date), "yyyy.MM.dd", { locale: ko }) : ""}
-            </span>
+        <div className="text-center">
+          <div className="w-20 h-20 mx-auto mb-4 rounded-3xl bg-emerald-100 flex items-center justify-center">
+            <CheckCircle2 className="w-10 h-10 text-emerald-600" />
           </div>
-
-          {/* 코치 코멘트 - 상단으로 이동 */}
-          <div className="mb-4 p-4 rounded-xl bg-primary/5 border border-primary/20">
-            <p className="text-sm font-medium text-primary mb-1">💬 코치 코멘트</p>
-            <p className="text-foreground">
-              {currentRecord.coach_comment || "코치 코멘트: 없음"}
-            </p>
-          </div>
-
-          {healthAge && (
-            <div className="text-center py-6 bg-emerald-50 rounded-2xl mb-4">
-              <p className="text-muted-foreground mb-2">건강 나이</p>
-              <p className="text-5xl font-bold text-emerald-600 mb-2">{healthAge}세</p>
-            </div>
-          )}
-
-          {parsedData?.summary && (
-            <p className="text-lg text-foreground mb-4">{parsedData.summary}</p>
-          )}
-
-          <div className="space-y-4">
-            {dangerItems.length > 0 && (
-              <div>
-                <h4 className="font-medium text-red-700 mb-2">관리 필요 ({dangerItems.length}개)</h4>
-                <div className="space-y-2">
-                  {dangerItems.map((item, idx) => (
-                    <HealthItemCard key={idx} item={item} />
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {warningItems.length > 0 && (
-              <div>
-                <h4 className="font-medium text-amber-700 mb-2">주의 ({warningItems.length}개)</h4>
-                <div className="space-y-2">
-                  {warningItems.map((item, idx) => (
-                    <HealthItemCard key={idx} item={item} />
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {normalItems.length > 0 && (
-              <div>
-                <h4 className="font-medium text-emerald-700 mb-2">정상 ({normalItems.length}개)</h4>
-                <div className="space-y-2">
-                  {normalItems.map((item, idx) => (
-                    <HealthItemCard key={idx} item={item} />
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
+          <h2 className="text-xl font-semibold text-foreground mb-1">
+            검진 결과 완료
+          </h2>
+          <p className="text-muted-foreground">
+            {currentRecord.exam_date ? format(new Date(currentRecord.exam_date), "yyyy.MM.dd", { locale: ko }) : ""}
+          </p>
         </div>
+
+        {/* 코치 코멘트 */}
+        {currentRecord.coach_comment && (
+          <div className="p-4 rounded-xl bg-primary/5 border border-primary/20">
+            <p className="text-sm font-medium text-primary mb-1">💬 코치 코멘트</p>
+            <p className="text-foreground">{currentRecord.coach_comment}</p>
+          </div>
+        )}
+
+        {parsedData && (
+          <div className="bg-card rounded-2xl p-5 border border-border space-y-4">
+            {/* 주요 문제 */}
+            {keyIssues.length > 0 && (
+              <div>
+                <h4 className="font-medium text-sm text-red-600 mb-2">⚠️ 주요 문제</h4>
+                <ul className="space-y-1">
+                  {keyIssues.map((issue: string, idx: number) => (
+                    <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
+                      <span className="text-red-500">•</span>
+                      {issue}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* 권장 행동 */}
+            {actionItems.length > 0 && (
+              <div>
+                <h4 className="font-medium text-sm text-emerald-600 mb-2">✅ 권장 행동</h4>
+                <ul className="space-y-1">
+                  {actionItems.map((item: string, idx: number) => (
+                    <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
+                      <span className="text-emerald-500">•</span>
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
 
         <Button size="lg" className="w-full h-12" onClick={() => setShowShareDialog(true)}>
           <Share2 className="w-5 h-5 mr-2" />

@@ -218,7 +218,8 @@ export function useCoaching() {
         healthRecordResult,
         gymResult,
         adminResult,
-        versionResult
+        versionResult,
+        healthAgeResult, // 인바디 기반 건강나이
       ] = await Promise.all([
         // 오늘 식사 기록 전체
         supabase.from('meal_records')
@@ -241,9 +242,9 @@ export function useCoaching() {
           .select('calorie_goal, carb_goal_g, protein_goal_g, fat_goal_g')
           .eq('user_id', user.id)
           .maybeSingle(),
-        // 최근 건강 기록 1건
+        // 최근 건강 기록 1건 (건강검진 데이터 - 건강나이 제외)
         supabase.from('health_records')
-          .select('id, exam_date, health_age, health_tags, parsed_data, created_at')
+          .select('id, exam_date, health_tags, parsed_data, created_at')
           .eq('user_id', user.id)
           .order('created_at', { ascending: false })
           .limit(1),
@@ -263,6 +264,13 @@ export function useCoaching() {
           .eq('report_date', today)
           .order('version_number', { ascending: false })
           .limit(1),
+        // 인바디 기반 건강나이 (health_age_results 테이블에서)
+        supabase.from('health_age_results')
+          .select('actual_age, health_age')
+          .eq('user_id', user.id)
+          .order('calculated_at', { ascending: false })
+          .limit(1)
+          .maybeSingle(),
       ]);
 
       // 데이터 집계
@@ -287,6 +295,9 @@ export function useCoaching() {
       const healthRecord = healthRecordResult.data?.[0] || null;
       const gymRecords = gymResult.data || [];
       const adminIds = (adminResult.data || []).map(r => r.user_id);
+      
+      // 인바디 기반 건강나이 (건강검진 건강나이와 분리)
+      const inbodyHealthAge = healthAgeResult.data;
 
       // 버전 번호 계산
       const lastVersion = versionResult.data?.[0]?.version_number || 0;
@@ -311,16 +322,18 @@ export function useCoaching() {
             goal: waterGoal,
             percent: waterGoal > 0 ? Math.round((totalWater / waterGoal) * 100) : 0,
           },
-          healthAge: healthRecord ? {
-            actual: null, // 실제 나이는 프로필에서 가져와야 함
-            health: healthRecord.health_age,
+          // 인바디 기반 건강나이만 사용 (건강검진 건강나이 사용 안함)
+          healthAge: inbodyHealthAge ? {
+            actual: inbodyHealthAge.actual_age,
+            health: inbodyHealthAge.health_age,
           } : null,
         },
         
+        // 건강검진 데이터 (건강나이 필드는 null로 설정 - 인바디 건강나이와 분리)
         health: healthRecord ? {
           id: healthRecord.id,
           exam_date: healthRecord.exam_date,
-          health_age: healthRecord.health_age,
+          health_age: null, // 건강검진 건강나이는 활동 공유에 포함하지 않음
           health_tags: healthRecord.health_tags,
           parsed_data: healthRecord.parsed_data,
           created_at: healthRecord.created_at,

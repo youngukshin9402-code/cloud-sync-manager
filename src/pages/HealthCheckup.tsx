@@ -242,81 +242,38 @@ export default function HealthCheckup() {
               </span>
             </div>
 
-            {/* Status Summary */}
-            {(() => {
-              const { normal, warning, danger } = getStatusSummary(latestParsedData);
-              return (
-                <div className="flex gap-3">
-                  {normal > 0 && (
-                    <div className="flex items-center gap-1 px-3 py-1 bg-health-green/10 text-health-green rounded-full text-sm">
-                      <CheckCircle className="w-4 h-4" />
-                      정상 {normal}
-                    </div>
-                  )}
-                  {warning > 0 && (
-                    <div className="flex items-center gap-1 px-3 py-1 bg-yellow-100 text-yellow-700 rounded-full text-sm">
-                      <AlertCircle className="w-4 h-4" />
-                      주의 {warning}
-                    </div>
-                  )}
-                  {danger > 0 && (
-                    <div className="flex items-center gap-1 px-3 py-1 bg-destructive/10 text-destructive rounded-full text-sm">
-                      <AlertTriangle className="w-4 h-4" />
-                      관리필요 {danger}
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
-
-            {/* Summary Text */}
-            {latestParsedData.summary && (
-              <p className="text-sm text-muted-foreground">{latestParsedData.summary}</p>
-            )}
-
-            {/* Health Score */}
-            {latestParsedData.health_score && (
-              <div className="text-center p-4 bg-primary/5 rounded-2xl">
-                <p className="text-sm text-muted-foreground mb-1">건강 점수</p>
-                <p className="text-4xl font-bold text-primary">{latestParsedData.health_score}<span className="text-lg">/100</span></p>
+            {/* 코치 코멘트 */}
+            {latestRecord.coach_comment && (
+              <div className="p-4 rounded-xl bg-primary/5 border border-primary/20">
+                <p className="text-sm font-medium text-primary mb-1">💬 코치 코멘트</p>
+                <p className="text-foreground">{latestRecord.coach_comment}</p>
               </div>
             )}
 
-            {/* Health Age */}
-            {latestParsedData.health_age && (
-              <div className="flex items-center gap-2 text-lg">
-                <Heart className="w-5 h-5 text-primary" />
-                <span>건강나이: </span>
-                <span className="font-bold text-primary">{latestParsedData.health_age}세</span>
-              </div>
-            )}
-
-            {/* Values Grid */}
-            {latestParsedData.items && latestParsedData.items.length > 0 && (
-              <div className="grid grid-cols-2 gap-3">
-                {latestParsedData.items.map((item, idx) => (
-                  <div key={idx} className="bg-muted/50 rounded-xl p-3">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs text-muted-foreground">{item.name}</span>
-                      <StatusBadge status={item.status} />
-                    </div>
-                    <p className="text-lg font-semibold">
-                      {item.value} <span className="text-sm font-normal text-muted-foreground">{item.unit}</span>
-                    </p>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Recommendations */}
-            {latestParsedData.recommendations && latestParsedData.recommendations.length > 0 && (
-              <div className="space-y-2">
-                <p className="font-medium text-sm">권장사항</p>
+            {/* 주요 문제 - 항상 요약 형태로 표시 */}
+            {latestParsedData.key_issues && latestParsedData.key_issues.length > 0 && (
+              <div>
+                <h4 className="font-medium text-sm text-red-600 mb-2">⚠️ 주요 문제</h4>
                 <ul className="space-y-1">
-                  {latestParsedData.recommendations.map((rec, idx) => (
+                  {latestParsedData.key_issues.map((issue: string, idx: number) => (
                     <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
-                      <CheckCircle className="w-4 h-4 text-health-green shrink-0 mt-0.5" />
-                      {rec}
+                      <span className="text-red-500">•</span>
+                      {issue}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* 권장 행동 - 항상 요약 형태로 표시 */}
+            {latestParsedData.action_items && latestParsedData.action_items.length > 0 && (
+              <div>
+                <h4 className="font-medium text-sm text-emerald-600 mb-2">✅ 권장 행동</h4>
+                <ul className="space-y-1">
+                  {latestParsedData.action_items.map((item: string, idx: number) => (
+                    <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
+                      <span className="text-emerald-500">•</span>
+                      {item}
                     </li>
                   ))}
                 </ul>
