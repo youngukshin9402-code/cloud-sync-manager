@@ -56,9 +56,9 @@ export function UserProfileModal({ open, onOpenChange, user }: UserProfileModalP
     if (open && user) {
       fetchSettings();
 
-      // Realtime subscription for live updates
+      // Realtime subscription for live updates on nutrition_settings
       const channel = supabase
-        .channel(`nutrition-settings-${user.id}`)
+        .channel(`nutrition-settings-admin-${user.id}`)
         .on(
           'postgres_changes',
           {
@@ -70,6 +70,8 @@ export function UserProfileModal({ open, onOpenChange, user }: UserProfileModalP
           (payload) => {
             if (payload.new) {
               setSettings(payload.new as NutritionSettings);
+            } else if (payload.eventType === 'DELETE') {
+              setSettings(null);
             }
           }
         )
@@ -78,6 +80,8 @@ export function UserProfileModal({ open, onOpenChange, user }: UserProfileModalP
       return () => {
         supabase.removeChannel(channel);
       };
+    } else {
+      setSettings(null);
     }
   }, [open, user]);
 

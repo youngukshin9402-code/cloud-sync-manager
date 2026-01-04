@@ -54,14 +54,25 @@ export default function AdminUsers() {
 
 
 
-  // 보호자/피보호자 연동 관계 로드
+  // 보호자/피보호자 연동 관계 로드 - 관리자용으로 모든 연결 가져오기
   const fetchGuardianConnections = async () => {
-    const { data: connections } = await supabase
+    // 관리자로서 모든 연결 정보 조회
+    const { data: connections, error } = await supabase
       .from('guardian_connections')
       .select('id, user_id, guardian_id')
       .not('guardian_id', 'is', null);
 
-    if (!connections) return;
+    if (error) {
+      console.error('Error fetching guardian connections:', error);
+      return;
+    }
+
+    if (!connections || connections.length === 0) {
+      setGuardianRelations(new Map());
+      setWardRelations(new Map());
+      setNicknameMap(new Map());
+      return;
+    }
 
     // 사용자별 보호자 ID 매핑
     const guardianMap = new Map<string, string[]>();
@@ -73,14 +84,17 @@ export default function AdminUsers() {
       if (conn.guardian_id && conn.user_id !== conn.guardian_id) {
         // 사용자 → 보호자
         const existingGuardians = guardianMap.get(conn.user_id) || [];
-        existingGuardians.push(conn.guardian_id);
+        if (!existingGuardians.includes(conn.guardian_id)) {
+          existingGuardians.push(conn.guardian_id);
+        }
         guardianMap.set(conn.user_id, existingGuardians);
         
         // 보호자 → 피보호자
         const existingWards = wardMap.get(conn.guardian_id) || [];
-        existingWards.push(conn.user_id);
+        if (!existingWards.includes(conn.user_id)) {
+          existingWards.push(conn.user_id);
+        }
         wardMap.set(conn.guardian_id, existingWards);
-        
         
         allUserIds.add(conn.user_id);
         allUserIds.add(conn.guardian_id);
@@ -100,6 +114,8 @@ export default function AdminUsers() {
       const nickMap = new Map<string, string>();
       (profiles || []).forEach(p => nickMap.set(p.id, p.nickname || '사용자'));
       setNicknameMap(nickMap);
+    } else {
+      setNicknameMap(new Map());
     }
   };
 

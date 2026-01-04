@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDailyData } from "@/contexts/DailyDataContext";
@@ -6,6 +6,7 @@ import { useHealthAge } from "@/contexts/HealthAgeContext";
 import { useNutritionSettings } from "@/hooks/useNutritionSettings";
 import { useTodayMealRecords } from "@/hooks/useMealRecordsQuery";
 import { useGoalAchievement } from "@/hooks/useGoalAchievement";
+import { useGuardianConnection } from "@/hooks/useGuardianConnection";
 import { Badge } from "@/components/ui/badge";
 import {
   Flame,
@@ -80,6 +81,12 @@ export default function Dashboard() {
   if (!profile) return null;
 
   const isGuardian = profile?.user_type === "guardian";
+  
+  // 보호자가 연결된 피보호자가 있는지 확인
+  const { connections } = useGuardianConnection();
+  const hasConnectedWards = isGuardian && connections.filter(
+    (c) => c.guardian_id && c.user_id !== c.guardian_id
+  ).length > 0;
 
   // 건강나이 데이터 (DB 전역 상태에서 즉시 가져옴 - 재계산 없음)
   const hasHealthAge = healthAgeData !== null;
@@ -234,8 +241,8 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Guardian Family Section - 보호자만 표시 */}
-      {isGuardian && (
+      {/* Guardian Family Section - 보호자이고 연결된 피보호자가 있을 때만 표시 */}
+      {hasConnectedWards && (
         <Link to="/guardian" className="block mt-4">
           <div className="bg-gradient-to-r from-primary/10 to-primary/5 rounded-2xl border border-primary/20 p-4 flex items-center justify-between hover:shadow-md transition-shadow">
             <div className="flex items-center gap-3">
