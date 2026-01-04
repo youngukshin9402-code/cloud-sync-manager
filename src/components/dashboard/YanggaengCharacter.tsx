@@ -67,7 +67,12 @@ export default function YanggaengCharacter({ achievementCount }: YanggaengCharac
   const [isTransitioning, setIsTransitioning] = useState(false);
   
   // 컴포넌트 마운트 시 랜덤 문구 생성 (재진입 시 변경됨)
-  const [message] = useState(() => getRandomMessage());
+  const [message, setMessage] = useState(() => getRandomMessage());
+  
+  // 캐릭터 터치 시 새로운 랜덤 문구
+  const handleCharacterClick = () => {
+    setMessage(getRandomMessage());
+  };
 
   // 상태 전환 애니메이션
   useEffect(() => {
@@ -96,13 +101,14 @@ export default function YanggaengCharacter({ achievementCount }: YanggaengCharac
 
   return (
     <div className="flex flex-col items-center py-2">
-      {/* 양갱 캐릭터 */}
+      {/* 양갱 캐릭터 - 터치 시 새 문구 */}
       <div 
-        className="relative w-[100px] h-[100px] flex items-center justify-center"
+        className="relative w-[100px] h-[100px] flex items-center justify-center cursor-pointer active:scale-95 transition-transform"
         style={{
           transform: isTransitioning ? 'scale(0.95)' : 'scale(1)',
           transition: 'transform 0.2s ease-out',
         }}
+        onClick={handleCharacterClick}
       >
         <img
           src={imageSrc}

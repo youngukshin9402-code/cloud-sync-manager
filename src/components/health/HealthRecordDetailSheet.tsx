@@ -321,7 +321,7 @@ export function HealthRecordDetailSheet({ record, open, onOpenChange, userNickna
                     </CardContent>
                   </Card>
 
-                  {/* 2. AI 분석 결과 (aiReport 또는 parsed_data fallback) */}
+                  {/* 2. AI 분석 결과 - 사용자 계정 형식 (주요 문제, 권장 행동) */}
                   <Card>
                     <CardHeader className="pb-3">
                       <CardTitle className="flex items-center gap-2 text-base">
@@ -336,58 +336,70 @@ export function HealthRecordDetailSheet({ record, open, onOpenChange, userNickna
                         
                         if (analysisData) {
                           return (
-                            <div className="space-y-3">
+                            <div className="space-y-4">
+                              {/* 요약 */}
                               {analysisData.summary && (
                                 <p className="text-sm">{analysisData.summary}</p>
                               )}
                               
-                              {analysisData.health_age && (
-                                <div className="flex items-center gap-2">
-                                  <span className="text-sm text-muted-foreground">건강 나이:</span>
-                                  <span className="font-semibold text-lg text-primary">
-                                    {analysisData.health_age}세
-                                  </span>
-                                </div>
-                              )}
+                              {/* 건강 나이 & 점수 */}
+                              <div className="flex gap-4">
+                                {analysisData.health_age && (
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-sm text-muted-foreground">건강 나이:</span>
+                                    <span className="font-semibold text-lg text-primary">
+                                      {analysisData.health_age}세
+                                    </span>
+                                  </div>
+                                )}
 
-                              {analysisData.health_score !== undefined && (
-                                <div className="flex items-center gap-2">
-                                  <span className="text-sm text-muted-foreground">건강 점수:</span>
-                                  <span className="font-semibold text-lg text-primary">
-                                    {analysisData.health_score}점
-                                  </span>
-                                </div>
-                              )}
+                                {analysisData.health_score !== undefined && (
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-sm text-muted-foreground">건강 점수:</span>
+                                    <span className="font-semibold text-lg text-primary">
+                                      {analysisData.health_score}점
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
 
-                              {analysisData.recommendations?.length > 0 && (
-                                <div>
-                                  <p className="text-sm font-medium mb-2">권장사항</p>
+                              {/* 주요 문제 (key_issues 또는 risk_factors) */}
+                              {(analysisData.key_issues?.length > 0 || analysisData.risk_factors?.length > 0) && (
+                                <div className="bg-red-50 dark:bg-red-950/20 rounded-xl p-3">
+                                  <h4 className="font-medium text-sm text-red-600 dark:text-red-400 mb-2 flex items-center gap-1">
+                                    <AlertCircle className="w-4 h-4" />
+                                    주요 문제
+                                  </h4>
                                   <ul className="space-y-1">
-                                    {analysisData.recommendations.map((rec: string, idx: number) => (
+                                    {(analysisData.key_issues || analysisData.risk_factors)?.map((issue: string, idx: number) => (
                                       <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
-                                        <CheckCircle className="w-4 h-4 text-health-green shrink-0 mt-0.5" />
-                                        {rec}
+                                        <span className="text-red-500">•</span>
+                                        {issue}
                                       </li>
                                     ))}
                                   </ul>
                                 </div>
                               )}
 
-                              {analysisData.risk_factors?.length > 0 && (
-                                <div>
-                                  <p className="text-sm font-medium mb-2">주의 항목</p>
+                              {/* 권장 행동 (action_items 또는 recommendations) */}
+                              {(analysisData.action_items?.length > 0 || analysisData.recommendations?.length > 0) && (
+                                <div className="bg-emerald-50 dark:bg-emerald-950/20 rounded-xl p-3">
+                                  <h4 className="font-medium text-sm text-emerald-600 dark:text-emerald-400 mb-2 flex items-center gap-1">
+                                    <CheckCircle className="w-4 h-4" />
+                                    권장 행동
+                                  </h4>
                                   <ul className="space-y-1">
-                                    {analysisData.risk_factors.map((risk: string, idx: number) => (
+                                    {(analysisData.action_items || analysisData.recommendations)?.map((item: string, idx: number) => (
                                       <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
-                                        <AlertCircle className="w-4 h-4 text-yellow-500 shrink-0 mt-0.5" />
-                                        {risk}
+                                        <span className="text-emerald-500">•</span>
+                                        {item}
                                       </li>
                                     ))}
                                   </ul>
                                 </div>
                               )}
 
-                              {/* items 배열 표시 (parsed_data에서) */}
+                              {/* items 배열 표시 (검사 항목) */}
                               {analysisData.items?.length > 0 && (
                                 <div>
                                   <p className="text-sm font-medium mb-2">검사 항목</p>
