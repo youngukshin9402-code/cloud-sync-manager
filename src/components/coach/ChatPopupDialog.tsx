@@ -85,12 +85,20 @@ export function ChatPopupDialog({
     }
   }, [open, user, userId]);
 
-  // 스크롤을 맨 아래로
+  // 스크롤을 맨 아래로 (최근 메시지 표시)
   useEffect(() => {
-    if (scrollRef.current && messages.length > 0) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    if (!loading && messages.length > 0) {
+      // 약간의 딜레이 후 스크롤 (렌더링 완료 대기)
+      setTimeout(() => {
+        if (scrollRef.current) {
+          const scrollContainer = scrollRef.current.querySelector('[data-radix-scroll-area-viewport]');
+          if (scrollContainer) {
+            scrollContainer.scrollTop = scrollContainer.scrollHeight;
+          }
+        }
+      }, 100);
     }
-  }, [messages]);
+  }, [messages, loading]);
 
   // 실시간 메시지 구독
   useEffect(() => {
