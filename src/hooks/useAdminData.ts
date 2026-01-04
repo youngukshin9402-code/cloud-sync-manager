@@ -102,14 +102,29 @@ export function useAdminData() {
     });
   };
 
-  // 사용자 목록
+  // 사용자 목록 (관리자 제외)
   const fetchUsers = async () => {
-    const { data, error } = await supabase
+    // 먼저 admin 역할을 가진 user_id 목록을 가져옴
+    const { data: adminRoles } = await supabase
+      .from("user_roles")
+      .select("user_id")
+      .eq("role", "admin");
+    
+    const adminIds = (adminRoles || []).map(r => r.user_id);
+    
+    // 관리자 제외하고 모든 사용자 조회
+    let query = supabase
       .from("profiles")
       .select("*")
       .in("user_type", ["user", "guardian"])
       .order("created_at", { ascending: false });
+    
+    // admin 목록이 있으면 해당 ID들을 제외
+    if (adminIds.length > 0) {
+      query = query.not("id", "in", `(${adminIds.join(",")})`);
+    }
 
+    const { data, error } = await query;
     if (!error) setUsers(data || []);
   };
 

@@ -20,8 +20,9 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, Search, UserCog, Crown, Heart, Eye, RefreshCw } from "lucide-react";
+import { ArrowLeft, Search, UserCog, Crown, Heart, Eye, RefreshCw, Unlink } from "lucide-react";
 import { UserProfileModal } from "@/components/admin/UserProfileModal";
+import { useToast } from "@/hooks/use-toast";
 
 interface GuardianRelation {
   userId: string;
@@ -35,6 +36,7 @@ interface WardRelation {
 
 export default function AdminUsers() {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const { users, coaches, loading, assignCoach, refreshData } = useAdminData();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedUser, setSelectedUser] = useState<any>(null);
@@ -51,12 +53,14 @@ export default function AdminUsers() {
   const [wardRelations, setWardRelations] = useState<Map<string, string[]>>(new Map());
   // 닉네임 맵 (모든 관련 유저)
   const [nicknameMap, setNicknameMap] = useState<Map<string, string>>(new Map());
+  // 연동 ID 맵 (user_id → connection_id)
+  const [connectionIdMap, setConnectionIdMap] = useState<Map<string, string>>(new Map());
 
   // 보호자/피보호자 연동 관계 로드
   const fetchGuardianConnections = async () => {
     const { data: connections } = await supabase
       .from('guardian_connections')
-      .select('user_id, guardian_id')
+      .select('id, user_id, guardian_id')
       .not('guardian_id', 'is', null);
 
     if (!connections) return;
@@ -65,6 +69,8 @@ export default function AdminUsers() {
     const guardianMap = new Map<string, string[]>();
     // 보호자별 피보호자 ID 매핑
     const wardMap = new Map<string, string[]>();
+    // connection_id 맵
+    const connIdMap = new Map<string, string>();
     const allUserIds = new Set<string>();
 
     connections.forEach(conn => {
@@ -79,6 +85,9 @@ export default function AdminUsers() {
         existingWards.push(conn.user_id);
         wardMap.set(conn.guardian_id, existingWards);
         
+        // connection_id 저장 (user_id 기준)
+        connIdMap.set(conn.user_id, conn.id);
+        
         allUserIds.add(conn.user_id);
         allUserIds.add(conn.guardian_id);
       }
@@ -86,6 +95,7 @@ export default function AdminUsers() {
 
     setGuardianRelations(guardianMap);
     setWardRelations(wardMap);
+    setConnectionIdMap(connIdMap);
 
     // 닉네임 조회
     if (allUserIds.size > 0) {
@@ -106,23 +116,34 @@ export default function AdminUsers() {
     }
   }, [loading]);
 
-  // Realtime 구독 - profiles 테이블 변경 감지
+  // Realtime 구독 - profiles & guardian_connections 테이블 변경 감지
   useEffect(() => {
-    const channel = supabase
+    const profilesChannel = supabase
       .channel('admin-profiles-changes')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'profiles' },
         () => {
-          // 프로필 변경 시 데이터 새로고침
           refreshData?.();
           fetchGuardianConnections();
         }
       )
       .subscribe();
 
+    const guardianChannel = supabase
+      .channel('admin-guardian-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'guardian_connections' },
+        () => {
+          fetchGuardianConnections();
+        }
+      )
+      .subscribe();
+
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(profilesChannel);
+      supabase.removeChannel(guardianChannel);
     };
   }, [refreshData]);
 
@@ -155,6 +176,41 @@ export default function AdminUsers() {
   const handleViewProfile = (user: any) => {
     setProfileViewUser(user);
     setShowProfileModal(true);
+  };
+
+  // 보호자 연동 해지 함수
+  const handleDisconnectGuardian = async (userId: string) => {
+    const connectionId = connectionIdMap.get(userId);
+    if (!connectionId) {
+      toast({
+        title: "연동 해지 실패",
+        description: "연동 정보를 찾을 수 없습니다.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const { error } = await supabase
+      .from('guardian_connections')
+      .delete()
+      .eq('id', connectionId);
+
+    if (error) {
+      toast({
+        title: "연동 해지 실패",
+        description: error.message,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    toast({ title: "보호자 연동이 해지되었습니다." });
+    fetchGuardianConnections();
+  };
+
+  // 사용자가 보호자와 연동되어 있는지 확인
+  const hasGuardianConnection = (userId: string): boolean => {
+    return guardianRelations.has(userId) && (guardianRelations.get(userId) || []).length > 0;
   };
 
   const handleRefresh = () => {
@@ -238,11 +294,22 @@ export default function AdminUsers() {
 
                 {/* 보호자 표시 (사용자 입장) */}
                 {guardianNames.length > 0 && (
-                  <div className="flex items-center gap-2 p-2 bg-rose-50 dark:bg-rose-950/30 rounded-lg">
-                    <Heart className="w-4 h-4 text-rose-500" />
-                    <span className="text-sm text-rose-700 dark:text-rose-400">
-                      보호자: {guardianNames.join(', ')}
-                    </span>
+                  <div className="flex items-center justify-between p-2 bg-rose-50 dark:bg-rose-950/30 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <Heart className="w-4 h-4 text-rose-500" />
+                      <span className="text-sm text-rose-700 dark:text-rose-400">
+                        보호자: {guardianNames.join(', ')}
+                      </span>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 px-2 text-xs text-muted-foreground hover:text-destructive"
+                      onClick={() => handleDisconnectGuardian(user.id)}
+                    >
+                      <Unlink className="w-3 h-3 mr-1" />
+                      해지
+                    </Button>
                   </div>
                 )}
 
@@ -341,12 +408,23 @@ export default function AdminUsers() {
                       </td>
                       <td className="p-4 text-center">
                         {guardianNames.length > 0 ? (
-                          <div className="flex items-center justify-center gap-1">
-                            <Heart className="w-4 h-4 text-rose-500" />
-                            <span className="text-sm">{guardianNames.join(', ')}</span>
+                          <div className="flex items-center justify-center gap-2">
+                            <div className="flex items-center gap-1">
+                              <Heart className="w-4 h-4 text-rose-500" />
+                              <span className="text-sm">{guardianNames.join(', ')}</span>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
+                              onClick={() => handleDisconnectGuardian(user.id)}
+                              title="연동 해지"
+                            >
+                              <Unlink className="w-3 h-3" />
+                            </Button>
                           </div>
                         ) : (
-                          <span className="text-muted-foreground">미연동</span>
+                          <span className="text-muted-foreground">-</span>
                         )}
                       </td>
                       <td className="p-4 text-center">
