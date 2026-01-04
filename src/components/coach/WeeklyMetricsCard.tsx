@@ -1,17 +1,18 @@
 /**
  * 코치 대시보드용 - 배정 사용자 7일 지표 카드
+ * 지표 기준: 일요일 시작 ~ 토요일 종료 (지난 7일)
  */
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Flame, Beef, Scale, Dumbbell, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { Flame, Droplets, Scale, Dumbbell } from 'lucide-react';
+import { startOfWeek, endOfWeek, subWeeks, format } from 'date-fns';
 
 interface UserMetrics {
   avgCalories: number;
-  avgProtein: number;
-  latestWeight: number | null;
-  weightChange: number | null;
+  avgWater: number;
+  currentWeight: number | null;
   exerciseDays: number;
 }
 
@@ -20,76 +21,102 @@ interface WeeklyMetricsCardProps {
   nickname: string;
 }
 
+// 지난주 일요일~토요일 계산
+function getLastWeekRange() {
+  const today = new Date();
+  // 이번주 일요일
+  const thisWeekStart = startOfWeek(today, { weekStartsOn: 0 });
+  // 지난주 일요일
+  const lastWeekStart = subWeeks(thisWeekStart, 1);
+  // 지난주 토요일
+  const lastWeekEnd = endOfWeek(lastWeekStart, { weekStartsOn: 0 });
+  
+  return {
+    start: format(lastWeekStart, 'yyyy-MM-dd'),
+    end: format(lastWeekEnd, 'yyyy-MM-dd'),
+  };
+}
+
 export function WeeklyMetricsCard({ userId, nickname }: WeeklyMetricsCardProps) {
   const [metrics, setMetrics] = useState<UserMetrics | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchMetrics = async () => {
-      const weekAgo = new Date();
-      weekAgo.setDate(weekAgo.getDate() - 7);
-      const weekAgoStr = weekAgo.toISOString().split('T')[0];
+      const { start: weekStart, end: weekEnd } = getLastWeekRange();
 
       try {
-        // 식사 기록 (7일간)
+        // 1. 식사 기록 - 7일간 평균 칼로리
         const { data: meals } = await supabase
           .from('meal_records')
-          .select('foods, total_calories, date')
+          .select('total_calories, date')
           .eq('user_id', userId)
-          .gte('date', weekAgoStr);
+          .gte('date', weekStart)
+          .lte('date', weekEnd);
 
-        // 체중 기록 (최근 2개)
-        const { data: weights } = await supabase
-          .from('weight_records')
-          .select('weight, date')
+        // 2. 물 기록 - 7일간 평균 수분 섭취량
+        const { data: waterLogs } = await supabase
+          .from('water_logs')
+          .select('amount, date')
           .eq('user_id', userId)
-          .order('date', { ascending: false })
-          .limit(2);
+          .gte('date', weekStart)
+          .lte('date', weekEnd);
 
-        // 운동 기록 (7일간 unique days)
+        // 3. 현재 체중 - nutrition_settings에서 가져오기 (실시간 반영)
+        const { data: nutritionSettings } = await supabase
+          .from('nutrition_settings')
+          .select('current_weight')
+          .eq('user_id', userId)
+          .single();
+
+        // 4. 운동 기록 - 7일간 운동한 날짜 수
         const { data: exercises } = await supabase
           .from('gym_records')
           .select('date')
           .eq('user_id', userId)
-          .gte('date', weekAgoStr);
+          .gte('date', weekStart)
+          .lte('date', weekEnd);
 
-        // 칼로리/단백질 평균 계산
-        let totalCalories = 0;
-        let totalProtein = 0;
-        let mealDays = new Set<string>();
-
+        // 칼로리 평균 계산 (날짜별로 합산 후 평균)
+        const caloriesByDate = new Map<string, number>();
         (meals || []).forEach(meal => {
-          totalCalories += meal.total_calories || 0;
-          mealDays.add(meal.date);
-          
-          const foods = meal.foods as Array<{ protein?: number }>;
-          (foods || []).forEach(f => {
-            totalProtein += f.protein || 0;
-          });
+          const date = meal.date;
+          const current = caloriesByDate.get(date) || 0;
+          caloriesByDate.set(date, current + (meal.total_calories || 0));
         });
-
-        const daysCount = Math.max(mealDays.size, 1);
-        const avgCalories = Math.round(totalCalories / daysCount);
-        const avgProtein = Math.round(totalProtein / daysCount);
-
-        // 체중 변화
-        let latestWeight: number | null = null;
-        let weightChange: number | null = null;
-        if (weights && weights.length > 0) {
-          latestWeight = Number(weights[0].weight);
-          if (weights.length > 1) {
-            weightChange = Number(weights[0].weight) - Number(weights[1].weight);
-          }
+        
+        let avgCalories = 0;
+        if (caloriesByDate.size > 0) {
+          const totalCalories = Array.from(caloriesByDate.values()).reduce((a, b) => a + b, 0);
+          avgCalories = Math.round(totalCalories / caloriesByDate.size);
         }
 
-        // 운동 일수
+        // 물 평균 계산 (날짜별로 합산 후 평균)
+        const waterByDate = new Map<string, number>();
+        (waterLogs || []).forEach(log => {
+          const date = log.date;
+          const current = waterByDate.get(date) || 0;
+          waterByDate.set(date, current + (log.amount || 0));
+        });
+        
+        let avgWater = 0;
+        if (waterByDate.size > 0) {
+          const totalWater = Array.from(waterByDate.values()).reduce((a, b) => a + b, 0);
+          avgWater = Math.round(totalWater / waterByDate.size);
+        }
+
+        // 현재 체중
+        const currentWeight = nutritionSettings?.current_weight 
+          ? Number(nutritionSettings.current_weight) 
+          : null;
+
+        // 운동 일수 (unique dates)
         const exerciseDays = new Set((exercises || []).map(e => e.date)).size;
 
         setMetrics({
           avgCalories,
-          avgProtein,
-          latestWeight,
-          weightChange,
+          avgWater,
+          currentWeight,
           exerciseDays,
         });
       } catch (error) {
@@ -118,13 +145,6 @@ export function WeeklyMetricsCard({ userId, nickname }: WeeklyMetricsCardProps) 
 
   if (!metrics) return null;
 
-  const WeightTrend = () => {
-    if (metrics.weightChange === null) return <Minus className="w-3 h-3 text-muted-foreground" />;
-    if (metrics.weightChange > 0) return <TrendingUp className="w-3 h-3 text-red-500" />;
-    if (metrics.weightChange < 0) return <TrendingDown className="w-3 h-3 text-green-500" />;
-    return <Minus className="w-3 h-3 text-muted-foreground" />;
-  };
-
   return (
     <div className="bg-card rounded-xl border border-border p-4">
       <p className="font-medium text-sm mb-3">{nickname} - 최근 7일</p>
@@ -136,26 +156,23 @@ export function WeeklyMetricsCard({ userId, nickname }: WeeklyMetricsCardProps) 
           <p className="font-semibold text-sm">{metrics.avgCalories}</p>
         </div>
 
-        {/* 평균 단백질 */}
+        {/* 평균 수분 섭취량 */}
         <div className="bg-muted/50 rounded-lg p-2 text-center">
-          <Beef className="w-4 h-4 mx-auto text-red-500 mb-1" />
-          <p className="text-xs text-muted-foreground">단백질</p>
-          <p className="font-semibold text-sm">{metrics.avgProtein}g</p>
+          <Droplets className="w-4 h-4 mx-auto text-blue-500 mb-1" />
+          <p className="text-xs text-muted-foreground">물</p>
+          <p className="font-semibold text-sm">{metrics.avgWater}ml</p>
         </div>
 
-        {/* 체중 */}
+        {/* 현재 체중 (nutrition_settings에서) */}
         <div className="bg-muted/50 rounded-lg p-2 text-center">
-          <Scale className="w-4 h-4 mx-auto text-blue-500 mb-1" />
+          <Scale className="w-4 h-4 mx-auto text-purple-500 mb-1" />
           <p className="text-xs text-muted-foreground">체중</p>
-          <div className="flex items-center justify-center gap-1">
-            <p className="font-semibold text-sm">
-              {metrics.latestWeight ? `${metrics.latestWeight}kg` : '-'}
-            </p>
-            <WeightTrend />
-          </div>
+          <p className="font-semibold text-sm">
+            {metrics.currentWeight ? `${metrics.currentWeight}kg` : '-'}
+          </p>
         </div>
 
-        {/* 운동 */}
+        {/* 운동 일수 */}
         <div className="bg-muted/50 rounded-lg p-2 text-center">
           <Dumbbell className="w-4 h-4 mx-auto text-green-500 mb-1" />
           <p className="text-xs text-muted-foreground">운동</p>
