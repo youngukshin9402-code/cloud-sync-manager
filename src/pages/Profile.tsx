@@ -36,15 +36,6 @@ export default function Profile() {
       label: "가족 연동",
       path: "/mypage/guardian",
     },
-    ...(isPremium
-      ? [
-          {
-            icon: Video,
-            label: "1:1 코칭 예약",
-            path: "/coaching",
-          },
-        ]
-      : []),
     {
       icon: ShoppingBag,
       label: "주문 내역",
