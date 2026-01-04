@@ -30,12 +30,12 @@ interface HealthRecord {
   user?: { nickname: string | null };
 }
 
-interface CoachingSession {
+interface CoachingRecord {
   id: string;
   user_id: string;
-  scheduled_at: string;
-  status: string;
-  video_room_id: string | null;
+  session_date: string;
+  session_time: string;
+  notes: string | null;
   user?: { nickname: string | null };
 }
 
@@ -44,7 +44,7 @@ export function useCoachData() {
   const { toast } = useToast();
   const [assignedUsers, setAssignedUsers] = useState<AssignedUser[]>([]);
   const [pendingReviews, setPendingReviews] = useState<HealthRecord[]>([]);
-  const [todaySessions, setTodaySessions] = useState<CoachingSession[]>([]);
+  const [todaySessions, setTodaySessions] = useState<CoachingRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
   // 담당 회원 목록 가져오기
@@ -171,31 +171,30 @@ export function useCoachData() {
     setPendingReviews(formatted);
   };
 
-  // 오늘 코칭 세션 가져오기
+  // 오늘 코칭 기록 가져오기 (coaching_records 테이블 사용)
   const fetchTodaySessions = async () => {
     if (!user) return;
 
     const today = new Date().toISOString().split("T")[0];
     
     const { data, error } = await supabase
-      .from("coaching_sessions")
+      .from("coaching_records")
       .select(`
         *,
-        profiles!coaching_sessions_user_id_fkey(nickname)
+        profiles!coaching_records_user_id_fkey(nickname)
       `)
       .eq("coach_id", user.id)
-      .gte("scheduled_at", `${today}T00:00:00`)
-      .lt("scheduled_at", `${today}T23:59:59`)
-      .order("scheduled_at", { ascending: true });
+      .eq("session_date", today)
+      .order("session_time", { ascending: true });
 
     if (error) {
       console.error("Error fetching today sessions:", error);
       return;
     }
 
-    const formatted = (data || []).map((session) => ({
-      ...session,
-      user: { nickname: (session as any).profiles?.nickname },
+    const formatted = (data || []).map((record) => ({
+      ...record,
+      user: { nickname: (record as any).profiles?.nickname },
     }));
 
     setTodaySessions(formatted);

@@ -177,144 +177,146 @@ export function CoachingRecordsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg max-h-[80vh]">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-lg max-h-[85vh] flex flex-col">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <Video className="w-5 h-5 text-sky-600" />
             코칭 상담 기록
           </DialogTitle>
         </DialogHeader>
 
-        {/* 새 기록 추가 버튼 / 폼 */}
-        {!showAddForm ? (
-          <Button
-            variant="outline"
-            className="w-full"
-            onClick={() => setShowAddForm(true)}
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            새 코칭 기록 추가
-          </Button>
-        ) : (
-          <div className="bg-muted/50 rounded-xl p-4 space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="col-span-2">
-                <Label>회원 선택</Label>
-                <Select value={selectedUserId} onValueChange={setSelectedUserId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="회원을 선택하세요" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {assignedUsers.map(u => (
-                      <SelectItem key={u.id} value={u.id}>
-                        {u.nickname || '이름없음'}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>날짜</Label>
-                <Input
-                  type="date"
-                  value={sessionDate}
-                  onChange={(e) => setSessionDate(e.target.value)}
-                />
-              </div>
-              <div>
-                <Label>시간</Label>
-                <Input
-                  type="time"
-                  value={sessionTime}
-                  onChange={(e) => setSessionTime(e.target.value)}
-                />
-              </div>
-              <div className="col-span-2">
-                <Label>메모 (선택)</Label>
-                <Textarea
-                  placeholder="코칭 내용을 간단히 메모하세요..."
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  rows={2}
-                />
-              </div>
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" size="sm" onClick={() => setShowAddForm(false)}>
-                취소
+        <ScrollArea className="flex-1 -mx-6 px-6">
+          <div className="space-y-4 py-2">
+            {/* 새 기록 추가 버튼 / 폼 */}
+            {!showAddForm ? (
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => setShowAddForm(true)}
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                새 코칭 기록 추가
               </Button>
-              <Button size="sm" onClick={handleAddRecord} disabled={!selectedUserId || saving}>
-                {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                저장
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {/* 기록 목록 */}
-        {loading ? (
-          <div className="space-y-3 py-4">
-            {[1, 2, 3].map(i => (
-              <Skeleton key={i} className="h-16 w-full" />
-            ))}
-          </div>
-        ) : records.length === 0 ? (
-          <div className="py-12 text-center text-muted-foreground">
-            <Video className="w-12 h-12 mx-auto mb-4 opacity-30" />
-            <p>아직 기록된 코칭 상담이 없습니다</p>
-          </div>
-        ) : (
-          <ScrollArea className="max-h-[40vh]">
-            <div className="space-y-4 py-2 pr-4">
-              {sortedDates.map(date => (
-                <div key={date}>
-                  <div className="flex items-center gap-2 mb-2 sticky top-0 bg-background py-1">
-                    <Badge variant="outline" className="text-xs">
-                      {format(new Date(date), 'yyyy년 M월 d일 (E)', { locale: ko })}
-                    </Badge>
-                    <span className="text-xs text-muted-foreground">
-                      {groupedByDate[date].length}건
-                    </span>
+            ) : (
+              <div className="bg-muted/50 rounded-xl p-4 space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="col-span-2">
+                    <Label>회원 선택</Label>
+                    <Select value={selectedUserId} onValueChange={setSelectedUserId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="회원을 선택하세요" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {assignedUsers.map(u => (
+                          <SelectItem key={u.id} value={u.id}>
+                            {u.nickname || '이름없음'}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
-                  <div className="space-y-2">
-                    {groupedByDate[date].map(record => (
-                      <div
-                        key={record.id}
-                        className="bg-muted/30 rounded-lg p-3 flex items-center justify-between"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-sky-100 dark:bg-sky-900/30 flex items-center justify-center">
-                            <User className="w-4 h-4 text-sky-600" />
-                          </div>
-                          <div>
-                            <p className="font-medium text-sm">{record.user_nickname}</p>
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                              <Clock className="w-3 h-3" />
-                              {record.session_time.slice(0, 5)}
-                              {record.notes && (
-                                <span className="text-muted-foreground truncate max-w-[150px]">
-                                  - {record.notes}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                          onClick={() => handleDeleteRecord(record.id)}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    ))}
+                  <div>
+                    <Label>날짜</Label>
+                    <Input
+                      type="date"
+                      value={sessionDate}
+                      onChange={(e) => setSessionDate(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Label>시간</Label>
+                    <Input
+                      type="time"
+                      value={sessionTime}
+                      onChange={(e) => setSessionTime(e.target.value)}
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <Label>메모 (선택)</Label>
+                    <Textarea
+                      placeholder="코칭 내용을 간단히 메모하세요..."
+                      value={notes}
+                      onChange={(e) => setNotes(e.target.value)}
+                      rows={2}
+                    />
                   </div>
                 </div>
-              ))}
-            </div>
-          </ScrollArea>
-        )}
+                <div className="flex justify-end gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setShowAddForm(false)}>
+                    취소
+                  </Button>
+                  <Button size="sm" onClick={handleAddRecord} disabled={!selectedUserId || saving}>
+                    {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                    저장
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* 기록 목록 */}
+            {loading ? (
+              <div className="space-y-3 py-4">
+                {[1, 2, 3].map(i => (
+                  <Skeleton key={i} className="h-16 w-full" />
+                ))}
+              </div>
+            ) : records.length === 0 ? (
+              <div className="py-12 text-center text-muted-foreground">
+                <Video className="w-12 h-12 mx-auto mb-4 opacity-30" />
+                <p>아직 기록된 코칭 상담이 없습니다</p>
+              </div>
+            ) : (
+              <div className="space-y-4 py-2">
+                {sortedDates.map(date => (
+                  <div key={date}>
+                    <div className="flex items-center gap-2 mb-2 sticky top-0 bg-background py-1 z-10">
+                      <Badge variant="outline" className="text-xs">
+                        {format(new Date(date), 'yyyy년 M월 d일 (E)', { locale: ko })}
+                      </Badge>
+                      <span className="text-xs text-muted-foreground">
+                        {groupedByDate[date].length}건
+                      </span>
+                    </div>
+                    <div className="space-y-2">
+                      {groupedByDate[date].map(record => (
+                        <div
+                          key={record.id}
+                          className="bg-muted/30 rounded-lg p-3 flex items-center justify-between"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-sky-100 dark:bg-sky-900/30 flex items-center justify-center">
+                              <User className="w-4 h-4 text-sky-600" />
+                            </div>
+                            <div>
+                              <p className="font-medium text-sm">{record.user_nickname}</p>
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                <Clock className="w-3 h-3" />
+                                {record.session_time.slice(0, 5)}
+                                {record.notes && (
+                                  <span className="text-muted-foreground truncate max-w-[150px]">
+                                    - {record.notes}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                            onClick={() => handleDeleteRecord(record.id)}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </ScrollArea>
       </DialogContent>
     </Dialog>
   );

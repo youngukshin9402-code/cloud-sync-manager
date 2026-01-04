@@ -220,10 +220,19 @@ export function CheckinReportTimeline({
                 key={uid} 
                 className="bg-card rounded-xl border border-border overflow-hidden"
               >
-                {/* 사용자 헤더 (클릭 시 펼침/접힘) */}
+                {/* 사용자 헤더 (클릭 시 활동 다이얼로그 열기 또는 펼침/접힘) */}
                 <div className="w-full flex items-center justify-between p-4 hover:bg-muted/50 transition-colors">
                   <button
-                    onClick={() => toggleUserExpand(uid)}
+                    onClick={() => {
+                      if (onUserClick) {
+                        // onUserClick이 있으면 활동 다이얼로그 열기
+                        const latestReportDate = userData.reports[0]?.report_date;
+                        onUserClick(uid, userData.nickname, latestReportDate);
+                      } else {
+                        // 없으면 펼침/접힘
+                        toggleUserExpand(uid);
+                      }
+                    }}
                     className="flex items-center gap-3 flex-1 text-left"
                   >
                     <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
@@ -237,19 +246,6 @@ export function CheckinReportTimeline({
                     </div>
                   </button>
                   <div className="flex items-center gap-2">
-                    {onUserClick && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          // 해당 사용자의 가장 최근 활동 날짜 전달
-                          const latestReportDate = userData.reports[0]?.report_date;
-                          onUserClick(uid, userData.nickname, latestReportDate);
-                        }}
-                        className="text-xs text-primary hover:underline px-2 py-1"
-                      >
-                        전체 보기
-                      </button>
-                    )}
                     <Badge variant="secondary" className="text-xs">
                       {userData.reports.length}건
                     </Badge>
