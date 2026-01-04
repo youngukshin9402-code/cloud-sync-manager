@@ -25,6 +25,7 @@ interface UserActivityDialogProps {
   onOpenChange: (open: boolean) => void;
   userId: string;
   userNickname: string;
+  initialDate?: Date; // 클릭한 날짜 (오늘의 활동에서 클릭 시)
 }
 
 interface CheckinReport {
@@ -43,13 +44,21 @@ export function UserActivityDialog({
   onOpenChange,
   userId,
   userNickname,
+  initialDate,
 }: UserActivityDialogProps) {
   const [allReports, setAllReports] = useState<CheckinReport[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date>(initialDate || new Date());
   
   // 활동이 있는 날짜 목록
   const [availableDates, setAvailableDates] = useState<string[]>([]);
+
+  // initialDate가 변경되면 selectedDate 업데이트
+  useEffect(() => {
+    if (initialDate) {
+      setSelectedDate(initialDate);
+    }
+  }, [initialDate]);
 
   useEffect(() => {
     if (!open || !userId) return;
@@ -76,8 +85,8 @@ export function UserActivityDialog({
       const dates = [...new Set((data || []).map(r => r.report_date))].sort((a, b) => b.localeCompare(a));
       setAvailableDates(dates);
       
-      // 가장 최근 활동 날짜로 설정
-      if (dates.length > 0) {
+      // initialDate가 없을 때만 가장 최근 활동 날짜로 설정
+      if (!initialDate && dates.length > 0) {
         setSelectedDate(new Date(dates[0]));
       }
       
@@ -85,7 +94,7 @@ export function UserActivityDialog({
     };
 
     fetchReports();
-  }, [open, userId, userNickname]);
+  }, [open, userId, userNickname, initialDate]);
 
   // 선택된 날짜의 리포트만 필터링
   const selectedDateStr = format(selectedDate, 'yyyy-MM-dd');

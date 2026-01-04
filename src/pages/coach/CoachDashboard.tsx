@@ -59,6 +59,7 @@ export default function CoachDashboard() {
   // 활동 카드 다이얼로그 상태
   const [activityUserId, setActivityUserId] = useState<string | null>(null);
   const [activityUserNickname, setActivityUserNickname] = useState<string>("");
+  const [activityInitialDate, setActivityInitialDate] = useState<Date | undefined>(undefined);
 
   const filteredUsers = assignedUsers.filter((user) =>
     user.nickname?.toLowerCase().includes(searchQuery.toLowerCase())
@@ -339,9 +340,10 @@ export default function CoachDashboard() {
           </div>
           <CheckinReportTimeline 
             limit={30}
-            onUserClick={(userId, nickname) => {
+            onUserClick={(userId, nickname, reportDate) => {
               setActivityUserId(userId);
               setActivityUserNickname(nickname);
+              setActivityInitialDate(reportDate ? new Date(reportDate) : undefined);
             }}
           />
         </div>
@@ -389,9 +391,15 @@ export default function CoachDashboard() {
       {activityUserId && (
         <UserActivityDialog
           open={!!activityUserId}
-          onOpenChange={(open) => !open && setActivityUserId(null)}
+          onOpenChange={(open) => {
+            if (!open) {
+              setActivityUserId(null);
+              setActivityInitialDate(undefined);
+            }
+          }}
           userId={activityUserId}
           userNickname={activityUserNickname}
+          initialDate={activityInitialDate}
         />
       )}
     </div>

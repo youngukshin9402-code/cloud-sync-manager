@@ -42,7 +42,7 @@ interface CheckinReportTimelineProps {
   limit?: number;
   showSearch?: boolean;
   showTabs?: boolean;
-  onUserClick?: (userId: string, nickname: string) => void;
+  onUserClick?: (userId: string, nickname: string, reportDate?: string) => void;
 }
 
 export function CheckinReportTimeline({ 
@@ -241,7 +241,9 @@ export function CheckinReportTimeline({
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          onUserClick(uid, userData.nickname);
+                          // 해당 사용자의 가장 최근 활동 날짜 전달
+                          const latestReportDate = userData.reports[0]?.report_date;
+                          onUserClick(uid, userData.nickname, latestReportDate);
                         }}
                         className="text-xs text-primary hover:underline px-2 py-1"
                       >
