@@ -2,14 +2,11 @@ import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, CreditCard, Clock, AlertTriangle, Mail, CheckCircle2 } from 'lucide-react';
-
 export default function RefundPolicy() {
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
-
-  return (
-    <div className="min-h-screen bg-background pb-24">
+  return <div className="min-h-screen bg-background pb-24">
       <div className="sticky top-0 bg-background/95 backdrop-blur-sm border-b border-border p-4 z-10">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="icon" asChild>
@@ -147,7 +144,7 @@ export default function RefundPolicy() {
           <h3 className="font-semibold">환불 관련 문의</h3>
           <div className="flex items-center justify-center gap-2 text-primary">
             <Mail className="w-5 h-5" />
-            <span className="font-medium">support@yanggaeng.kr</span>
+            <span className="font-medium">yeongyanggang@gmail.com</span>
           </div>
           <p className="text-sm text-muted-foreground">
             평일 09:00 - 18:00 (주말/공휴일 제외)
@@ -177,6 +174,5 @@ export default function RefundPolicy() {
           <p>본 환불 정책은 2025년 1월 1일부터 시행됩니다.</p>
         </div>
       </div>
-    </div>
-  );
+    </div>;
 }
