@@ -34,8 +34,10 @@ const faqs = [
 1. 보호자(가족) 계정 회원가입
 먼저 보호자로 등록할 가족분께서 보호자 계정으로 회원가입을 진행합니다.
 
+
 2. 피보호자(사용자) 인증코드 생성
 피보호자 회원은 마이페이지 > 가족연동에서 휴대전화번호를 입력하고 인증코드를 생성합니다.
+
 
 3. 보호자 계정에서 연결 완료
 보호자 계정에서 마이페이지 > 가족 연결하기로 이동한 뒤, 피보호자의 휴대전화번호와 인증코드를 입력하면 연결이 완료됩니다.`
@@ -47,7 +49,7 @@ const faqs = [
 다만 사진만으로는 정확한 양(분량) 판단에 한계가 있어 추정값으로 제공되며, 정확한 수치 입력이 필요하신 경우 수동 입력 기능을 이용하실 수 있습니다.`
   },
   {
-    q: "건강검진 분석 결과는 의료적 진단인가요?",
+    q: "건강검진 분석은 의료적 진단인가요?",
     a: `아닙니다. 건강검진 분석 결과는 의료적 진단 또는 치료 방침을 의미하지 않습니다.
 
 정확한 의학적 진단과 치료는 반드시 병원에서 의료 전문가와 상담이 필요합니다.
@@ -441,7 +443,7 @@ export default function SupportPage() {
       {/* 탭 */}
       <div className="flex border-b border-border">
         <button
-          className={`flex-1 py-3 text-center font-medium ${
+          className={`flex-1 py-3 text-center text-sm font-medium ${
             activeTab === "faq" ? "text-primary border-b-2 border-primary" : "text-muted-foreground"
           }`}
           onClick={() => setActiveTab("faq")}
@@ -449,7 +451,7 @@ export default function SupportPage() {
           자주 묻는 질문
         </button>
         <button
-          className={`flex-1 py-3 text-center font-medium ${
+          className={`flex-1 py-3 text-center text-sm font-medium ${
             activeTab === "tickets" ? "text-primary border-b-2 border-primary" : "text-muted-foreground"
           }`}
           onClick={() => setActiveTab("tickets")}
@@ -457,7 +459,7 @@ export default function SupportPage() {
           내 문의
         </button>
         <button
-          className={`flex-1 py-3 text-center font-medium ${
+          className={`flex-1 py-3 text-center text-sm font-medium ${
             activeTab === "new" ? "text-primary border-b-2 border-primary" : "text-muted-foreground"
           }`}
           onClick={() => setActiveTab("new")}
