@@ -25,9 +25,9 @@ serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { imageUrl, userId, healthTags, foodName, grams, unit, portion } = body;
+    const { imageUrl, imagePath, userId, healthTags, foodName, grams, unit, portion } = body;
     
-    console.log("Analyze food request:", { imageUrl, foodName, grams, unit, portion });
+    console.log("Analyze food request:", { imagePath, imageUrl, foodName, grams, unit, portion, userId });
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
@@ -35,7 +35,7 @@ serve(async (req) => {
     }
 
     // === 텍스트 기반 분석 (직접 입력) ===
-    if (foodName && !imageUrl) {
+    if (foodName && !imageUrl && !imagePath) {
       console.log("Text-based food analysis for:", foodName);
       
       // 양 결정: 중량(g) 우선, 그 다음 unit, 그 다음 portion(레거시)
@@ -171,9 +171,9 @@ serve(async (req) => {
     }
 
     // === 이미지 기반 분석 ===
-    if (!imageUrl) {
+    if (!imageUrl && !imagePath) {
       return new Response(
-        JSON.stringify({ error: "imageUrl or foodName is required" }),
+        JSON.stringify({ error: "imageUrl, imagePath, or foodName is required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -185,19 +185,57 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    // Determine the storage path
+    let storagePath = imagePath;
+    if (!storagePath && imageUrl) {
+      // Fallback: extract path from URL (supports both public and signed URLs)
+      const urlPatterns = [
+        `${supabaseUrl}/storage/v1/object/public/food-logs/`,
+        `${supabaseUrl}/storage/v1/object/sign/food-logs/`,
+        `/storage/v1/object/public/food-logs/`,
+        `/storage/v1/object/sign/food-logs/`,
+      ];
+      for (const pattern of urlPatterns) {
+        if (imageUrl.includes(pattern)) {
+          storagePath = imageUrl.split(pattern)[1]?.split("?")[0];
+          break;
+        }
+      }
+      if (!storagePath) {
+        // Try to extract any path after food-logs/
+        const match = imageUrl.match(/food-logs\/([^?]+)/);
+        storagePath = match ? match[1] : null;
+      }
+    }
+
+    if (!storagePath) {
+      console.error("Could not determine storage path from:", { imagePath, imageUrl });
+      return new Response(
+        JSON.stringify({ error: "invalid_image_path", notes: "이미지 경로를 확인할 수 없습니다." }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    console.log("Downloading image from storage path:", storagePath);
+
     // Download image from storage
-    const imagePath = imageUrl.replace(`${supabaseUrl}/storage/v1/object/public/food-logs/`, "");
     const { data: imageData, error: downloadError } = await supabase.storage
       .from("food-logs")
-      .download(imagePath);
+      .download(storagePath);
 
     if (downloadError) {
-      console.error("Error downloading image:", downloadError);
-      throw new Error("Failed to download image");
+      console.error("Error downloading image:", downloadError, "path:", storagePath);
+      return new Response(
+        JSON.stringify({ error: "download_failed", notes: "이미지를 다운로드할 수 없습니다. 다시 시도해주세요." }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     // Convert to base64 using chunked approach
     const imageBytes = await imageData.arrayBuffer();
+    const fileSizeKB = Math.round(imageBytes.byteLength / 1024);
+    console.log("Image downloaded successfully:", { sizeKB: fileSizeKB, mimeType: imageData.type });
+    
     const uint8Array = new Uint8Array(imageBytes);
     let binaryString = "";
     const chunkSize = 8192;
@@ -279,34 +317,64 @@ ${healthContext ? `사용자 건강 상태: ${healthTags.join(", ")}` : ""}
 
 중요:
 - 여러 음식이 보이면 foods 배열에 각각 추가해주세요.
-- 음식이 없거나 인식할 수 없으면 foods를 빈 배열 []로 반환하고 notes에 이유를 설명해주세요.
+- 음식처럼 보이는 것이 조금이라도 있으면 반드시 최소 1개 이상의 음식을 추정해서 foods에 포함하세요.
+- 확실하지 않아도 "~로 보이는 음식"처럼 추정값을 제공하고 confidence를 "낮음"으로 설정하세요.
 - JSON만 출력하고 다른 설명은 포함하지 마세요.`;
 
-    console.log("Calling Lovable AI (Gemini 2.5 Pro vision) for food image analysis...");
+    // AI 분석 함수 (재시도 지원)
+    const callAIForAnalysis = async (prompt: string, isRetry = false): Promise<Response> => {
+      console.log(`Calling Lovable AI (Gemini 2.5 Pro vision)${isRetry ? " - RETRY" : ""}...`);
+      
+      return fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-pro",
+          messages: [
+            { role: "system", content: systemPrompt },
+            {
+              role: "user",
+              content: [
+                { type: "text", text: prompt },
+                {
+                  type: "image_url",
+                  image_url: { url: `data:${mimeType};base64,${base64Image}` },
+                },
+              ],
+            },
+          ],
+        }),
+      });
+    };
 
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-pro",
-        messages: [
-          { role: "system", content: systemPrompt },
-          {
-            role: "user",
-            content: [
-              { type: "text", text: userPrompt },
-              {
-                type: "image_url",
-                image_url: { url: `data:${mimeType};base64,${base64Image}` },
-              },
-            ],
-          },
-        ],
-      }),
-    });
+    // 재시도용 강화 프롬프트
+    const retryPrompt = `이것은 음식 사진입니다. 사진에서 보이는 모든 음식이나 식재료를 반드시 인식해주세요.
+
+그릇, 접시, 용기에 담긴 것이 있다면 무조건 음식으로 간주하세요.
+확실하지 않더라도 "~로 보이는 음식"처럼 추정해서 반드시 결과를 제공하세요.
+
+결과는 반드시 다음 JSON 형식으로만 반환해주세요:
+{
+  "foods": [
+    {
+      "name": "음식 이름 (한국어)",
+      "estimated_portion": "1인분",
+      "calories_kcal": 숫자,
+      "carbohydrates_g": 숫자,
+      "protein_g": 숫자,
+      "fat_g": 숫자,
+      "confidence": "낮음"
+    }
+  ],
+  "notes": "추정값입니다."
+}
+
+JSON만 출력하세요.`;
+
+    let aiResponse = await callAIForAnalysis(userPrompt);
 
 
     if (!aiResponse.ok) {
@@ -338,69 +406,111 @@ ${healthContext ? `사용자 건강 상태: ${healthTags.join(", ")}` : ""}
 
     // Parse JSON from response - 새로운 foods 배열 형식 처리
     let analysisResult: FoodAnalysisResult | FoodAnalysisResult[] | { error: string; notes: string };
+    let needsRetry = false;
+    let parsed: any = null;
+    
     try {
       const jsonMatch = content.match(/\{[\s\S]*\}/);
       if (!jsonMatch) {
         throw new Error("No JSON found in response");
       }
-      const parsed = JSON.parse(jsonMatch[0]);
+      parsed = JSON.parse(jsonMatch[0]);
       
       // 새 형식: foods 배열이 있는 경우
       if (parsed.foods && Array.isArray(parsed.foods)) {
         console.log("Foods detected:", parsed.foods.length);
         
-        // 빈 배열인 경우 - 음식을 인식하지 못함
+        // 빈 배열인 경우 - 재시도 필요
         if (parsed.foods.length === 0) {
-          console.log("No food detected in image");
-          return new Response(
-            JSON.stringify({ 
-              error: "no_food_detected", 
-              notes: parsed.notes || "음식을 인식할 수 없습니다. 다시 촬영해주세요." 
-            }),
-            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-          );
+          console.log("No food detected in first attempt, will retry...");
+          needsRetry = true;
         }
-        
-        // 여러 음식인 경우 배열로 반환
-        if (parsed.foods.length > 1) {
-          analysisResult = parsed.foods.map((food: any) => ({
-            name: food.name || "알 수 없는 음식",
-            calories: Math.round(Number(food.calories_kcal) || 300),
-            carbs: Math.round(Number(food.carbohydrates_g) || 30),
-            protein: Math.round(Number(food.protein_g) || 15),
-            fat: Math.round(Number(food.fat_g) || 10),
-            estimated_portion: food.estimated_portion || "1인분",
-            confidence: food.confidence || "중간",
-            notes: parsed.notes || "사진 기준으로 추정된 값입니다.",
-          }));
-        } else {
-          // 단일 음식
-          const food = parsed.foods[0];
-          analysisResult = {
-            name: food.name || "알 수 없는 음식",
-            calories: Math.round(Number(food.calories_kcal) || 300),
-            carbs: Math.round(Number(food.carbohydrates_g) || 30),
-            protein: Math.round(Number(food.protein_g) || 15),
-            fat: Math.round(Number(food.fat_g) || 10),
-            feedback: parsed.notes || "사진 기준으로 추정된 값입니다.",
-          };
-        }
-      } else {
-        // 레거시 형식 (기존 단일 음식 형식)
-        const nutrients = parsed.nutrients || [];
-        const carbsNutrient = nutrients.find((n: any) => n.name === "탄수화물");
-        const proteinNutrient = nutrients.find((n: any) => n.name === "단백질");
-        const fatNutrient = nutrients.find((n: any) => n.name === "지방");
-
-        analysisResult = {
-          ...parsed,
-          carbs: carbsNutrient ? parseInt(carbsNutrient.amount.replace(/[^0-9]/g, "")) || 30 : 30,
-          protein: proteinNutrient ? parseInt(proteinNutrient.amount.replace(/[^0-9]/g, "")) || 15 : 15,
-          fat: fatNutrient ? parseInt(fatNutrient.amount.replace(/[^0-9]/g, "")) || 10 : 10,
-        };
       }
     } catch (parseError) {
-      console.error("Failed to parse AI response:", parseError);
+      console.error("Failed to parse AI response (first attempt):", parseError);
+      needsRetry = true;
+    }
+
+    // 재시도 로직: 빈 배열이거나 파싱 실패 시 강화 프롬프트로 재시도
+    if (needsRetry) {
+      console.log("Retrying with enhanced prompt...");
+      const retryResponse = await callAIForAnalysis(retryPrompt, true);
+      
+      if (retryResponse.ok) {
+        const retryData = await retryResponse.json();
+        const retryContent = retryData.choices?.[0]?.message?.content;
+        
+        if (retryContent) {
+          console.log("Retry AI response:", retryContent);
+          try {
+            const retryJsonMatch = retryContent.match(/\{[\s\S]*\}/);
+            if (retryJsonMatch) {
+              parsed = JSON.parse(retryJsonMatch[0]);
+              if (parsed.foods && Array.isArray(parsed.foods) && parsed.foods.length > 0) {
+                console.log("Retry successful, foods detected:", parsed.foods.length);
+                needsRetry = false;
+              }
+            }
+          } catch (retryParseError) {
+            console.error("Retry parse failed:", retryParseError);
+          }
+        }
+      }
+      
+      // 재시도도 실패한 경우
+      if (needsRetry || !parsed?.foods?.length) {
+        console.log("Both attempts failed - no food detected");
+        return new Response(
+          JSON.stringify({ 
+            error: "no_food_detected", 
+            notes: "음식을 인식할 수 없습니다. 조명이나 각도를 조정해서 다시 촬영해주세요." 
+          }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
+    // 결과 처리
+    if (parsed?.foods && Array.isArray(parsed.foods)) {
+      // 여러 음식인 경우 배열로 반환
+      if (parsed.foods.length > 1) {
+        analysisResult = parsed.foods.map((food: any) => ({
+          name: food.name || "알 수 없는 음식",
+          calories: Math.round(Number(food.calories_kcal) || 300),
+          carbs: Math.round(Number(food.carbohydrates_g) || 30),
+          protein: Math.round(Number(food.protein_g) || 15),
+          fat: Math.round(Number(food.fat_g) || 10),
+          estimated_portion: food.estimated_portion || "1인분",
+          confidence: food.confidence || "중간",
+          notes: parsed.notes || "사진 기준으로 추정된 값입니다.",
+        }));
+      } else {
+        // 단일 음식
+        const food = parsed.foods[0];
+        analysisResult = {
+          name: food.name || "알 수 없는 음식",
+          calories: Math.round(Number(food.calories_kcal) || 300),
+          carbs: Math.round(Number(food.carbohydrates_g) || 30),
+          protein: Math.round(Number(food.protein_g) || 15),
+          fat: Math.round(Number(food.fat_g) || 10),
+          feedback: parsed.notes || "사진 기준으로 추정된 값입니다.",
+        };
+      }
+    } else if (parsed) {
+      // 레거시 형식 (기존 단일 음식 형식)
+      const nutrients = parsed.nutrients || [];
+      const carbsNutrient = nutrients.find((n: any) => n.name === "탄수화물");
+      const proteinNutrient = nutrients.find((n: any) => n.name === "단백질");
+      const fatNutrient = nutrients.find((n: any) => n.name === "지방");
+
+      analysisResult = {
+        ...parsed,
+        carbs: carbsNutrient ? parseInt(carbsNutrient.amount.replace(/[^0-9]/g, "")) || 30 : 30,
+        protein: proteinNutrient ? parseInt(proteinNutrient.amount.replace(/[^0-9]/g, "")) || 15 : 15,
+        fat: fatNutrient ? parseInt(fatNutrient.amount.replace(/[^0-9]/g, "")) || 10 : 10,
+      };
+    } else {
+      // 파싱 결과 없음
       return new Response(
         JSON.stringify({ 
           error: "parse_error", 

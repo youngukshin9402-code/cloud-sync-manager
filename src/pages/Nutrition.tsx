@@ -154,6 +154,16 @@ export default function Nutrition() {
 
   // AI 분석 시작 - 사진 업로드 후 AI 이미지 분석 수행
   const handleAnalyzeImage = async (file: File) => {
+    // 로그인 체크
+    if (!user) {
+      toast({ 
+        title: "로그인 필요", 
+        description: "음식 분석을 위해 로그인이 필요합니다.",
+        variant: "destructive" 
+      });
+      return;
+    }
+
     setUploadedFile(file);
     setAnalyzing(true);
 
@@ -163,38 +173,64 @@ export default function Nutrition() {
     reader.readAsDataURL(file);
 
     try {
-      // 먼저 이미지를 Storage에 업로드
-      const fileName = `temp-analysis/${user?.id}/${Date.now()}-${file.name}`;
-      const { error: uploadError } = await supabase.storage
-        .from("food-logs")
-        .upload(fileName, file);
-
-      if (uploadError) {
-        console.error("Image upload error:", uploadError);
-        throw new Error("이미지 업로드 실패");
+      // 이미지 압축 및 업로드 (unifiedImageUpload 사용)
+      const { uploadImage } = await import("@/lib/unifiedImageUpload");
+      
+      let imagePath: string;
+      try {
+        imagePath = await uploadImage("food-logs", user.id, file);
+        console.log("Image uploaded successfully:", imagePath);
+      } catch (uploadErr) {
+        console.error("Image upload error:", uploadErr);
+        toast({ 
+          title: "업로드 실패", 
+          description: uploadErr instanceof Error ? uploadErr.message : "이미지를 업로드할 수 없습니다.",
+          variant: "destructive" 
+        });
+        setUploadedImage(null);
+        setUploadedFile(null);
+        setAnalyzing(false);
+        return;
       }
 
-      // 업로드된 이미지 URL 생성
-      const { data: publicUrlData } = supabase.storage
-        .from("food-logs")
-        .getPublicUrl(fileName);
-
-      // AI 이미지 분석 호출
+      // AI 이미지 분석 호출 - imagePath 전달
+      console.log("Calling analyze-food with imagePath:", imagePath);
       const { data, error } = await supabase.functions.invoke("analyze-food", {
         body: {
-          imageUrl: publicUrlData.publicUrl,
-          userId: user?.id,
+          imagePath,
+          userId: user.id,
         },
       });
 
-      // 음식 인식 실패 처리
-      if (error || data?.error) {
-        const errorMessage = data?.notes || data?.error || "음식을 인식할 수 없습니다. 다시 촬영해주세요.";
+      console.log("Analyze-food response:", { data, error });
+
+      // 네트워크/함수 호출 에러
+      if (error) {
+        console.error("Function invoke error:", error);
         toast({ 
-          title: "음식 인식 실패", 
-          description: errorMessage,
+          title: "네트워크 오류", 
+          description: "분석 서버에 연결할 수 없습니다. 잠시 후 다시 시도해주세요.",
           variant: "destructive" 
         });
+        setUploadedImage(null);
+        setUploadedFile(null);
+        return;
+      }
+
+      // 음식 인식 실패 처리 (no_food_detected, parse_error 등)
+      if (data?.error) {
+        const errorType = data.error;
+        let title = "음식 인식 실패";
+        let description = data.notes || "음식을 인식할 수 없습니다. 다시 촬영해주세요.";
+        
+        if (errorType === "no_food_detected") {
+          description = "음식을 인식할 수 없습니다. 조명이나 각도를 조정하여 다시 촬영해주세요.";
+        } else if (errorType === "parse_error") {
+          title = "분석 오류";
+          description = "AI 응답 처리 중 오류가 발생했습니다. 다시 시도해주세요.";
+        }
+        
+        toast({ title, description, variant: "destructive" });
         setUploadedImage(null);
         setUploadedFile(null);
         return;
@@ -225,7 +261,7 @@ export default function Nutrition() {
       console.error("Image analysis error:", err);
       toast({ 
         title: "분석 실패", 
-        description: "다시 시도해주세요", 
+        description: err instanceof Error ? err.message : "알 수 없는 오류가 발생했습니다. 다시 시도해주세요.", 
         variant: "destructive" 
       });
       setUploadedImage(null);
