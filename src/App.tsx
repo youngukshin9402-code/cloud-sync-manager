@@ -76,10 +76,11 @@ const queryClient = new QueryClient();
 
 // 사용자 유형에 따른 리다이렉트 컴포넌트
 function AuthenticatedRedirect() {
-  const { user, profile, loading, isAdmin, isCoach, signOut, refreshProfile } = useAuth();
+  const { user, profile, loading, rolesLoading, isAdmin, isCoach, signOut, refreshProfile } = useAuth();
   const [retrying, setRetrying] = React.useState(false);
 
-  if (loading) {
+  // 로딩 중이거나 역할 로딩 중이면 로딩 화면 표시 (타이밍 이슈 방지)
+  if (loading || rolesLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="w-10 h-10 animate-spin text-primary" />

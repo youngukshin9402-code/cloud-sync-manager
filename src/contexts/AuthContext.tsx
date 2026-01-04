@@ -235,6 +235,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // 로그인 시 현재 사용자 ID 설정
       setCurrentUserId(nextSession.user.id);
+      
+      // 프로필 로드 전에 로딩 상태를 먼저 true로 설정 (타이밍 이슈 방지)
+      setLoading(true);
       setRolesLoading(true);
 
       // Avoid potential deadlock by deferring profile work
